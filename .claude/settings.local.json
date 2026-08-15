@@ -5,12 +5,9 @@
       "Skill(fewer-permission-prompts)",
       "Bash(node 'C:\\\\Users\\\\RODRIG~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Rodrigo-Challco-Downloads-AURORA-SABBI\\\\ab974725-1e76-4809-bc2e-2bf86a6c6fd9\\\\scratchpad\\\\extract.js' 'C:\\\\Users\\\\Rodrigo Challco/.claude/projects/C--Users-Rodrigo-Challco-Downloads-AURORA-SABBI')",
       "Bash(npm init *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(gh repo *)",
+      "PowerShell(winget install *)"
     ]
-  },
-  "env": {
-    "GITHUB_TOKEN": "${GITHUB_TOKEN}",
-    "SUPABASE_URL": "${SUPABASE_URL}",
-    "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}"
   }
 }

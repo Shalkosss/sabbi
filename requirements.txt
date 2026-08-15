@@ -1,0 +1,23 @@
+# Proyecto Estructural - AURORA SABBI
+# Instalar con: pip install -r requirements.txt
+
+# Científicas base
+numpy
+scipy
+pandas
+matplotlib
+sympy
+
+# Análisis estructural (FEM)
+anastruct
+PyNiteFEA
+openseespy
+
+# Base de datos
+supabase
+
+# Utilidades
+openpyxl
+jupyterlab
+notebook
+ipykernel

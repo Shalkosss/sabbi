@@ -1,23 +1,11 @@
-# Proyecto Estructural - AURORA SABBI
-# Instalar con: pip install -r requirements.txt
+# Herramientas de build en Python. NO son dependencias de la aplicacion:
+# la plataforma corre sobre Node. Esto es solo para regenerar la plantilla del
+# PPT replica a partir del deck de referencia.
+#
+#   pip install -r requirements.txt
+#   python packages/export/pptx/replica/tokenizar.py
 
-# Científicas base
-numpy
-scipy
-pandas
-matplotlib
-sympy
-
-# Análisis estructural (FEM)
-anastruct
-PyNiteFEA
-openseespy
-
-# Base de datos
-supabase
-
-# Utilidades
-openpyxl
-jupyterlab
-notebook
-ipykernel
+python-pptx      # lectura y escritura del .pptx
+openpyxl         # lectura de fichas y propuestas .xlsx
+lxml             # manipulacion del XML de OOXML
+oletools         # extraccion de las macros VBA de referencia

@@ -49,3 +49,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Build output
+dist/
+.next/
+*.tsbuildinfo

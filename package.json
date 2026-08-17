@@ -1,14 +1,27 @@
 {
-  "name": "aurora-sabbi",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "sabbi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma Sabbi de plan patrimonial",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspace apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --build --force",
+    "lint": "eslint ."
   },
-  "keywords": [],
-  "type": "commonjs",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.112.3"
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

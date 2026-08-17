@@ -28,7 +28,12 @@ RAIZ = Path(__file__).resolve().parents[4]
 ORIGEN = RAIZ / "reference" / "Presentation_Fernando Pastor Final.pptx"
 DESTINO = Path(__file__).resolve().parent
 
-TIPOGRAFIA = "Avenir Next Pro"
+# PENDIENTE: la marca pide Avenir Next Pro. Queda en stand by hasta confirmar
+# la licencia; sin ella, una maquina que no tenga la fuente descuadra el deck.
+# Mientras tanto se usa una generica universal. Cambiar esta constante y volver
+# a correr el script es todo lo que hace falta para migrar.
+TIPOGRAFIA_MARCA = "Avenir Next Pro"
+TIPOGRAFIA = "Arial"
 
 # --- patrones de valor -------------------------------------------------------
 MONEDA = r"(?:US\$|USD|S/\.?|\$)\s?-?[\d][\d.,]*\s?(?:MM|M|k|mil|millones)?"

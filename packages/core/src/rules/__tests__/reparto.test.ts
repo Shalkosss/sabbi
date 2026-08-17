@@ -147,5 +147,56 @@ describe('repartirPorClase', () => {
     it('rechaza un patrimonio no positivo', () => {
       expect(() => repartirPorClase(MODERADO, 0, [])).toThrow(/positivo/)
     })
+
+    it('rechaza un piso negativo', () => {
+      expect(() =>
+        repartirPorClase(MODERADO, 500_000, [
+          { clase: 'cash', montoUsd: -1, origen: 'conservado', etiqueta: 'Saldo raro' },
+        ]),
+      ).toThrow(/monto negativo/)
+    })
+  })
+
+  describe('clase con peso cero', () => {
+    /** El benchmark de Arriesgado no asigna nada a renta fija. */
+    const ARRIESGADO: Benchmark = {
+      inm: 0.18861099499614553,
+      fijo: 0,
+      variable: 0.27488416305431934,
+      privados: 0.4773035990406503,
+      cash: 0.0592012429088848,
+    }
+
+    it('no le asigna nada si el cliente tampoco trae posiciones', () => {
+      const r = repartirPorClase(ARRIESGADO, 1_000_000, [])
+      const fijo = r.porClase.find((x) => x.clase === 'fijo')!
+      expect(fijo.objetivoUsd).toBe(0)
+      expect(fijo.dineroNuevoUsd).toBe(0)
+    })
+
+    it('conserva lo que el cliente ya tiene ahí, sin comprar más', () => {
+      // Un Arriesgado con bonos en cartera: el modelo no los pide, pero
+      // tampoco puede hacerlos desaparecer del patrimonio.
+      const r = repartirPorClase(ARRIESGADO, 1_000_000, [
+        { clase: 'fijo', montoUsd: 80_000, origen: 'conservado', etiqueta: 'Bonos heredados' },
+      ])
+      const fijo = r.porClase.find((x) => x.clase === 'fijo')!
+      expect(fijo.objetivoUsd).toBe(80_000)
+      expect(fijo.cerrada).toBe(true)
+      expect(fijo.dineroNuevoUsd).toBe(0)
+      // Y el resto sigue cuadrando contra el patrimonio.
+      const total = r.porClase.reduce((acc, x) => acc + x.objetivoUsd, 0)
+      expect(total).toBeCloseTo(1_000_000, 2)
+    })
+
+    it('reparte todo por pisos cuando cubren el patrimonio entero', () => {
+      const r = repartirPorClase(MODERADO, 1_000_000, [
+        { clase: 'inm', montoUsd: 500_000, origen: 'restriccion', etiqueta: 'Casa' },
+        { clase: 'cash', montoUsd: 500_000, origen: 'conservado', etiqueta: 'Depósito' },
+      ])
+      const total = r.porClase.reduce((acc, x) => acc + x.objetivoUsd, 0)
+      expect(total).toBeCloseTo(1_000_000, 2)
+      expect(r.porClase.every((x) => x.dineroNuevoUsd === 0)).toBe(true)
+    })
   })
 })

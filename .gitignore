@@ -54,3 +54,6 @@ venv/
 dist/
 .next/
 *.tsbuildinfo
+
+# Coverage
+coverage/

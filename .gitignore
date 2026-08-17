@@ -3,6 +3,25 @@
 .env.local
 .env*.local
 
+# ── DATOS DE CLIENTES — NUNCA COMMITEAR ──────────────────────────────────────
+# Fichas, propuestas y decks traen nombres, patrimonios y tenencias reales.
+# Ley 29733 de Protección de Datos Personales: su filtración expone a Sabbi a
+# sanción de Indecopi. Se trabaja con ellos en local, jamás en el repositorio.
+reference/
+*.xlsm
+Ficha*.xlsx
+Propuesta*.xlsx
+Portfolio*.xls*
+Portafolio*.xls*
+Presentation*.pptx
+
+# Subproductos de la tokenización: mapean cada token al valor real del cliente
+packages/export/pptx/replica/token-map.json
+packages/export/pptx/replica/revision.md
+
+# OS junk
+desktop.ini
+
 # Dependencies
 node_modules/
 /.pnp
@@ -24,3 +43,9 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

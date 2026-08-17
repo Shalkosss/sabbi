@@ -1,0 +1,204 @@
+{
+  "version": 3,
+  "origen": "Portfolio Modificado (version 1).xlsm",
+  "hoja": "Data",
+  "nota": "Pesos a precision completa. No usar los de sabbi_configuracion_v2.json: estan redondeados a cuatro decimales y mueven la base de redistribucion.",
+  "perfiles": [
+    "Conservador",
+    "Conservador & Moderado",
+    "Moderado",
+    "Moderado & Arriesgado",
+    "Arriesgado"
+  ],
+  "clases": {
+    "inm": {
+      "nombre": "Imobiliario Directo",
+      "pesos": {
+        "Conservador": 0.1402254515661956,
+        "Conservador & Moderado": 0.19024079887687084,
+        "Moderado": 0.24030062266972713,
+        "Moderado & Arriesgado": 0.2902,
+        "Arriesgado": 0.18861099499614553
+      },
+      "productos": [
+        {
+          "nombre": "TBD",
+          "pesos": {
+            "Conservador": 0.1402254515661956,
+            "Conservador & Moderado": 0.19024079887687084,
+            "Moderado": 0.24030062266972713,
+            "Moderado & Arriesgado": 0.2902,
+            "Arriesgado": 0.18861099499614553
+          }
+        }
+      ]
+    },
+    "fijo": {
+      "nombre": "Mercados Publicos - Fijo",
+      "pesos": {
+        "Conservador": 0.3898707633416764,
+        "Conservador & Moderado": 0.2898621635884183,
+        "Moderado": 0.18987950950338972,
+        "Moderado & Arriesgado": 0.0898,
+        "Arriesgado": 0.0
+      },
+      "productos": [
+        {
+          "nombre": "iShares $ Corporate Bond UCITS ETF Acc",
+          "pesos": {
+            "Conservador": 0.11820285563734902,
+            "Conservador & Moderado": 0.08819737627134779,
+            "Moderado": 0.05819683667896101,
+            "Moderado & Arriesgado": 0.028153513513513518,
+            "Arriesgado": 0.0
+          }
+        },
+        {
+          "nombre": "iShares $ Treasury Bond 1-3yr UCITS ETF Acc",
+          "pesos": {
+            "Conservador": 0.1047932879810111,
+            "Conservador & Moderado": 0.07382814081140912,
+            "Moderado": 0.0429078372124543,
+            "Moderado & Arriesgado": 0.01164972972972973,
+            "Arriesgado": 0.0
+          }
+        },
+        {
+          "nombre": "iShares $ Treasury Bond 7-10yr UCITS ETF Acc",
+          "pesos": {
+            "Conservador": 0.11770620498341057,
+            "Conservador & Moderado": 0.09067483066099238,
+            "Moderado": 0.06312877199073737,
+            "Moderado & Arriesgado": 0.035434594594594596,
+            "Arriesgado": 0.0
+          }
+        },
+        {
+          "nombre": "iShares $ High Yield Corporate Bond UCITS ETF Acc",
+          "pesos": {
+            "Conservador": 0.02781243662055271,
+            "Conservador & Moderado": 0.022792580384730327,
+            "Moderado": 0.017754967122394882,
+            "Moderado & Arriesgado": 0.012135135135135136,
+            "Arriesgado": 0.0
+          }
+        },
+        {
+          "nombre": "iShares J.P. Morgan $ EM Bond UCITS ETF",
+          "pesos": {
+            "Conservador": 0.021355978119352973,
+            "Conservador & Moderado": 0.014369235459938687,
+            "Moderado": 0.007891096498842171,
+            "Moderado & Arriesgado": 0.0024270270270270273,
+            "Arriesgado": 0.0
+          }
+        }
+      ]
+    },
+    "variable": {
+      "nombre": "Mercados Publicos - Variable",
+      "pesos": {
+        "Conservador": 0.03020548243437309,
+        "Conservador & Moderado": 0.1252268560430296,
+        "Moderado": 0.1642687853554088,
+        "Moderado & Arriesgado": 0.2162,
+        "Arriesgado": 0.27488416305431934
+      },
+      "productos": [
+        {
+          "nombre": "iShares Core S&P 500",
+          "pesos": {
+            "Conservador": 0.021916536091917217,
+            "Conservador & Moderado": 0.08871492934132698,
+            "Moderado": 0.11538880532282371,
+            "Moderado & Arriesgado": 0.15120736196319018,
+            "Arriesgado": 0.1948928716055124
+          }
+        },
+        {
+          "nombre": "iShares Core MSCI Emerging Markets IMI ETF",
+          "pesos": {
+            "Conservador": 0.002950302935450395,
+            "Conservador & Moderado": 0.013880567175853883,
+            "Moderado": 0.018964363837778896,
+            "Moderado & Arriesgado": 0.025201226993865032,
+            "Arriesgado": 0.02941260544681217
+          }
+        },
+        {
+          "nombre": "iShares Core MSCI EMU UCITS ETF USD Hedged",
+          "pesos": {
+            "Conservador": 0.0011239249277906265,
+            "Conservador & Moderado": 0.00784553796896089,
+            "Moderado": 0.011752563505102417,
+            "Moderado & Arriesgado": 0.01644711656441718,
+            "Arriesgado": 0.020341428066019632
+          }
+        },
+        {
+          "nombre": "iShares Core MSCI Japan IMI UCITS ETF",
+          "pesos": {
+            "Conservador": 0.002247849855581253,
+            "Conservador & Moderado": 0.00814728942930554,
+            "Moderado": 0.010149941208952086,
+            "Moderado & Arriesgado": 0.012998527607361966,
+            "Arriesgado": 0.0170428181093678
+          }
+        },
+        {
+          "nombre": "iShares Core FTSE 100 UCITS ETF",
+          "pesos": {
+            "Conservador": 0.0019668686236335962,
+            "Conservador & Moderado": 0.006638532127582291,
+            "Moderado": 0.008013111480751647,
+            "Moderado & Arriesgado": 0.010345766871165644,
+            "Arriesgado": 0.013194439826607328
+          }
+        }
+      ]
+    },
+    "privados": {
+      "nombre": "Mercados Privados",
+      "pesos": {
+        "Conservador": 0.27496840342128975,
+        "Conservador & Moderado": 0.2649423601755395,
+        "Moderado": 0.31081141150218566,
+        "Moderado & Arriesgado": 0.3441,
+        "Arriesgado": 0.4773035990406503
+      },
+      "productos": [
+        {
+          "nombre": "Club deals",
+          "pesos": {
+            "Conservador": 0.07831421439110636,
+            "Conservador & Moderado": 0.0783167957521503,
+            "Moderado": 0.09133824666838504,
+            "Moderado & Arriesgado": 0.0913,
+            "Arriesgado": 0.09053724418058932
+          }
+        },
+        {
+          "nombre": "Otros",
+          "pesos": {
+            "Conservador": 0.00010001815375620227,
+            "Conservador & Moderado": 0.00010002145051360191,
+            "Moderado": 0.005502304016167772,
+            "Moderado & Arriesgado": 0.0055,
+            "Arriesgado": 0.055060898360530526
+          }
+        }
+      ]
+    },
+    "cash": {
+      "nombre": "Cash",
+      "pesos": {
+        "Conservador": 0.16472989923646514,
+        "Conservador & Moderado": 0.1297278213161417,
+        "Moderado": 0.09473967096928874,
+        "Moderado & Arriesgado": 0.0597,
+        "Arriesgado": 0.0592012429088848
+      },
+      "productos": []
+    }
+  }
+}

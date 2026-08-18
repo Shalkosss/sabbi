@@ -27,6 +27,8 @@
  */
 
 import type { Perfil } from '../domain/tipos.js'
+import { aperturaFm } from './institucional.js'
+import type { EstadoInstitucional } from './institucional.js'
 
 /** Minimo para que Club deals se abra como linea propia. */
 const MIN_CLUB = 10_000
@@ -63,8 +65,9 @@ export const FONDO_DIVIDENDOS_GLOBAL = 'Fondo Visión Dividendos Global'
 /**
  * Nota que arrastra todo fondo institucional.
  *
- * El motor no usa el check institucional como compuerta: siempre abre el split
- * y estampa la nota. Quien decide es el asesor.
+ * En automatico el motor no usa el umbral como compuerta: abre el split y
+ * estampa la nota, que traslada la decision al asesor. Solo un forzado manual
+ * la saca — o cierra el split entero.
  */
 export const NOTA_INSTITUCIONAL =
   'Disponible solo para clientes Institucionales; caso contrario, asignar a Sabbi Fondo Oportunidad.'
@@ -96,6 +99,11 @@ export interface OpcionesPrivados {
    * dinero: los FM son iliquidos y no distribuyen.
    */
   readonly necesitaFlujos?: boolean
+  /**
+   * Check institucional de la propuesta. Por defecto `auto`, que reproduce v8.
+   * Gana el toggle de flujos: forzar `si` no vuelve liquidos a los FM.
+   */
+  readonly institucional?: EstadoInstitucional
 }
 
 /** Split del Fondo Oportunidad entre los tres institucionales, por perfil. */
@@ -132,6 +140,7 @@ export function repartirPrivados(
     clubFijado = false,
     otrosFijado = false,
     necesitaFlujos = false,
+    institucional = 'auto',
   } = opciones
   if (objetivoUsd <= EPS) return []
   if (pesos.clase <= EPS) {
@@ -160,7 +169,7 @@ export function repartirPrivados(
     lineas.push({ instrumento: OTROS_IBIT, usd: otros, familia: 'otros' })
   }
 
-  lineas.push(...abrirOportunidad(oportunidad, perfil, necesitaFlujos))
+  lineas.push(...abrirOportunidad(oportunidad, perfil, necesitaFlujos, institucional))
 
   return lineas.sort((a, b) => b.usd - a.usd)
 }
@@ -183,18 +192,25 @@ function lineaOportunidad(montoUsd: number, necesitaFlujos: boolean): LineaPriva
 /**
  * Abre el Fondo Oportunidad en sus tres subfondos, o lo deja entero.
  *
- * La regla es de todo o nada: basta con que un subfondo activo no llegue a
- * 50,000 para que no se abra ninguno.
+ * Tres compuertas, en orden. Los flujos mandan: con el toggle activo los FM
+ * quedan fuera por iliquidos y el split ni se evalua. Despues el check
+ * institucional, que solo cierra si el asesor lo forzo a `no`. Y al final la
+ * regla de todo o nada: basta con que un subfondo activo no llegue a 50,000
+ * para que no se abra ninguno.
  */
 function abrirOportunidad(
   montoUsd: number,
   perfil: Perfil,
   necesitaFlujos: boolean,
+  institucional: EstadoInstitucional,
 ): LineaPrivados[] {
   if (montoUsd <= EPS) return []
 
   // Los FM no distribuyen. Con flujos activos el split ni se evalua.
   if (necesitaFlujos) return [lineaOportunidad(montoUsd, true)]
+
+  const apertura = aperturaFm(institucional)
+  if (apertura === 'cerrada') return [lineaOportunidad(montoUsd, false)]
 
   const split = splitInstitucional(perfil)
   const candidatos = [
@@ -214,6 +230,7 @@ function abrirOportunidad(
     instrumento: c.instrumento,
     usd: c.usd,
     familia: 'oportunidad' as const,
-    nota: NOTA_INSTITUCIONAL,
+    // Confirmado por el asesor, el disclaimer sobra.
+    ...(apertura === 'con-nota' ? { nota: NOTA_INSTITUCIONAL } : {}),
   }))
 }

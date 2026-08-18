@@ -32,6 +32,7 @@ import type {
 } from './domain/tipos.js'
 import { repartirEtfs } from './rules/cascada.js'
 import { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
+import type { EstadoInstitucional } from './rules/institucional.js'
 import { repartirPrivados } from './rules/privados.js'
 import type { PesosPrivados } from './rules/privados.js'
 import { repartirPorClase } from './rules/reparto.js'
@@ -71,6 +72,11 @@ export interface EntradaPlan {
   readonly fallbacks: { readonly fijo: string; readonly variable: string }
   /** Toggle de flujos. Saca a los fondos mutuos del reparto de privados. */
   readonly necesitaFlujos?: boolean
+  /**
+   * Check institucional. `auto` reproduce v8 — split abierto con la nota al
+   * pie —; solo un forzado del asesor cambia el reparto.
+   */
+  readonly institucional?: EstadoInstitucional
   /** Conserva Inmobiliario Directo aunque el ticket no llegue a 500,000. */
   readonly inmFijado?: boolean
   readonly clubFijado?: boolean
@@ -99,6 +105,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     ticketMinimoUsd,
     fallbacks,
     necesitaFlujos = false,
+    institucional = 'auto',
     inmFijado = false,
     clubFijado = false,
     otrosFijado = false,
@@ -128,6 +135,20 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     )
   }
 
+  // El automatico no se avisa: es lo que el motor hace siempre. Un forzado si,
+  // porque cambia el reparto respecto de la referencia.
+  if (institucional === 'no') {
+    avisos.push(
+      'Check institucional forzado a no: los fondos mutuos no se abren y su capital queda ' +
+        'en el Fondo Oportunidad.',
+    )
+  } else if (institucional === 'si') {
+    avisos.push(
+      'Check institucional forzado a si: los fondos mutuos se abren sin la nota de ' +
+        'disponibilidad.',
+    )
+  }
+
   const privados = claseDe(reparto, 'privados')
   if (privados.pisoUsd > EPS) {
     avisos.push(
@@ -144,6 +165,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
       ticketMinimoUsd,
       fallbacks,
       necesitaFlujos,
+      institucional,
       clubFijado,
       otrosFijado,
     }),
@@ -167,6 +189,7 @@ interface ContextoClase {
   readonly ticketMinimoUsd: number
   readonly fallbacks: { readonly fijo: string; readonly variable: string }
   readonly necesitaFlujos: boolean
+  readonly institucional: EstadoInstitucional
   readonly clubFijado: boolean
   readonly otrosFijado: boolean
 }
@@ -189,6 +212,7 @@ function lineasDeClase(
       clubFijado: ctx.clubFijado,
       otrosFijado: ctx.otrosFijado,
       necesitaFlujos: ctx.necesitaFlujos,
+      institucional: ctx.institucional,
     }).map((l) => ({
       instrumento: l.instrumento,
       clase,

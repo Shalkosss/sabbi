@@ -207,6 +207,56 @@ describe('repartirPrivados', () => {
     })
   })
 
+  describe('check institucional', () => {
+    const OBJETIVO = 231_323.25263580168
+
+    it('en automatico abre el split con la nota, como hace v8', () => {
+      const r = repartirPrivados(OBJETIVO, { ...OPC, institucional: 'auto' })
+
+      expect(monto(r, FONDO_RE_INFRA)).toBeCloseTo(81_672.10803209392, 4)
+      expect(r.find((x) => x.instrumento === FONDO_RE_INFRA)?.nota).toBe(NOTA_INSTITUCIONAL)
+    })
+
+    it('forzado a si abre el split sin la nota', () => {
+      const r = repartirPrivados(OBJETIVO, { ...OPC, institucional: 'si' })
+
+      expect(monto(r, FONDO_RE_INFRA)).toBeCloseTo(81_672.10803209392, 4)
+      expect(r.every((x) => x.nota === undefined)).toBe(true)
+    })
+
+    it('forzado a no deja toda la familia en el Fondo Oportunidad', () => {
+      const r = repartirPrivados(OBJETIVO, { ...OPC, institucional: 'no' })
+
+      expect(r.some((x) => x.instrumento === FONDO_RE_INFRA)).toBe(false)
+      expect(r.some((x) => x.instrumento === FONDO_PRIVATE_CREDIT)).toBe(false)
+      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(163_344.21606418782, 4)
+    })
+
+    it('forzado a no no toca el club ni el cuadre', () => {
+      const r = repartirPrivados(OBJETIVO, { ...OPC, institucional: 'no' })
+
+      expect(monto(r, 'Fondo Edifica Diversificado Clase B')).toBeCloseTo(67_979.03657161386, 4)
+      expect(r.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(OBJETIVO, 6)
+    })
+
+    it('el default es automatico: no pasar el estado no cambia nada', () => {
+      expect(repartirPrivados(OBJETIVO, OPC)).toEqual(
+        repartirPrivados(OBJETIVO, { ...OPC, institucional: 'auto' }),
+      )
+    })
+
+    it('los flujos ganan al forzado a si: los FM siguen siendo iliquidos', () => {
+      const r = repartirPrivados(OBJETIVO, {
+        ...OPC,
+        institucional: 'si',
+        necesitaFlujos: true,
+      })
+
+      expect(r.some((x) => x.instrumento === FONDO_RE_INFRA)).toBe(false)
+      expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBeCloseTo(163_344.21606418782, 4)
+    })
+  })
+
   describe('etiquetaClubDeal', () => {
     it('cambia de clase exactamente en 70,000', () => {
       expect(etiquetaClubDeal(69_999.99)).toContain('Clase B')

@@ -4,7 +4,13 @@ import type { Benchmark, LineaPlan, Piso } from '../domain/tipos.js'
 import { generarPlan, INMOBILIARIO_TBD } from '../plan.js'
 import type { EntradaPlan } from '../plan.js'
 import { UMBRAL_INMOBILIARIO } from '../rules/inmobiliario.js'
-import { FONDO_DIVIDENDOS_GLOBAL, FONDO_ESTRATEGICO, FONDO_RE_INFRA } from '../rules/privados.js'
+import {
+  FONDO_DIVIDENDOS_GLOBAL,
+  FONDO_ESTRATEGICO,
+  FONDO_OPORTUNIDAD,
+  FONDO_RE_INFRA,
+  NOTA_INSTITUCIONAL,
+} from '../rules/privados.js'
 
 /**
  * Golden test del caso Ana Tumi.
@@ -202,6 +208,33 @@ describe('generarPlan — toggles', () => {
 
     expect(objetivo(plan, 'inm')).toBeGreaterThan(0)
     expect(plan.avisos.some((a) => a.includes('conservado por restriccion'))).toBe(true)
+  })
+
+  it('en automatico abre los fondos mutuos con la nota y no avisa nada', () => {
+    const plan = generarPlan(ENTRADA)
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeCloseTo(81_672.11, 2)
+    expect(plan.lineas.find((l) => l.instrumento === FONDO_RE_INFRA)?.nota).toBe(
+      NOTA_INSTITUCIONAL,
+    )
+    expect(plan.avisos.some((a) => a.includes('Check institucional'))).toBe(false)
+  })
+
+  it('con el check forzado a no cierra los fondos mutuos y avisa', () => {
+    const plan = generarPlan({ ...ENTRADA, institucional: 'no' })
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
+    expect(monto(plan.lineas, FONDO_OPORTUNIDAD)).toBeCloseTo(163_344.22, 2)
+    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
+    expect(plan.avisos.some((a) => a.includes('Check institucional forzado a no'))).toBe(true)
+  })
+
+  it('con el check forzado a si abre los fondos mutuos sin la nota y avisa', () => {
+    const plan = generarPlan({ ...ENTRADA, institucional: 'si' })
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeCloseTo(81_672.11, 2)
+    expect(plan.lineas.every((l) => l.nota !== NOTA_INSTITUCIONAL)).toBe(true)
+    expect(plan.avisos.some((a) => a.includes('Check institucional forzado a si'))).toBe(true)
   })
 
   it('rechaza un ticket minimo invalido', () => {

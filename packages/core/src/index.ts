@@ -7,6 +7,19 @@ export { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliari
 export type { OpcionesInmobiliario } from './rules/inmobiliario.js'
 export { prorratearResiduales } from './rules/residuales.js'
 export {
+  aperturaFm,
+  evaluarSenalInstitucional,
+  FX_INSTITUCIONAL,
+  INST_INVERTIBLE_USD,
+  INST_TOTAL_USD,
+} from './rules/institucional.js'
+export type {
+  AperturaFm,
+  EstadoInstitucional,
+  PosicionValorizada,
+  SenalInstitucional,
+} from './rules/institucional.js'
+export {
   repartirPrivados,
   etiquetaClubDeal,
   FONDO_OPORTUNIDAD,

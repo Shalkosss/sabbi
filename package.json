@@ -9,12 +9,13 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build:paquetes && npm run build --workspaces --if-present",
+    "dev": "npm run build:paquetes && npm run dev --workspace apps/web",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --build --force",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:paquetes": "tsc --build"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -33,13 +33,20 @@ export {
 } from './rules/privados.js'
 export type { LineaPrivados, OpcionesPrivados, PesosPrivados } from './rules/privados.js'
 export { generarPlan, INMOBILIARIO_TBD, LINEA_CASH } from './plan.js'
-export { armarEntradaPlan, redistribuirInmobiliario, ETIQUETA_COLCHON } from './entrada.js'
+export {
+  armarEntradaPlan,
+  evaluarRevision,
+  redistribuirInmobiliario,
+  ETIQUETA_COLCHON,
+} from './entrada.js'
 export type {
   Bloqueo,
   CodigoBloqueo,
   DecisionesPropuesta,
   Derivacion,
+  OpcionesRevision,
   PosicionRevisada,
   ResumenPatrimonio,
+  Revision,
 } from './entrada.js'
 export type { EntradaPlan, PesosProductos, Plan } from './plan.js'

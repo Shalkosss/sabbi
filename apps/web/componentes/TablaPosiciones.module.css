@@ -1,0 +1,200 @@
+.envoltorio {
+  overflow-x: auto;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+}
+
+.tabla {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1180px;
+  font-size: 13px;
+}
+
+.tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--verde-noche);
+  color: var(--hueso);
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 9px 8px;
+  white-space: nowrap;
+}
+
+.tabla td {
+  border-bottom: 1px solid var(--borde);
+  padding: 4px 8px;
+  vertical-align: middle;
+}
+
+.tabla tbody tr:nth-child(even) {
+  background: #79a82d10;
+}
+
+.tabla tbody tr:hover {
+  background: var(--lavado-lima);
+}
+
+.tabla tfoot td {
+  background: var(--lavado-verde);
+  font-weight: 700;
+  color: var(--verde-prof);
+  border-bottom: none;
+  padding: 10px 8px;
+}
+
+.indice {
+  color: var(--texto-tenue);
+  font-size: 11px;
+  width: 28px;
+  text-align: right;
+}
+
+.numerica {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.celdaTenue {
+  color: var(--texto-tenue);
+  font-size: 12px;
+}
+
+/* Los inputs viven sin borde hasta que se los toca: la tabla se lee como
+   tabla, no como formulario. */
+.texto,
+.numero,
+.numeroCorto,
+.control {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radio-control);
+  padding: 4px 6px;
+  color: inherit;
+  width: 100%;
+}
+
+.texto {
+  min-width: 190px;
+}
+
+.numero {
+  text-align: right;
+  min-width: 104px;
+}
+
+.numeroCorto {
+  text-align: right;
+  width: 62px;
+  min-width: 62px;
+}
+
+.control {
+  min-width: 104px;
+  appearance: auto;
+}
+
+.texto:hover,
+.numero:hover,
+.numeroCorto:hover,
+.control:hover {
+  border-color: var(--borde);
+}
+
+.texto:focus,
+.numero:focus,
+.numeroCorto:focus,
+.control:focus {
+  border-color: var(--verde-sabbi);
+  background: var(--superficie);
+  outline: none;
+}
+
+.sufijo {
+  color: var(--texto-tenue);
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.invalido {
+  border-color: var(--morado);
+  background: var(--lavado-morado);
+}
+
+.faltante {
+  border-color: var(--morado);
+  background: var(--lavado-morado);
+}
+
+/* Punto discreto: lo tocó una persona, no el parser. */
+.editado {
+  position: relative;
+}
+
+.editado::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--verde-sabbi);
+}
+
+.fueraDeCalculo {
+  color: var(--texto-tenue);
+}
+
+.fueraDeCalculo .texto,
+.fueraDeCalculo .numero {
+  color: var(--texto-tenue);
+}
+
+.marcas {
+  display: flex;
+  gap: 6px;
+  padding: 0 6px;
+}
+
+.marcaTenue,
+.marcaAtencion {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.marcaTenue {
+  background: var(--borde);
+  color: var(--texto);
+}
+
+.marcaAtencion {
+  background: var(--lavanda);
+  color: var(--verde-noche);
+}
+
+.cta_conservar {
+  color: var(--verde-prof);
+  font-weight: 600;
+}
+
+.cta_venta_total,
+.cta_venta_parcial {
+  color: var(--morado);
+  font-weight: 600;
+}
+
+.cta_sin_marcar {
+  color: var(--texto-tenue);
+}

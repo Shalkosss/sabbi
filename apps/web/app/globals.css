@@ -1,0 +1,153 @@
+/*
+ * Sistema visual Sabbi.
+ *
+ * Los tokens salen del manual de marca 2026 (Anexo A de la especificacion).
+ * Regla de contraste que no se negocia: tinta verde oscura sobre superficies
+ * claras, texto oscuro sobre rellenos lima o verde Sabbi, y blanco solo sobre
+ * morado o los verdes oscuros. Blanco sobre verde Sabbi no pasa AA.
+ */
+
+:root {
+  --hueso: #f4f4ed;
+  --superficie: #ffffff;
+  --verde-sabbi: #79a82d;
+  --verde-prof: #334f1b;
+  --verde-noche: #223311;
+  --lima: #c3ed74;
+  --morado: #7562c6;
+  --lavanda: #b5b3ff;
+  --borde: #e2e1d6;
+  --texto: #566347;
+  --texto-tenue: #6b7a5a;
+
+  --lavado-verde: #eef3e4;
+  --lavado-morado: #efedf8;
+  --lavado-lima: #f6fbe8;
+
+  --sombra: 0 1px 10px rgba(51, 79, 27, 0.06);
+  --radio-tarjeta: 16px;
+  --radio-boton: 40px;
+  --radio-control: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--hueso);
+  color: var(--verde-noche);
+  font-family: var(--fuente-sabbi), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--verde-prof);
+  margin: 0;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--verde-sabbi);
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un boton primario por pantalla; todo lo demas es secundario. */
+.primario {
+  background: var(--verde-prof);
+  color: var(--hueso);
+  border: none;
+  border-radius: var(--radio-boton);
+  padding: 12px 28px;
+  font-weight: 700;
+  transition: background 120ms ease;
+}
+
+.primario:hover:not(:disabled) {
+  background: var(--verde-noche);
+}
+
+.primario:disabled {
+  background: var(--borde);
+  color: var(--texto-tenue);
+  cursor: not-allowed;
+}
+
+.secundario {
+  background: transparent;
+  color: var(--verde-prof);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-boton);
+  padding: 8px 18px;
+  font-weight: 600;
+}
+
+.secundario:hover {
+  border-color: var(--verde-sabbi);
+}
+
+:focus-visible {
+  outline: 2px solid var(--morado);
+  outline-offset: 2px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Benchmark, Restriccion } from '../domain/tipos.js'
-import { armarEntradaPlan, redistribuirInmobiliario } from '../entrada.js'
+import { armarEntradaPlan, evaluarRevision, redistribuirInmobiliario } from '../entrada.js'
 import type { DecisionesPropuesta, PosicionRevisada } from '../entrada.js'
 
 const BENCHMARK: Benchmark = {
@@ -265,5 +265,36 @@ describe('redistribuirInmobiliario', () => {
     const sinInm = { ...BENCHMARK, inm: 0 }
 
     expect(redistribuirInmobiliario(sinInm)).toEqual(sinInm)
+  })
+})
+
+describe('evaluarRevision', () => {
+  it('da resumen y gates sin necesitar benchmark ni pesos de producto', () => {
+    // Es lo que la pantalla recalcula en cada tecleo: no carga configuracion.
+    const { resumen, bloqueos } = evaluarRevision([
+      posicion({ claseModelo: 'cash', valorUsd: 100_000, cta: 'venta_total' }),
+      posicion({ claseModelo: 'fijo', valorUsd: 50_000 }),
+    ])
+
+    expect(bloqueos).toEqual([])
+    expect(resumen.patrimonioInvertibleUsd).toBe(150_000)
+    expect(resumen.dineroDisponibleUsd).toBe(100_000)
+    expect(resumen.conservadoUsd).toBe(50_000)
+  })
+
+  it('devuelve las posiciones que entran al calculo segun el toggle', () => {
+    const posiciones = [
+      posicion({ claseModelo: 'cash', valorUsd: 100_000 }),
+      posicion({ origen: 'inmueble', claseModelo: 'inm', valorUsd: 200_000 }),
+    ]
+
+    expect(evaluarRevision(posiciones).cuentan).toHaveLength(2)
+    expect(evaluarRevision(posiciones, { incluirInmueblesDeRenta: false }).cuentan).toHaveLength(1)
+  })
+
+  it('sin opciones asume el caso feliz: no US person y con inmuebles adentro', () => {
+    const { resumen } = evaluarRevision([posicion({ origen: 'inmueble', claseModelo: 'inm' })])
+
+    expect(resumen.patrimonioInvertibleUsd).toBe(100_000)
   })
 })

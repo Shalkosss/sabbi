@@ -157,25 +157,37 @@ function vendidoDe(posicion: PosicionRevisada): number {
   return 0
 }
 
-export function armarEntradaPlan(
+/**
+ * Lo que la pantalla de revision necesita saber en cada tecleo.
+ *
+ * Es la mitad de `armarEntradaPlan` que no depende del benchmark ni de los
+ * pesos de producto: las tres cifras de arriba y los gates. Vive aparte para
+ * que la pantalla recalcule en vivo sin cargar la configuracion del negocio.
+ */
+export interface OpcionesRevision {
+  readonly usPerson?: boolean
+  readonly incluirInmueblesDeRenta?: boolean
+  readonly colchonLiquidezUsd?: number
+  readonly restricciones?: readonly Restriccion[]
+}
+
+export interface Revision {
+  readonly resumen: ResumenPatrimonio
+  readonly bloqueos: readonly Bloqueo[]
+  /** Las posiciones que entran al calculo, ya con el toggle aplicado. */
+  readonly cuentan: readonly PosicionRevisada[]
+}
+
+export function evaluarRevision(
   posiciones: readonly PosicionRevisada[],
-  decisiones: DecisionesPropuesta,
-): Derivacion {
+  opciones: OpcionesRevision = {},
+): Revision {
   const {
-    perfil,
-    benchmark,
-    pesos,
-    ticketMinimoUsd,
-    fallbacks,
     usPerson = false,
-    necesitaFlujos = false,
-    institucional = 'auto',
     incluirInmueblesDeRenta = true,
     colchonLiquidezUsd = 0,
     restricciones = [],
-    clubFijado = false,
-    otrosFijado = false,
-  } = decisiones
+  } = opciones
 
   const invertibles = posiciones.filter((posicion) => posicion.esInvertible)
   const inmueblesRenta = invertibles.filter((posicion) => posicion.origen === 'inmueble')
@@ -248,6 +260,36 @@ export function armarEntradaPlan(
     })
   }
 
+  return { resumen, bloqueos, cuentan }
+}
+
+export function armarEntradaPlan(
+  posiciones: readonly PosicionRevisada[],
+  decisiones: DecisionesPropuesta,
+): Derivacion {
+  const {
+    perfil,
+    benchmark,
+    pesos,
+    ticketMinimoUsd,
+    fallbacks,
+    usPerson = false,
+    necesitaFlujos = false,
+    institucional = 'auto',
+    incluirInmueblesDeRenta = true,
+    colchonLiquidezUsd = 0,
+    restricciones = [],
+    clubFijado = false,
+    otrosFijado = false,
+  } = decisiones
+
+  const { resumen, bloqueos, cuentan } = evaluarRevision(posiciones, {
+    usPerson,
+    incluirInmueblesDeRenta,
+    colchonLiquidezUsd,
+    restricciones,
+  })
+
   if (bloqueos.length > 0) return { ok: false, bloqueos, resumen }
 
   const pisos: Piso[] = []
@@ -297,7 +339,7 @@ export function armarEntradaPlan(
 
   const entrada: EntradaPlan = {
     perfil,
-    patrimonioTotalUsd: patrimonioInvertibleUsd,
+    patrimonioTotalUsd: resumen.patrimonioInvertibleUsd,
     benchmark: incluirInmueblesDeRenta ? benchmark : redistribuirInmobiliario(benchmark),
     pesos,
     pisos,

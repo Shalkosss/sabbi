@@ -1,6 +1,23 @@
+import { fileURLToPath } from 'node:url'
+
 import { defineConfig } from 'vitest/config'
 
+/**
+ * Los paquetes se publican compilados — la app de Next consume `dist` — pero
+ * los tests apuntan siempre al codigo fuente: nadie tiene que acordarse de
+ * compilar antes de correr la suite.
+ */
+const fuente = (paquete: string) =>
+  fileURLToPath(new URL(`./packages/${paquete}/src/index.ts`, import.meta.url))
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@sabbi/core': fuente('core'),
+      '@sabbi/config': fuente('config'),
+      '@sabbi/io': fuente('io'),
+    },
+  },
   test: {
     include: ['packages/**/*.test.ts', 'apps/**/*.test.ts'],
     environment: 'node',

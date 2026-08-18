@@ -1,0 +1,57 @@
+.fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin: 0 0 22px;
+}
+
+.cifra {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 16px 20px;
+  box-shadow: var(--sombra);
+}
+
+.destacada {
+  background: var(--lavado-verde);
+  border-color: var(--verde-sabbi);
+}
+
+.alerta {
+  background: var(--lavado-morado);
+  border-color: var(--morado);
+}
+
+.tenue {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.etiqueta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-tenue);
+  margin-bottom: 4px;
+}
+
+.valor {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--verde-prof);
+}
+
+.alerta .valor {
+  color: var(--morado);
+}
+
+.detalle {
+  font-size: 12px;
+  color: var(--texto-tenue);
+  margin-top: 4px;
+}

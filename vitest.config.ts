@@ -6,7 +6,12 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       provider: 'v8',
-      include: ['packages/core/src/**/*.ts', 'packages/config/src/**/*.ts'],
+      include: [
+        'packages/core/src/**/*.ts',
+        'packages/config/src/**/*.ts',
+        'packages/io/src/**/*.ts',
+      ],
+      exclude: ['**/__tests__/**'],
       thresholds: {
         lines: 90,
         statements: 88,

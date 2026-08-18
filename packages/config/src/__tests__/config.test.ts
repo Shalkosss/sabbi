@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { benchmarkDe, benchmarks, benchmarksSchema, CLASES, pesosDeClase } from '../index.js'
+import {
+  benchmarkDe,
+  benchmarks,
+  benchmarksSchema,
+  CLASES,
+  pesosDeClase,
+  pesosPrivadosDe,
+} from '../index.js'
 
 describe('configuración de benchmarks', () => {
   it('carga y valida el archivo extraído de la hoja Data', () => {
@@ -76,5 +83,23 @@ describe('validación del esquema', () => {
     const roto = structuredClone(base) as typeof benchmarks
     roto.clases.cash.pesos.Moderado = -0.1
     expect(benchmarksSchema.safeParse(roto).success).toBe(false)
+  })
+})
+
+describe('pesos de Mercados Privados', () => {
+  it('devuelve los tres pesos en la escala del patrimonio, sin renormalizar', () => {
+    // Los mismos que reproducen el reparto de privados de la propuesta real.
+    expect(pesosPrivadosDe('Moderado')).toStrictEqual({
+      clase: 0.31081141150218566,
+      club: 0.09133824666838504,
+      otros: 0.005502304016167772,
+    })
+  })
+
+  it('el club y otros nunca superan a su clase', () => {
+    for (const perfil of benchmarks.perfiles) {
+      const { clase, club, otros } = pesosPrivadosDe(perfil)
+      expect(club + otros).toBeLessThanOrEqual(clase + 1e-9)
+    }
   })
 })

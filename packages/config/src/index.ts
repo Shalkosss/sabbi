@@ -40,3 +40,36 @@ export function pesosDeClase(clase: ClaseModelo, perfil: Perfil): Record<string,
   if (total <= 0) return {}
   return Object.fromEntries(productos.map((p) => [p.nombre, p.pesos[perfil] / total]))
 }
+
+/** Nombres con los que la hoja Data identifica los dos bloques de privados. */
+const PRODUCTO_CLUB = 'Club deals'
+const PRODUCTO_OTROS = 'Otros'
+
+export interface PesosPrivados {
+  /** Peso de la clase entera sobre el patrimonio. */
+  readonly clase: number
+  /** Peso del bloque de club deals, tambien sobre el patrimonio. */
+  readonly club: number
+  /** Peso del bloque de otros alternativos, sobre el patrimonio. */
+  readonly otros: number
+}
+
+/**
+ * Pesos de Mercados Privados, en la forma que espera `repartirPrivados`.
+ *
+ * A diferencia de las otras clases, privados no se reparte por producto sino
+ * por bloque: club y otros salen con su peso sobre el patrimonio, y el resto de
+ * la clase cae en los fondos de la familia oportunidad. Por eso no se
+ * renormaliza: los tres pesos conviven en la misma escala.
+ */
+export function pesosPrivadosDe(perfil: Perfil): PesosPrivados {
+  const privados = benchmarks.clases.privados
+  const peso = (nombre: string): number =>
+    privados.productos.find((p) => p.nombre === nombre)?.pesos[perfil] ?? 0
+
+  return {
+    clase: privados.pesos[perfil],
+    club: peso(PRODUCTO_CLUB),
+    otros: peso(PRODUCTO_OTROS),
+  }
+}

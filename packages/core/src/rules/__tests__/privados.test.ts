@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   etiquetaClubDeal,
+  FONDO_DIVIDENDOS_GLOBAL,
+  FONDO_ESTRATEGICO,
   FONDO_OPORTUNIDAD,
   FONDO_PE_VC,
   FONDO_PRIVATE_CREDIT,
@@ -154,6 +156,54 @@ describe('repartirPrivados', () => {
 
     it('es puro', () => {
       expect(repartirPrivados(231_323.25, OPC)).toStrictEqual(repartirPrivados(231_323.25, OPC))
+    })
+  })
+
+  describe('regla de flujos', () => {
+    const conFlujos = { ...OPC, necesitaFlujos: true }
+
+    describe('caso Ana Tumi con el toggle activo', () => {
+      const r = repartirPrivados(231_323.25263580168, conFlujos)
+
+      it('no abre ningun fondo mutuo: los FM no distribuyen', () => {
+        expect(monto(r, FONDO_RE_INFRA)).toBe(0)
+        expect(monto(r, FONDO_PRIVATE_CREDIT)).toBe(0)
+        expect(monto(r, FONDO_PE_VC)).toBe(0)
+      })
+
+      it('manda el club a Sabbi Fondo Estratégico en vez de Edifica', () => {
+        expect(monto(r, FONDO_ESTRATEGICO)).toBeCloseTo(67_979.03657161386, 4)
+        expect(r.some((x) => x.instrumento.includes('Edifica'))).toBe(false)
+      })
+
+      it('manda el resto a Visión Dividendos Global', () => {
+        expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBeCloseTo(163_344.2160641878, 4)
+      })
+
+      it('cierra exacto contra el objetivo de la clase', () => {
+        expect(r.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(231_323.25263580168, 6)
+      })
+    })
+
+    it('deja el monto en Fondo Oportunidad si no llega al ticket de Dividendos', () => {
+      // Oportunidad queda en 70,613: por debajo de los 80,000 de la Clase B.
+      const r = repartirPrivados(100_000, conFlujos)
+      expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBe(0)
+      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(70_612.9687, 3)
+    })
+
+    it('no cambia nada con el toggle apagado', () => {
+      expect(repartirPrivados(231_323.25, OPC)).toStrictEqual(
+        repartirPrivados(231_323.25, { ...OPC, necesitaFlujos: false }),
+      )
+    })
+
+    it('nunca deja pasar un fondo mutuo, sea cual sea el monto', () => {
+      for (const m of [15_000, 120_000, 231_323.25, 1_000_000, 5_000_000]) {
+        const r = repartirPrivados(m, conFlujos)
+        expect(r.some((x) => x.nota === NOTA_INSTITUCIONAL)).toBe(false)
+        expect(r.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(m, 6)
+      }
     })
   })
 

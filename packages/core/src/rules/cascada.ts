@@ -16,6 +16,9 @@
  *
  * El reparto se aplica sobre el dinero NUEVO de la clase, no sobre su objetivo
  * total: lo que el cliente ya conserva no se vuelve a comprar.
+ *
+ * En v8 esta rutina quedo solo para Fijo. Variable tiene motor propio — ver
+ * `variable.ts` — con nucleo, satelites y rescate de rango.
  */
 
 /** Por debajo de esta fraccion del ticket minimo, el ETF se descarta. */

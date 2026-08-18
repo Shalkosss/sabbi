@@ -91,6 +91,29 @@ export interface Piso {
   readonly etiqueta: string
 }
 
+/**
+ * Una linea del plan: un instrumento con su monto, dentro de una clase.
+ *
+ * Es la unidad que ve el cliente en la propuesta y la que se vuelca al Excel y
+ * al PPT. El motor la produce; nadie la muta.
+ */
+export interface LineaPlan {
+  readonly instrumento: string
+  readonly clase: ClaseModelo
+  readonly usd: number
+  /**
+   * Papel de la linea en el prorrateo de residuales.
+   *
+   * Sin valor participa entera: cede su monto si no llega al ticket y recibe el
+   * de las demas si lo supera. `exenta` no hace ninguna de las dos — el cash,
+   * el inmobiliario y todo lo clavado por restriccion. `reserva` no cede nunca
+   * y solo recibe si no quedo ninguna linea plena que pueda hacerlo, que es lo
+   * que v8 hace con los productos privados.
+   */
+  readonly residuales?: 'exenta' | 'reserva'
+  readonly nota?: string
+}
+
 /** Pesos de benchmark por clase. Deben sumar 1. */
 export type Benchmark = Readonly<Record<ClaseModelo, number>>
 

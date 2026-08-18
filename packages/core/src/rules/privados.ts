@@ -18,6 +18,12 @@
  *    clase ya estuviera sobrecubierta.
  *  - Todo o nada. Si algun subfondo activo no llega a 50,000, no se abre
  *    ninguno: todo se muestra como Fondo Oportunidad. Media apertura no existe.
+ *
+ * Sobre esas dos se monta la regla de flujos, que la macro no tiene y sale del
+ * HTML v37 (§8.4 de la especificacion). Cuando el cliente necesita flujos, los
+ * fondos mutuos quedan fuera por iliquidos: el club va al unico producto de su
+ * familia que paga flujos y el resto va a Vision Dividendos Global, con el
+ * Fondo Oportunidad como unica alternativa si no alcanza su ticket.
  */
 
 import type { Perfil } from '../domain/tipos.js'
@@ -31,6 +37,14 @@ const MIN_SUBFONDO = 50_000
 /** Frontera entre las dos clases del fondo Edifica. */
 const UMBRAL_CLASE_A = 70_000
 
+/**
+ * Ticket minimo de Vision Dividendos Global (Clase B, §4.7).
+ *
+ * Debajo de esto el destino de flujos no es viable y el monto se queda en el
+ * Fondo Oportunidad.
+ */
+const MIN_DIVIDENDOS_GLOBAL = 80_000
+
 const EPS = 1e-6
 const TOL = 0.01
 
@@ -39,6 +53,12 @@ export const FONDO_RE_INFRA = 'FM RE Infra'
 export const FONDO_PRIVATE_CREDIT = 'FM PC'
 export const FONDO_PE_VC = 'FM PE VC'
 export const OTROS_IBIT = 'Otros - IBIT'
+
+/** Unico producto de la familia club que paga flujos. Trimestral, 8.25%. */
+export const FONDO_ESTRATEGICO = 'Sabbi Fondo Estratégico'
+
+/** Destino de flujos de la familia oportunidad. Mensual, 6.65% o 7.25%. */
+export const FONDO_DIVIDENDOS_GLOBAL = 'Fondo Visión Dividendos Global'
 
 /**
  * Nota que arrastra todo fondo institucional.
@@ -71,6 +91,11 @@ export interface OpcionesPrivados {
   /** Club y Otros clavados por restriccion no se disuelven aunque no lleguen. */
   readonly clubFijado?: boolean
   readonly otrosFijado?: boolean
+  /**
+   * Toggle de flujos de la propuesta. Con el activo ningun fondo mutuo recibe
+   * dinero: los FM son iliquidos y no distribuyen.
+   */
+  readonly necesitaFlujos?: boolean
 }
 
 /** Split del Fondo Oportunidad entre los tres institucionales, por perfil. */
@@ -100,10 +125,17 @@ export function repartirPrivados(
   objetivoUsd: number,
   opciones: OpcionesPrivados,
 ): LineaPrivados[] {
-  const { perfil, pesos, ticketMinimo, clubFijado = false, otrosFijado = false } = opciones
+  const {
+    perfil,
+    pesos,
+    ticketMinimo,
+    clubFijado = false,
+    otrosFijado = false,
+    necesitaFlujos = false,
+  } = opciones
   if (objetivoUsd <= EPS) return []
   if (pesos.clase <= EPS) {
-    return [{ instrumento: FONDO_OPORTUNIDAD, usd: objetivoUsd, familia: 'oportunidad' }]
+    return [lineaOportunidad(objetivoUsd, necesitaFlujos)]
   }
 
   let club = objetivoUsd * (pesos.club / pesos.clase)
@@ -119,15 +151,33 @@ export function repartirPrivados(
   const lineas: LineaPrivados[] = []
 
   if (club > EPS) {
-    lineas.push({ instrumento: etiquetaClubDeal(club), usd: club, familia: 'club' })
+    // Con flujos activos el club no va a Edifica: Sabbi Fondo Estrategico es el
+    // unico de la familia que distribuye.
+    const instrumento = necesitaFlujos ? FONDO_ESTRATEGICO : etiquetaClubDeal(club)
+    lineas.push({ instrumento, usd: club, familia: 'club' })
   }
   if (otros > EPS) {
     lineas.push({ instrumento: OTROS_IBIT, usd: otros, familia: 'otros' })
   }
 
-  lineas.push(...abrirOportunidad(oportunidad, perfil))
+  lineas.push(...abrirOportunidad(oportunidad, perfil, necesitaFlujos))
 
   return lineas.sort((a, b) => b.usd - a.usd)
+}
+
+/**
+ * Linea unica de la familia oportunidad, sin abrir subfondos.
+ *
+ * Con flujos activos el destino es Vision Dividendos Global mientras alcance su
+ * ticket; por debajo se queda en el Fondo Oportunidad. Son los dos unicos
+ * destinos posibles de la familia cuando el cliente necesita flujos.
+ */
+function lineaOportunidad(montoUsd: number, necesitaFlujos: boolean): LineaPrivados {
+  const instrumento =
+    necesitaFlujos && montoUsd >= MIN_DIVIDENDOS_GLOBAL - TOL
+      ? FONDO_DIVIDENDOS_GLOBAL
+      : FONDO_OPORTUNIDAD
+  return { instrumento, usd: montoUsd, familia: 'oportunidad' }
 }
 
 /**
@@ -136,8 +186,15 @@ export function repartirPrivados(
  * La regla es de todo o nada: basta con que un subfondo activo no llegue a
  * 50,000 para que no se abra ninguno.
  */
-function abrirOportunidad(montoUsd: number, perfil: Perfil): LineaPrivados[] {
+function abrirOportunidad(
+  montoUsd: number,
+  perfil: Perfil,
+  necesitaFlujos: boolean,
+): LineaPrivados[] {
   if (montoUsd <= EPS) return []
+
+  // Los FM no distribuyen. Con flujos activos el split ni se evalua.
+  if (necesitaFlujos) return [lineaOportunidad(montoUsd, true)]
 
   const split = splitInstitucional(perfil)
   const candidatos = [
@@ -150,7 +207,7 @@ function abrirOportunidad(montoUsd: number, perfil: Perfil): LineaPrivados[] {
     candidatos.length > 0 && candidatos.every((c) => c.usd >= MIN_SUBFONDO - TOL)
 
   if (!todosPasan) {
-    return [{ instrumento: FONDO_OPORTUNIDAD, usd: montoUsd, familia: 'oportunidad' }]
+    return [lineaOportunidad(montoUsd, false)]
   }
 
   return candidatos.map((c) => ({

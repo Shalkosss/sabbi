@@ -1,7 +1,7 @@
 'use client'
 
-import { evaluarRevision } from '@sabbi/core'
-import type { Cta } from '@sabbi/core'
+import { evaluarRevision, posicionesIncompletas } from '@sabbi/core'
+import type { Bloqueo, Cta } from '@sabbi/core'
 import { useMemo, useReducer, useState, useTransition } from 'react'
 
 import { calcularPlan, guardarCambioParametros, guardarCambioPosicion } from '../app/acciones'
@@ -106,9 +106,26 @@ export function Revision({ inicial, asesor }: Props) {
     [posiciones, parametros],
   )
 
-  const bloqueado = revision.bloqueos.length > 0
+  // La regla de producto: ningún dato vacío pasa en silencio. Es la misma
+  // lista que marca cada fila y que bloquea el armado de la propuesta.
+  const incompletas = useMemo(() => posicionesIncompletas(posiciones), [posiciones])
+  const bloqueos: readonly Bloqueo[] =
+    incompletas.length === 0
+      ? revision.bloqueos
+      : [
+          ...revision.bloqueos,
+          {
+            codigo: 'datos_incompletos',
+            mensaje: `Faltan datos en ${plural(incompletas.length, 'posición', 'posiciones')}: ${incompletas
+              .slice(0, 6)
+              .map((f) => f.institucionProducto)
+              .join(', ')}${incompletas.length > 6 ? '…' : ''}. Cada fila marca qué le falta.`,
+          },
+        ]
+
+  const bloqueado = bloqueos.length > 0
   const hayAvisos =
-    revision.bloqueos.length > 0 || estado.avisos.length > 0 || estado.ignoradas.length > 0
+    bloqueos.length > 0 || estado.avisos.length > 0 || estado.ignoradas.length > 0
 
   const alCalcular = () => {
     calcular(async () => {
@@ -158,7 +175,7 @@ export function Revision({ inicial, asesor }: Props) {
 
       {hayAvisos && (
         <div className={estilos.avisos}>
-          <Avisos bloqueos={revision.bloqueos} avisos={estado.avisos} ignoradas={estado.ignoradas} />
+          <Avisos bloqueos={bloqueos} avisos={estado.avisos} ignoradas={estado.ignoradas} />
         </div>
       )}
 

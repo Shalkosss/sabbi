@@ -4,6 +4,7 @@ import type { FichaParseada } from '@sabbi/io'
 
 import type { EstadoRevision, Parametros } from '../estado'
 import { asesorActual, clienteServidor } from '../supabase/servidor'
+import { altaProductosDeFicha } from './alta-productos'
 import { filaDeDeuda, filaDePosicion, posicionDeFila } from './mapeo'
 import type { FilaPosicion } from './mapeo'
 
@@ -85,13 +86,43 @@ export async function guardarFichaNueva(
     return deshacer(`No pude guardar la ficha: ${errorFicha?.message ?? 'sin detalle'}`)
   }
 
+  // La base de productos se alimenta sola: lo que la ficha trae y el catálogo
+  // no conoce se da de alta acá, y cada posición queda enlazada a su producto.
+  // Si el alta falla, la ficha sigue — el aviso queda junto a los del parser.
+  const alta = await altaProductosDeFicha(supabase, ficha.posiciones, asesor.id)
+
   const { error: errorPosiciones } = await supabase.from('ficha_positions').insert([
-    ...ficha.posiciones.map((posicion) => filaDePosicion(posicion, guardada.id)),
+    ...ficha.posiciones.map((posicion) => ({
+      ...filaDePosicion(posicion, guardada.id),
+      producto_id: alta.productoPorOrden.get(posicion.orden) ?? null,
+    })),
     ...ficha.deudas.map((deuda) => filaDeDeuda(deuda, guardada.id, ficha.posiciones.length)),
   ])
 
   if (errorPosiciones !== null) {
     return deshacer(`No pude guardar las posiciones: ${errorPosiciones.message}`)
+  }
+
+  const avisosAlta = [
+    ...(alta.creados.length > 0
+      ? [
+          {
+            codigo: 'producto_nuevo',
+            mensaje:
+              alta.creados.length === 1
+                ? `Di de alta "${alta.creados[0]}" en la base de productos; complétalo en el catálogo.`
+                : `Di de alta ${alta.creados.length} productos nuevos en la base: ${alta.creados.join(', ')}. Complétalos en el catálogo.`,
+          },
+        ]
+      : []),
+    ...(alta.error === undefined ? [] : [{ codigo: 'producto_nuevo', mensaje: alta.error }]),
+  ]
+
+  if (avisosAlta.length > 0) {
+    await supabase
+      .from('fichas')
+      .update({ parse_warnings: [...ficha.avisos, ...avisosAlta] })
+      .eq('id', guardada.id)
   }
 
   const minimoEtf = ficha.modelo?.montoMinimoEtfUsd ?? null

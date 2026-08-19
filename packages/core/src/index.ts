@@ -54,6 +54,12 @@ export type {
 export type { EntradaPlan, PesosProductos, Plan } from './plan.js'
 export { armarPropuesta, TOLERANCIA_CUADRE } from './propuesta/index.js'
 export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './propuesta/foto.js'
+export {
+  camposFaltantes,
+  posicionesIncompletas,
+  ETIQUETA_CAMPO,
+} from './propuesta/completitud.js'
+export type { FaltanteDePosicion, PosicionCompletable } from './propuesta/completitud.js'
 export type {
   CategoriaCta,
   DatosProducto,

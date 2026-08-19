@@ -1,5 +1,6 @@
 'use client'
 
+import { camposFaltantes, ETIQUETA_CAMPO } from '@sabbi/core'
 import type { ClaseModelo, Cta } from '@sabbi/core'
 
 import type { PosicionEditada } from '../lib/estado'
@@ -60,6 +61,9 @@ export function FilaPosicion({ posicion, abierta, alternar, editar, marcar }: Pr
   const parcialExcedido =
     posicion.cta === 'venta_parcial' && posicion.montoVentaParcial > posicion.valorUsd
   const pie = pieDeFila(posicion)
+  // La regla de producto: ningún dato vacío pasa en silencio. La misma lista
+  // que bloquea la propuesta marca acá la fila, para arreglarlo donde se ve.
+  const faltan = camposFaltantes(posicion)
   const claseChip =
     posicion.claseModelo === null
       ? estilos.chipFaltante
@@ -85,6 +89,14 @@ export function FilaPosicion({ posicion, abierta, alternar, editar, marcar }: Pr
             {posicion.requiereConfirmacion && (
               <span className={estilos.marcaAtencion} title="Clasificación inferida o sin resolver">
                 confirmar clase
+              </span>
+            )}
+            {faltan.length > 0 && (
+              <span
+                className={estilos.marcaAtencion}
+                title="La propuesta no se genera hasta completar estos campos"
+              >
+                falta {faltan.map((campo) => ETIQUETA_CAMPO[campo] ?? campo).join(', ')}
               </span>
             )}
             {parcialExcedido && (

@@ -71,6 +71,8 @@ export type CodigoAviso =
   | 'clase_sin_resolver'
   | 'clase_inferida'
   | 'bloque_ausente'
+  /** La app dio de alta un producto que el catalogo no conocia. */
+  | 'producto_nuevo'
 
 export interface Aviso {
   readonly codigo: CodigoAviso

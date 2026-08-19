@@ -1,7 +1,13 @@
 import 'server-only'
 
 import { benchmarkDe, pesosDeClase } from '@sabbi/config'
-import { armarEntradaPlan, armarPropuesta, generarPlan } from '@sabbi/core'
+import {
+  armarEntradaPlan,
+  armarPropuesta,
+  ETIQUETA_CAMPO,
+  generarPlan,
+  posicionesIncompletas,
+} from '@sabbi/core'
 import type { Bloqueo, PosicionPropuesta, Propuesta } from '@sabbi/core'
 
 import { FALLBACKS } from './catalogo'
@@ -61,6 +67,29 @@ export function construirPropuesta(
   const { parametros } = revision
   const posiciones = revision.posiciones.map(aPropuesta)
   const benchmark = benchmarkDe(parametros.perfil)
+
+  // Ningun dato vacio pasa en silencio: la propuesta no se arma hasta que la
+  // revision este completa. La pantalla de revision marca estos mismos campos.
+  const incompletas = posicionesIncompletas(posiciones)
+  if (incompletas.length > 0) {
+    const detalle = incompletas
+      .slice(0, 8)
+      .map(
+        (f) =>
+          `${f.institucionProducto}: falta ${f.campos.map((c) => ETIQUETA_CAMPO[c] ?? c).join(', ')}`,
+      )
+      .join(' · ')
+    const resto = incompletas.length > 8 ? ` · y ${incompletas.length - 8} posiciones más` : ''
+    return {
+      ok: false,
+      bloqueos: [
+        {
+          codigo: 'datos_incompletos',
+          mensaje: `Faltan datos en ${incompletas.length} ${incompletas.length === 1 ? 'posición' : 'posiciones'} — ${detalle}${resto}. Completalos en la revisión.`,
+        },
+      ],
+    }
+  }
 
   const derivacion = armarEntradaPlan(posiciones, {
     perfil: parametros.perfil,

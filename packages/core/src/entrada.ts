@@ -81,6 +81,11 @@ export type CodigoBloqueo =
   | 'patrimonio_cero'
   | 'conservado_excede'
   | 'clase_sin_resolver'
+  /**
+   * Alguna posicion tiene campos sin llenar. Lo produce el armado de la
+   * propuesta — no `evaluarRevision`, que solo ve el subconjunto del motor.
+   */
+  | 'datos_incompletos'
 
 export interface Bloqueo {
   readonly codigo: CodigoBloqueo

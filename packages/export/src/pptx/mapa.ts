@@ -73,6 +73,51 @@ function lamina4(propuesta: Propuesta): Sustituciones {
   return valores
 }
 
+/** Slots de venta y de compra que la lamina 10 dibuja. Son fijos en el diseno. */
+const FILAS_EN_PLAN = 3
+
+/**
+ * "Tu plan: que mover, cuanto y a donde". El blotter, resumido.
+ *
+ * La lamina tiene tres filas por lado y el blotter trae las que trae, asi que
+ * se muestran las mayores por monto. No es una lista completa y no pretende
+ * serlo: el detalle instrumento por instrumento es el anexo de las laminas 20
+ * a 22.
+ *
+ * Quedan sin mapear los tokens `pct4`..`pct6` —una segunda cifra por fila que
+ * podria ser retorno esperado o peso sobre el total, y el diseno no lo aclara—
+ * y `conteo`, que por formato (`y N mas`) parece un contador de excedente pero
+ * cuelga de la etiqueta "Liquidez por ingresar". Se confirman con Sabbi antes
+ * de afirmarlos.
+ */
+function lamina10(propuesta: Propuesta): Sustituciones {
+  const { ventas, compras, totalVentasUsd, totalComprasUsd } = propuesta.seccion7
+
+  const valores: Record<string, string> = {
+    's10.monto': monto(totalVentasUsd),
+  }
+
+  // Los montos de venta van en la columna derecha del bloque: 2, 4 y 6.
+  const mayores = <T extends { readonly usd: number }>(lineas: readonly T[]) =>
+    [...lineas].sort((a, b) => b.usd - a.usd).slice(0, FILAS_EN_PLAN)
+
+  mayores(ventas).forEach((linea, i) => {
+    valores[i === 0 ? 's10.nombre' : `s10.nombre${i + 1}`] = linea.instrumento
+    valores[`s10.monto${2 * i + 2}`] = monto(linea.usd)
+  })
+
+  mayores(compras).forEach((linea, i) => {
+    valores[`s10.nombre${i + 5}`] = linea.instrumento
+    valores[`s10.monto${i + 7}`] = monto(linea.usd)
+
+    if (totalComprasUsd > 0) {
+      valores[i === 0 ? 's10.pct' : `s10.pct${i + 1}`] = pct(linea.usd / totalComprasUsd)
+    }
+  })
+
+  return valores
+}
+
 /**
  * Todos los tokens que la propuesta puede sostener hoy.
  *
@@ -87,5 +132,6 @@ export function tokensDePropuesta(
   return {
     ...lamina1(propuesta, contexto),
     ...lamina4(propuesta),
+    ...lamina10(propuesta),
   }
 }

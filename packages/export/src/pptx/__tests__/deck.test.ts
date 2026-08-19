@@ -50,10 +50,20 @@ function propuestaDePrueba(): Propuesta {
       cuadreUsd: 0,
     },
     seccion7: {
-      ventas: [],
-      compras: [],
-      totalVentasUsd: 0,
-      totalComprasUsd: 0,
+      // Cuatro ventas para tres slots: la lamina muestra las mayores.
+      ventas: [
+        { instrumento: 'Depósito a plazo BCP', accion: 'Venta total', usd: 200_000 },
+        { instrumento: 'Bono soberano PEN', accion: 'Venta parcial', usd: 120_000 },
+        { instrumento: 'Fondo mutuo local', accion: 'Venta total', usd: 60_000 },
+        { instrumento: 'Acción individual', accion: 'Venta total', usd: 20_000 },
+      ],
+      compras: [
+        { instrumento: 'ETF global agregado', clase: 'fijo', usd: 250_000 },
+        { instrumento: 'ETF mundo desarrollado', clase: 'variable', usd: 100_000 },
+        { instrumento: 'Fondo Oportunidad', clase: 'privados', usd: 50_000 },
+      ],
+      totalVentasUsd: 400_000,
+      totalComprasUsd: 400_000,
       cuadreUsd: 0,
     },
     avisos: [],
@@ -108,6 +118,18 @@ describe('armarDeck', () => {
     expect(texto).toContain('Moderado')
     expect(texto).toContain('Renta Fija')
     expect(texto).toContain('40%')
+  })
+
+  it('lleva el blotter a la lamina 10, con las mayores primero', () => {
+    const texto = textoDeLamina(armar().archivo, 10)
+
+    expect(texto).toContain('$400,000')
+    expect(texto).toContain('Depósito a plazo BCP')
+    expect(texto).toContain('ETF global agregado')
+    // 250.000 sobre 400.000 de compras.
+    expect(texto).toContain('63%')
+    // La cuarta venta no entra: solo hay tres slots y es la menor.
+    expect(texto).not.toContain('Acción individual')
   })
 
   it('informa que tokens quedaron sin dato, en vez de esconderlo', () => {

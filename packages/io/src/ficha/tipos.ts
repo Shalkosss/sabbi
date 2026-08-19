@@ -73,6 +73,8 @@ export type CodigoAviso =
   | 'bloque_ausente'
   /** La app dio de alta un producto que el catalogo no conocia. */
   | 'producto_nuevo'
+  /** El rendimiento no venia en la ficha y salio del catalogo. */
+  | 'rendimiento_del_catalogo'
 
 export interface Aviso {
   readonly codigo: CodigoAviso

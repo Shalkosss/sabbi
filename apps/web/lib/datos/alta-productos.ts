@@ -25,6 +25,9 @@ import { normalizarNombre } from './emparejar'
 interface ProductoExistente {
   readonly id: string
   readonly nombre: string
+  readonly ofrecer: boolean
+  readonly ret_min: number | null
+  readonly ret_max: number | null
 }
 
 /** El único candidato que contiene o está contenido en el nombre buscado. */
@@ -63,10 +66,43 @@ export interface ResultadoAlta {
   readonly productoPorOrden: ReadonlyMap<number, string>
   /** Nombres dados de alta en esta pasada, para el aviso de la pantalla. */
   readonly creados: readonly string[]
+  /**
+   * Los productos que Sabbi ofrece como destino: el menú real, no el catálogo
+   * entero. Con él se decide qué conserva el cliente por estar ya en el
+   * portafolio objetivo.
+   */
+  readonly ofrecibles: ReadonlySet<string>
+  /**
+   * El rendimiento que el catálogo ya sabía, para las posiciones que llegaron
+   * sin él. Indexado por `orden`, en fracción.
+   */
+  readonly rendimientoPorOrden: ReadonlyMap<number, number>
   readonly error?: string
 }
 
-const SIN_ALTA: ResultadoAlta = { productoPorOrden: new Map(), creados: [] }
+const SIN_ALTA: ResultadoAlta = {
+  productoPorOrden: new Map(),
+  creados: [],
+  ofrecibles: new Set(),
+  rendimientoPorOrden: new Map(),
+}
+
+/**
+ * El rendimiento que el catálogo le atribuye a un producto.
+ *
+ * Es una banda —«7.5% a 9.5%»— y la ficha guarda un solo número, así que se
+ * toma el punto medio. No es inventar un dato: es el retorno que la propia
+ * mesa cargó para ese producto, y queda editable y anotado en un aviso, que
+ * es la diferencia entre completar y suponer.
+ */
+function rendimientoDelCatalogo(producto: ProductoExistente): number | null {
+  const { ret_min: min, ret_max: max } = producto
+  if (min === null && max === null) return null
+  const banda = [min, max].filter((v): v is number => v !== null)
+  const medio = banda.reduce((a, b) => a + b, 0) / banda.length
+  // La columna va en puntos porcentuales; la ficha trabaja en fracción.
+  return medio / 100
+}
 
 /**
  * Empareja las posiciones financieras contra el catálogo y da de alta las que
@@ -85,16 +121,23 @@ export async function altaProductosDeFicha(
   const financieras = posiciones.filter(
     (posicion) => posicion.origen === 'financiero' && posicion.institucionProducto.trim() !== '',
   )
-  if (financieras.length === 0) return SIN_ALTA
 
-  const { data, error } = await supabase.from('products').select('id, nombre')
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, nombre, ofrecer, ret_min, ret_max')
   if (error !== null || data === null) {
     return { ...SIN_ALTA, error: `No pude leer el catálogo: ${error?.message ?? 'sin detalle'}` }
   }
 
   const existentes = data as ProductoExistente[]
+  const ofrecibles = new Set(existentes.filter((p) => p.ofrecer).map((p) => p.id))
+  const porId = new Map(existentes.map((p) => [p.id, p]))
+
+  if (financieras.length === 0) return { ...SIN_ALTA, ofrecibles }
+
   const ids = new Set(existentes.map((p) => p.id))
   const porNombre = new Map(existentes.map((p) => [normalizarNombre(p.nombre), p.id]))
+  const rendimientoPorOrden = new Map<number, number>()
 
   const productoPorOrden = new Map<number, string>()
   const nuevos: Record<string, unknown>[] = []
@@ -107,6 +150,13 @@ export async function altaProductosDeFicha(
 
     if (existente !== null && existente !== undefined) {
       productoPorOrden.set(posicion.orden, existente)
+
+      // Lo que el catálogo ya sabe no se le vuelve a preguntar al asesor.
+      const producto = porId.get(existente)
+      if (posicion.rendimientoEst === null && producto !== undefined) {
+        const delCatalogo = rendimientoDelCatalogo(producto)
+        if (delCatalogo !== null) rendimientoPorOrden.set(posicion.orden, delCatalogo)
+      }
       continue
     }
 
@@ -145,10 +195,12 @@ export async function altaProductosDeFicha(
       return {
         productoPorOrden,
         creados: [],
+        ofrecibles,
+        rendimientoPorOrden,
         error: `No pude dar de alta ${nuevos.length} productos nuevos: ${errorAlta.message}`,
       }
     }
   }
 
-  return { productoPorOrden, creados }
+  return { productoPorOrden, creados, ofrecibles, rendimientoPorOrden }
 }

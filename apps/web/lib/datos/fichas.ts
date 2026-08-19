@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { decisionInicial, PERFILES } from '@sabbi/core'
+import type { Perfil } from '@sabbi/core'
 import type { FichaParseada } from '@sabbi/io'
 
 import type { EstadoRevision, Parametros } from '../estado'
@@ -19,6 +21,21 @@ import type { FilaPosicion } from './mapeo'
 
 /** Cuando la ficha no trae el bloque de modelo, este es el mínimo de la macro. */
 const TICKET_ETF_POR_DEFECTO = 20_000
+
+/** Sin perfil declarado en la ficha, el del medio: ni el más caro ni el más barato de corregir. */
+const PERFIL_POR_DEFECTO: Perfil = 'Moderado'
+
+/**
+ * El perfil que declara la ficha, si es uno de los cinco.
+ *
+ * La ficha lo trae en el bloque de portafolio modelo. Ignorarlo y arrancar
+ * siempre en Moderado obligaba al asesor a corregir a mano un dato que ya
+ * estaba escrito en el archivo que acababa de subir.
+ */
+function perfilDeLaFicha(ficha: FichaParseada): Perfil {
+  const declarado = ficha.modelo?.perfil?.trim()
+  return PERFILES.find((perfil) => perfil === declarado) ?? PERFIL_POR_DEFECTO
+}
 
 export interface FichaEnLista {
   readonly id: string
@@ -91,11 +108,21 @@ export async function guardarFichaNueva(
   // Si el alta falla, la ficha sigue — el aviso queda junto a los del parser.
   const alta = await altaProductosDeFicha(supabase, ficha.posiciones, asesor.id)
 
+  // La ficha llega con una propuesta completa, no con dieciséis casillas
+  // vacías: se conserva lo que ya está en el portafolio objetivo y los
+  // inmuebles, y el resto se vende, que es el dinero que el modelo reparte.
+  // Todas quedan editables; el asesor corrige excepciones.
   const { error: errorPosiciones } = await supabase.from('ficha_positions').insert([
-    ...ficha.posiciones.map((posicion) => ({
-      ...filaDePosicion(posicion, guardada.id),
-      producto_id: alta.productoPorOrden.get(posicion.orden) ?? null,
-    })),
+    ...ficha.posiciones.map((posicion) => {
+      const productoId = alta.productoPorOrden.get(posicion.orden) ?? null
+      const delCatalogo = alta.rendimientoPorOrden.get(posicion.orden)
+      return {
+        ...filaDePosicion(posicion, guardada.id),
+        producto_id: productoId,
+        cta: decisionInicial({ ...posicion, productoId }, alta.ofrecibles),
+        ...(delCatalogo === undefined ? {} : { rendimiento_est: delCatalogo }),
+      }
+    }),
     ...ficha.deudas.map((deuda) => filaDeDeuda(deuda, guardada.id, ficha.posiciones.length)),
   ])
 
@@ -104,6 +131,16 @@ export async function guardarFichaNueva(
   }
 
   const avisosAlta = [
+    ...(alta.rendimientoPorOrden.size > 0
+      ? [
+          {
+            codigo: 'rendimiento_del_catalogo',
+            mensaje:
+              `${alta.rendimientoPorOrden.size} ${alta.rendimientoPorOrden.size === 1 ? 'posición llegó' : 'posiciones llegaron'} sin rendimiento y lo tomé ` +
+              'del catálogo, como punto medio de la banda del producto. Revisalo si el cliente tiene una cifra propia.',
+          },
+        ]
+      : []),
     ...(alta.creados.length > 0
       ? [
           {
@@ -132,7 +169,7 @@ export async function guardarFichaNueva(
     ficha_id: guardada.id,
     advisor_id: asesor.id,
     titulo: `Chequeo Patrimonial 360° — ${ficha.cliente.nombre ?? 'sin nombre'}`,
-    perfil: 'Moderado',
+    perfil: perfilDeLaFicha(ficha),
     segmento: ficha.totales.invertibleUsd >= 500_000 ? 'gte500' : 'lt500',
     patrimonio_financiero_usd: ficha.totales.invertibleUsd,
     patrimonio_uso_propio_usd: ficha.totales.usoPropioUsd,

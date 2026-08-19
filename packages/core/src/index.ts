@@ -50,3 +50,25 @@ export type {
   Revision,
 } from './entrada.js'
 export type { EntradaPlan, PesosProductos, Plan } from './plan.js'
+export { armarPropuesta, TOLERANCIA_CUADRE } from './propuesta/index.js'
+export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './propuesta/foto.js'
+export type {
+  CategoriaCta,
+  DatosProducto,
+  EntradaPropuesta,
+  FilaActivo,
+  FilaAssetClass,
+  FilaComparativo,
+  FilaExposicion,
+  FilaResumenCta,
+  FilaUsoPropio,
+  GrupoObjetivo,
+  LineaCompra,
+  LineaObjetivo,
+  LineaVenta,
+  ParametrosPropuesta,
+  ParametrosVisibles,
+  PosicionPropuesta,
+  Propuesta,
+  Rango,
+} from './propuesta/tipos.js'

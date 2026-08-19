@@ -2,8 +2,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { armarEntradaPlan, generarPlan } from '@sabbi/core'
-import type { PosicionRevisada } from '@sabbi/core'
+import { armarEntradaPlan, armarPropuesta, generarPlan, TOLERANCIA_CUADRE } from '@sabbi/core'
+import type { PosicionPropuesta, PosicionRevisada } from '@sabbi/core'
 import { benchmarkDe, pesosDeClase, pesosPrivadosDe } from '@sabbi/config'
 import { describe, expect, it } from 'vitest'
 
@@ -131,5 +131,105 @@ describe.skipIf(RUTA === undefined)('de la ficha al plan', () => {
 
     expect(resultado.totalObjetivoUsd).toBeCloseTo(1_264_392.9889173061, 4)
     expect(resultado.dineroNuevoUsd).toBeCloseTo(derivacion.resumen.dineroDisponibleUsd, 4)
+  })
+})
+
+/**
+ * La propuesta sobre el mismo caso.
+ *
+ * El plan ya esta verificado arriba; lo que agrega este bloque es que las
+ * siete secciones cuadren contra el, sin que nadie escriba una cifra a mano.
+ * Los dos controles que deciden si una propuesta se puede publicar — el
+ * objetivo contra el patrimonio y las compras contra las ventas — son los
+ * mismos que corre la vista web.
+ */
+describe.skipIf(RUTA === undefined)('de la ficha a la propuesta', () => {
+  const armar = () => {
+    const ficha = parsearFicha(new Uint8Array(readFileSync(RUTA ?? '')))
+
+    const posiciones: PosicionPropuesta[] = ficha.posiciones.map((posicion) => ({
+      orden: posicion.orden,
+      institucionProducto: posicion.institucionProducto,
+      origen: posicion.origen,
+      tipoFicha: posicion.tipoFicha,
+      assetClass: posicion.assetClass,
+      claseModelo: posicion.claseModelo,
+      productoId: posicion.productoId,
+      moneda: posicion.moneda,
+      plaza: posicion.plaza,
+      valorUsd: posicion.valorUsd,
+      valorDeclaradoUsd: posicion.valorDeclaradoUsd,
+      pctPertenencia: posicion.pctPertenencia,
+      pais: posicion.pais,
+      uso: posicion.uso,
+      rendimientoEst: posicion.rendimientoEst,
+      nota: '',
+      esInvertible: posicion.esInvertible,
+      cta: posicion.esInvertible ? decidir(posicion) : 'sin_marcar',
+      montoVentaParcial: 0,
+    }))
+
+    const opciones = {
+      perfil: 'Moderado' as const,
+      benchmark: benchmarkDe('Moderado'),
+      pesos: {
+        fijo: pesosDeClase('fijo', 'Moderado'),
+        variable: pesosDeClase('variable', 'Moderado'),
+        privados: pesosPrivadosDe('Moderado'),
+      },
+      ticketMinimoUsd: ficha.modelo?.montoMinimoEtfUsd ?? 20_000,
+      fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },
+    }
+
+    const derivacion = armarEntradaPlan(posiciones, opciones)
+    if (!derivacion.ok) throw new Error('No debería bloquearse')
+
+    return armarPropuesta({
+      cliente: { nombre: 'Caso de referencia', perfil: 'Moderado', mandato: null },
+      posiciones,
+      plan: generarPlan(derivacion.entrada),
+      modeloPuro: generarPlan({ ...derivacion.entrada, pisos: [] }),
+      pisos: derivacion.entrada.pisos,
+      benchmark: opciones.benchmark,
+      parametros: { ticketMinimoUsd: opciones.ticketMinimoUsd, colchonLiquidezUsd: 0, fxPenUsd: 3.4 },
+    })
+  }
+
+  it('cuadra las siete secciones contra el patrimonio financiero', () => {
+    const propuesta = armar()
+    const patrimonio = 1_264_392.9889173061
+
+    expect(propuesta.seccion1.totalUsd).toBeCloseTo(patrimonio, 4)
+    expect(propuesta.seccion3.totalUsd).toBeCloseTo(patrimonio, 4)
+    expect(propuesta.seccion4.totalUsd).toBeCloseTo(patrimonio, 4)
+    expect(propuesta.seccion6.totalUsd).toBeCloseTo(patrimonio, 4)
+    expect(Math.abs(propuesta.seccion6.cuadreUsd)).toBeLessThan(TOLERANCIA_CUADRE)
+  })
+
+  it('deja el uso propio fuera del patrimonio financiero', () => {
+    const propuesta = armar()
+
+    expect(propuesta.seccion2.totalUsd).toBeCloseTo(200_000, 2)
+    expect(propuesta.seccion1.filas.some((fila) => fila.esInmuebleDeRenta)).toBe(true)
+  })
+
+  it('cierra el blotter en el dinero disponible de la propuesta real', () => {
+    const propuesta = armar()
+
+    expect(propuesta.seccion7.totalVentasUsd).toBeCloseTo(478_900.2352941177, 4)
+    expect(propuesta.seccion7.totalComprasUsd).toBeCloseTo(478_900.2352941177, 4)
+    expect(Math.abs(propuesta.seccion7.cuadreUsd)).toBeLessThan(TOLERANCIA_CUADRE)
+  })
+
+  it('no cuenta como compra lo que el cliente conserva', () => {
+    const propuesta = armar()
+    const conservadas = propuesta.seccion6.grupos
+      .flatMap((grupo) => grupo.lineas)
+      .filter((linea) => linea.conservada)
+
+    expect(conservadas.length).toBeGreaterThan(0)
+    for (const linea of conservadas) {
+      expect(propuesta.seccion7.compras.map((c) => c.instrumento)).not.toContain(linea.instrumento)
+    }
   })
 })

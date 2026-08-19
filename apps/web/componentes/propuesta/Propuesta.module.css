@@ -1,0 +1,283 @@
+/*
+ * La propuesta, en pantalla.
+ *
+ * Es el Excel abierto en la web: tablas densas, numeros a la derecha con
+ * tabulares, cabecera verde y nada mas. Sin sombras, sin tarjetas flotando,
+ * sin decoracion. Lo que hace que un documento se lea como institucional es
+ * que no intente parecerlo.
+ */
+
+.documento {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 26px 96px;
+}
+
+/* Banda de titulo: el unico bloque de color pleno del documento. */
+.banda {
+  background: var(--verde-prof);
+  color: var(--hueso);
+  padding: 20px 26px;
+  border-radius: var(--radio-control) var(--radio-control) 0 0;
+}
+
+.banda h1 {
+  color: var(--hueso);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.bandaEtiqueta {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 8px;
+}
+
+.subbanda {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  background: var(--acento-suave);
+  border: 1px solid var(--borde);
+  border-top: none;
+  border-radius: 0 0 var(--radio-control) var(--radio-control);
+  padding: 12px 26px;
+  font-size: 13px;
+  color: var(--tinta-2);
+  margin-bottom: 34px;
+}
+
+.subbanda b {
+  color: var(--tinta);
+}
+
+.seccion {
+  margin-bottom: 38px;
+}
+
+.tituloSeccion {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--tinta);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+}
+
+.numeroSeccion {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--acento-texto);
+  letter-spacing: 0.08em;
+}
+
+.tituloSeccion h2 {
+  font-size: 17px;
+}
+
+.bajada {
+  font-size: 12.5px;
+  color: var(--tinta-3);
+  margin-bottom: 14px;
+  max-width: 90ch;
+}
+
+.envoltorio {
+  overflow-x: auto;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  background: var(--superficie);
+}
+
+.tabla {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+
+.tabla th {
+  background: var(--acento-suave);
+  color: var(--tinta);
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--borde-suave);
+  vertical-align: top;
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.total td,
+.total th {
+  background: var(--acento-suave);
+  font-weight: 700;
+  color: var(--tinta);
+  border-bottom: none;
+  border-top: 1px solid var(--borde);
+}
+
+/* Fila de grupo: abre un bloque de clase dentro de la tabla de objetivo. */
+.grupo td {
+  background: var(--hundido);
+  font-weight: 700;
+  color: var(--tinta);
+}
+
+.sangria {
+  padding-left: 24px !important;
+}
+
+.tenue {
+  color: var(--tinta-3);
+}
+
+.marca {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+
+.conservada {
+  background: var(--acento-suave);
+  color: var(--acento-texto);
+}
+
+.nueva {
+  background: var(--atencion-suave);
+  color: var(--atencion-texto);
+}
+
+/* Controles de cuadre: es la fila que decide si esto se puede publicar. */
+.cuadre {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--acento);
+  background: var(--acento-suave);
+  font-size: 12.5px;
+  color: var(--tinta-2);
+}
+
+.cuadreRoto {
+  border-left-color: var(--alerta);
+  background: var(--alerta-suave);
+  color: var(--alerta-texto);
+  font-weight: 600;
+}
+
+.cuadre b {
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+.parejas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+.parametros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px 24px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  background: var(--superficie);
+  padding: 18px 22px;
+  margin-bottom: 18px;
+}
+
+.parametro span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  margin-bottom: 6px;
+}
+
+.parametro b {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.destacado b {
+  color: var(--atencion-texto);
+}
+
+.avisos {
+  margin: 0 0 30px;
+  padding: 14px 18px 14px 34px;
+  background: var(--acento-suave);
+  border-left: 3px solid var(--acento);
+  border-radius: 0 var(--radio-control) var(--radio-control) 0;
+  font-size: 12.5px;
+  color: var(--tinta-2);
+}
+
+.avisos li {
+  padding: 3px 0;
+}
+
+.completo {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.completo summary {
+  cursor: pointer;
+  color: var(--tinta-3);
+}
+
+.completo summary:hover {
+  color: var(--tinta);
+}
+
+.bloqueado {
+  max-width: 70ch;
+  margin: 60px auto;
+  text-align: center;
+}
+
+.bloqueado ul {
+  text-align: left;
+  margin: 18px 0 0;
+  padding: 14px 18px 14px 34px;
+  background: var(--atencion-suave);
+  border-left: 3px solid var(--atencion);
+  font-size: 13px;
+  color: var(--tinta-2);
+}

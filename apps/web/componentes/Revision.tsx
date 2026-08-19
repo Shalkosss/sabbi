@@ -177,7 +177,7 @@ export function Revision({ inicial, asesor }: Props) {
 
       {plan !== null && (
         <div className={estilos.plan}>
-          <PanelPlan plan={plan} />
+          <PanelPlan plan={plan} propuestaId={estado.propuestaId} />
         </div>
       )}
 

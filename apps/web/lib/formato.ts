@@ -52,3 +52,45 @@ export function porcentajeEditable(fraccion: number | null, editado: boolean): s
   const escala = fraccion * 100
   return editado ? String(escala) : String(Number(escala.toFixed(2)))
 }
+
+/*
+ * Formatos de la propuesta.
+ *
+ * En una tabla densa el simbolo de moneda se repite cuarenta veces y no aporta
+ * nada: la cabecera de la columna ya dice USD. Van sin decimales por la misma
+ * razon, salvo los controles de cuadre, que se leen al centavo.
+ */
+
+const ENTERO = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+const CENTAVOS = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+const PORCENTAJE_1 = new Intl.NumberFormat('es-PE', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+export const usdTabla = (monto: number): string => ENTERO.format(monto)
+
+export const usdCentavos = (monto: number): string => CENTAVOS.format(monto)
+
+export const pct1 = (fraccion: number): string => PORCENTAJE_1.format(fraccion)
+
+/** Puntos porcentuales con signo: lo que separa el plan del modelo. */
+export const puntos = (pp: number): string =>
+  `${pp > 0 ? '+' : pp < 0 ? '−' : ''}${Math.abs(pp).toFixed(1)}`
+
+/** Un rango del catalogo. Sin dato no se escribe nada, ni un cero. */
+export function rangoPct(rango: { readonly min: number; readonly max: number } | null): string {
+  if (rango === null) return '—'
+  return rango.min === rango.max ? pct1(rango.min) : `${pct1(rango.min)} a ${pct1(rango.max)}`
+}
+
+export function rangoUsd(rango: { readonly min: number; readonly max: number } | null): string {
+  if (rango === null) return '—'
+  return rango.min === rango.max
+    ? usdTabla(rango.min)
+    : `${usdTabla(rango.min)} a ${usdTabla(rango.max)}`
+}

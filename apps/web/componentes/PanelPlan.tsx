@@ -1,11 +1,15 @@
 'use client'
 
+import Link from 'next/link'
+
 import type { PlanResumido } from '../app/acciones'
 import { pct, usd } from '../lib/formato'
 import estilos from './PanelPlan.module.css'
 
 interface Props {
   readonly plan: PlanResumido
+  /** Sin propuesta abierta no hay adonde ir: la ficha se subio antes del cambio. */
+  readonly propuestaId: string
 }
 
 const NOMBRE_CLASE: Readonly<Record<string, string>> = {
@@ -23,7 +27,7 @@ const NOMBRE_CLASE: Readonly<Record<string, string>> = {
  * pasar a la propuesta. La vista completa de las siete secciones es la
  * pantalla siguiente, no ésta.
  */
-export function PanelPlan({ plan }: Props) {
+export function PanelPlan({ plan, propuestaId }: Props) {
   const total = plan.totalObjetivoUsd
 
   return (
@@ -33,6 +37,11 @@ export function PanelPlan({ plan }: Props) {
         <p className={estilos.subtitulo}>
           {usd(total)} en total · {usd(plan.dineroNuevoUsd)} a ejecutar
         </p>
+        {propuestaId !== '' && (
+          <Link href={`/propuestas/${propuestaId}`} className={`secundario ${estilos.enlace}`}>
+            Ver la propuesta entera
+          </Link>
+        )}
       </header>
 
       <div className={estilos.columnas}>

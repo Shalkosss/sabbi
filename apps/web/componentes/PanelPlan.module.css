@@ -125,3 +125,7 @@
   font-size: 13px;
   color: var(--tinta-2);
 }
+
+.enlace {
+  margin-left: auto;
+}

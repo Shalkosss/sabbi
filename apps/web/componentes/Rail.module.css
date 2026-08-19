@@ -1,0 +1,155 @@
+/* Pegado y de alto de ventana: la navegacion y el nombre del asesor no se
+   van con el scroll de una tabla de dieciseis filas. */
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: 216px;
+  flex: none;
+  background: var(--rail);
+  display: flex;
+  flex-direction: column;
+  z-index: 4;
+}
+
+.marca {
+  padding: 24px 22px 26px;
+}
+
+.logo {
+  height: 20px;
+  width: auto;
+  display: block;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 12px;
+  border-radius: var(--radio-control);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--rail-tenue);
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+
+.item:hover {
+  background: var(--rail-activo);
+  color: var(--rail-tinta);
+}
+
+.activo {
+  background: var(--rail-activo);
+  color: var(--rail-tinta);
+  font-weight: 600;
+}
+
+.pendiente {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pendiente:hover {
+  background: transparent;
+  color: var(--rail-tenue);
+}
+
+.icono {
+  flex: none;
+  opacity: 0.8;
+}
+
+.pie {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px 20px;
+  border-top: 1px solid var(--rail-borde);
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: var(--verde-noche);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.identidad {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nombre {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rail-tinta);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detalle {
+  font-size: 10.5px;
+  color: var(--rail-tenue);
+  line-height: 1.35;
+}
+
+/* En pantalla angosta el rail se acuesta arriba: la tabla necesita el ancho. */
+@media (max-width: 900px) {
+  .rail {
+    position: static;
+    height: auto;
+    align-self: auto;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding-right: 14px;
+    overflow-x: auto;
+  }
+
+  .marca {
+    padding: 14px 18px;
+  }
+
+  .lista {
+    flex-direction: row;
+    padding: 0;
+  }
+
+  .item {
+    white-space: nowrap;
+  }
+
+  .pie {
+    margin: 0 0 0 auto;
+    border-top: none;
+    padding: 0;
+  }
+
+  .identidad {
+    display: none;
+  }
+}

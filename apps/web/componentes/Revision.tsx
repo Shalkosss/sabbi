@@ -2,12 +2,10 @@
 
 import { evaluarRevision } from '@sabbi/core'
 import type { Cta } from '@sabbi/core'
-import Link from 'next/link'
 import { useMemo, useReducer, useState, useTransition } from 'react'
 
 import { calcularPlan, guardarCambioParametros, guardarCambioPosicion } from '../app/acciones'
 import type { PlanResumido } from '../app/acciones'
-import estilos from '../app/page.module.css'
 import { useAutoguardado } from '../lib/autoguardado'
 import {
   aRevisadas,
@@ -19,16 +17,24 @@ import {
 import type { EstadoRevision, Parametros, PosicionEditada } from '../lib/estado'
 import { plural } from '../lib/formato'
 import { Avisos } from './Avisos'
+import { BarraAccion } from './BarraAccion'
+import { BarraParametros } from './BarraParametros'
+import { Cabecera } from './Cabecera'
 import { Guardado } from './Guardado'
-import { PanelParametros } from './PanelParametros'
+import { Marco } from './Marco'
 import { PanelPlan } from './PanelPlan'
-import { Resumen } from './Resumen'
 import { TablaPosiciones } from './TablaPosiciones'
+import estilos from './Revision.module.css'
 
 /** Clave de la cola para el bloque de parámetros. Ninguna posición usa este id. */
 const CLAVE_PARAMETROS = 'parametros'
 
 type Cambio = Partial<PosicionEditada> | Parametros
+
+interface Props {
+  readonly inicial: EstadoRevision
+  readonly asesor: { readonly nombre: string; readonly rol: string }
+}
 
 /**
  * Paso 2: la revisión de la ficha.
@@ -37,7 +43,7 @@ type Cambio = Partial<PosicionEditada> | Parametros
  * de guardar porque nadie lo apretaría. Lo que sí hay es un botón de calcular,
  * porque calcular es una decisión.
  */
-export function Revision({ inicial }: { readonly inicial: EstadoRevision }) {
+export function Revision({ inicial, asesor }: Props) {
   const [estado, despacharCrudo] = useReducer(reducir, inicial)
   const [plan, setPlan] = useState<PlanResumido | null>(null)
   const [calculando, calcular] = useTransition()
@@ -101,6 +107,8 @@ export function Revision({ inicial }: { readonly inicial: EstadoRevision }) {
   )
 
   const bloqueado = revision.bloqueos.length > 0
+  const hayAvisos =
+    revision.bloqueos.length > 0 || estado.avisos.length > 0 || estado.ignoradas.length > 0
 
   const alCalcular = () => {
     calcular(async () => {
@@ -117,41 +125,42 @@ export function Revision({ inicial }: { readonly inicial: EstadoRevision }) {
     })
   }
 
+  const nota = bloqueado
+    ? 'Resolvé lo de arriba para poder calcular.'
+    : revision.resumen.sinMarcar > 0
+      ? `Quedan ${plural(revision.resumen.sinMarcar, 'posición sin marcar', 'posiciones sin marcar')}: se calculan como conservadas.`
+      : 'Todo listo. El cálculo corre en el servidor: los pesos del modelo no salen de ahí.'
+
   return (
-    <main className={estilos.pagina}>
-      <header className={estilos.encabezado}>
-        <div>
-          <p className="eyebrow">Paso 2 de 3</p>
-          <h1>{cliente.nombre ?? 'Revisión de posiciones'}</h1>
-          <p className={estilos.detalle}>
-            {[
-              estado.archivo,
-              cliente.horizonte !== null ? `horizonte ${cliente.horizonte}` : null,
-              plural(posiciones.length, 'posición', 'posiciones'),
-            ]
-              .filter((parte): parte is string => parte !== null)
-              .join(' · ')}
-          </p>
-        </div>
-        <div className={estilos.accionesEncabezado}>
-          <Guardado estado={guardado} sinGuardar={posicionesSinGuardar} />
-          <Link href="/" className="secundario">
-            Cargar otra ficha
-          </Link>
-        </div>
-      </header>
+    <Marco
+      asesor={asesor}
+      activo="fichas"
+      migas={[
+        { texto: 'Fichas', ruta: '/' },
+        { texto: cliente.nombre ?? estado.archivo },
+      ]}
+      acciones={<Guardado estado={guardado} sinGuardar={posicionesSinGuardar} />}
+    >
+      <Cabecera
+        cliente={cliente}
+        archivo={estado.archivo}
+        posiciones={posiciones.length}
+        resumen={revision.resumen}
+      />
 
-      <Resumen resumen={revision.resumen} usoPropioVisible={revision.resumen.usoPropioUsd > 0} />
-
-      <Avisos bloqueos={revision.bloqueos} avisos={estado.avisos} ignoradas={estado.ignoradas} />
-
-      <PanelParametros
+      <BarraParametros
         parametros={parametros}
         cambiar={cambiarParametros}
         patrimonioUsd={revision.resumen.patrimonioInvertibleUsd}
         inmueblesRentaUsd={revision.resumen.inmueblesRentaUsd}
         flujoDeclarado={cliente.flujoActual}
       />
+
+      {hayAvisos && (
+        <div className={estilos.avisos}>
+          <Avisos bloqueos={revision.bloqueos} avisos={estado.avisos} ignoradas={estado.ignoradas} />
+        </div>
+      )}
 
       <TablaPosiciones posiciones={posiciones} editar={editar} marcar={marcar} />
 
@@ -166,25 +175,18 @@ export function Revision({ inicial }: { readonly inicial: EstadoRevision }) {
         </details>
       )}
 
-      <div className={estilos.barra}>
-        <p className={estilos.pie}>
-          {bloqueado
-            ? 'Resolvé lo de arriba para poder calcular.'
-            : revision.resumen.sinMarcar > 0
-              ? `Quedan ${plural(revision.resumen.sinMarcar, 'posición sin marcar', 'posiciones sin marcar')}: se calculan como conservadas.`
-              : 'Todo listo para calcular.'}
-        </p>
-        <button
-          type="button"
-          className="primario"
-          disabled={bloqueado || calculando}
-          onClick={alCalcular}
-        >
-          {calculando ? 'Calculando…' : 'Calcular el plan'}
-        </button>
-      </div>
+      {plan !== null && (
+        <div className={estilos.plan}>
+          <PanelPlan plan={plan} />
+        </div>
+      )}
 
-      {plan !== null && <PanelPlan plan={plan} />}
-    </main>
+      <BarraAccion
+        nota={nota}
+        texto={calculando ? 'Calculando…' : 'Calcular el plan'}
+        deshabilitado={bloqueado || calculando}
+        alApretar={alCalcular}
+      />
+    </Marco>
   )
 }

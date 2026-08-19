@@ -1,139 +1,345 @@
+/*
+ * La tabla de trabajo.
+ *
+ * Densa a proposito: el resto de la pantalla respira, esto no. Los campos
+ * viven sin borde hasta que se los toca, para que la tabla se lea como tabla
+ * y no como un formulario de dieciseis filas.
+ */
+
+.bloque {
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 26px 22px;
+}
+
+.encabezado {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 9px;
+}
+
+.conteo {
+  font-size: 12.5px;
+  color: var(--tinta-3);
+}
+
+.total {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--tinta-3);
+}
+
+.total b {
+  color: var(--tinta);
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+/* Sin `overflow` propio a proposito: un contenedor con scroll rompe el
+   `position: sticky` de la cabecera, que pasa a pegarse al bloque en vez de a
+   la ventana y termina flotando sobre la primera fila. El desborde lateral se
+   maneja abajo, donde la cabecera deja de ser pegajosa. */
 .envoltorio {
-  overflow-x: auto;
-  background: var(--superficie);
   border: 1px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
-  box-shadow: var(--sombra);
+  border-radius: 8px;
+  background: var(--superficie);
 }
 
 .tabla {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1180px;
+  min-width: 880px;
   font-size: 13px;
+}
+
+.colIndice {
+  width: 34px;
+}
+
+.colClase {
+  width: 116px;
+}
+
+.colValor {
+  width: 150px;
+}
+
+.colRend {
+  width: 86px;
+}
+
+.colCta {
+  width: 152px;
+}
+
+.colChevron {
+  width: 36px;
 }
 
 .tabla th {
   position: sticky;
-  top: 0;
+  top: var(--alto-barra);
   z-index: 1;
-  background: var(--verde-noche);
-  color: var(--hueso);
+  background: var(--hundido);
+  border-bottom: 1px solid var(--borde);
   text-align: left;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  padding: 9px 8px;
+  color: var(--tinta-3);
+  padding: 9px 12px;
   white-space: nowrap;
 }
 
 .tabla td {
-  border-bottom: 1px solid var(--borde);
-  padding: 4px 8px;
+  border-bottom: 1px solid var(--borde-suave);
+  padding: 5px 12px;
   vertical-align: middle;
 }
 
-.tabla tbody tr:nth-child(even) {
-  background: #79a82d10;
-}
-
-.tabla tbody tr:hover {
-  background: var(--lavado-lima);
-}
-
-.tabla tfoot td {
-  background: var(--lavado-verde);
-  font-weight: 700;
-  color: var(--verde-prof);
+.tabla tbody tr:last-child td {
   border-bottom: none;
-  padding: 10px 8px;
+}
+
+.fila:nth-child(odd) {
+  background: var(--zebra);
+}
+
+.derecha {
+  text-align: right;
 }
 
 .indice {
-  color: var(--texto-tenue);
+  font-size: 10.5px;
+  color: var(--tinta-4);
+  text-align: right;
+  padding-right: 6px !important;
+}
+
+.celdaNombre {
+  min-width: 0;
+}
+
+.nombreLinea {
+  display: block;
+  position: relative;
+}
+
+.pie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 7px 3px;
+  min-height: 1px;
+}
+
+.pieTexto {
   font-size: 11px;
-  width: 28px;
-  text-align: right;
+  color: var(--tinta-3);
 }
 
-.numerica {
-  text-align: right;
-  white-space: nowrap;
+.fueraDeCalculo .texto,
+.fueraDeCalculo .numero {
+  color: var(--tinta-3);
 }
 
-.celdaTenue {
-  color: var(--texto-tenue);
-  font-size: 12px;
-}
-
-/* Los inputs viven sin borde hasta que se los toca: la tabla se lee como
-   tabla, no como formulario. */
+/* Campos: invisibles hasta que se los apunta. */
 .texto,
 .numero,
 .numeroCorto,
-.control {
+.numeroParcial {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radio-control);
-  padding: 4px 6px;
-  color: inherit;
-  width: 100%;
+  padding: 5px 6px;
+  color: var(--tinta);
+  font-size: 13px;
 }
 
 .texto {
-  min-width: 190px;
+  width: 100%;
+  font-weight: 500;
 }
 
 .numero {
+  width: 100%;
   text-align: right;
-  min-width: 104px;
+  font-size: 13.5px;
 }
 
 .numeroCorto {
+  width: 54px;
   text-align: right;
-  width: 62px;
-  min-width: 62px;
+  font-size: 12.5px;
+  color: var(--tinta-3);
 }
 
-.control {
-  min-width: 104px;
-  appearance: auto;
+.numeroParcial {
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  margin-top: 2px;
+  border-color: var(--borde);
+  color: var(--tinta-2);
 }
 
 .texto:hover,
 .numero:hover,
 .numeroCorto:hover,
-.control:hover {
-  border-color: var(--borde);
+.numeroParcial:hover {
+  border-color: var(--borde-fuerte);
 }
 
 .texto:focus,
 .numero:focus,
 .numeroCorto:focus,
-.control:focus {
-  border-color: var(--verde-sabbi);
+.numeroParcial:focus {
+  border-color: var(--acento);
   background: var(--superficie);
   outline: none;
 }
 
+.conSufijo {
+  display: inline-flex;
+  align-items: baseline;
+}
+
 .sufijo {
-  color: var(--texto-tenue);
   font-size: 11px;
-  margin-left: 2px;
+  color: var(--tinta-4);
 }
 
 .invalido {
-  border-color: var(--morado);
-  background: var(--lavado-morado);
+  border-color: var(--alerta);
+  background: var(--alerta-suave);
+  color: var(--alerta-texto);
 }
 
-.faltante {
-  border-color: var(--morado);
-  background: var(--lavado-morado);
+/* El chip de clase es un select: cambiarla es un clic, no abrir el detalle. */
+.chip {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 4px 7px;
+  max-width: 100%;
 }
 
-/* Punto discreto: lo tocó una persona, no el parser. */
+.chip:hover {
+  border-color: var(--borde-fuerte);
+}
+
+.chip:focus {
+  outline: 2px solid var(--atencion);
+  outline-offset: 1px;
+}
+
+.clase_cash {
+  background: var(--clase-cash-fondo);
+  color: var(--clase-cash-tinta);
+}
+
+.clase_fijo {
+  background: var(--clase-fijo-fondo);
+  color: var(--clase-fijo-tinta);
+}
+
+.clase_variable {
+  background: var(--clase-variable-fondo);
+  color: var(--clase-variable-tinta);
+}
+
+.clase_privados {
+  background: var(--clase-privados-fondo);
+  color: var(--clase-privados-tinta);
+}
+
+.clase_inm {
+  background: var(--clase-inm-fondo);
+  color: var(--clase-inm-tinta);
+}
+
+/* Sin clase el motor no corre: la fila lo dice, no lo esconde. */
+.chipFaltante {
+  background: var(--atencion-suave);
+  color: var(--atencion-texto);
+  border-color: var(--atencion);
+}
+
+/* Decision: la barra lleva el color y el texto se mantiene legible. */
+.decision {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.barra {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  flex: none;
+  display: block;
+}
+
+.selectCta {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radio-control);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 6px;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.selectCta:hover {
+  border-color: var(--borde-fuerte);
+}
+
+.cta_conservar {
+  background: var(--acento);
+}
+
+.cta_venta_total,
+.cta_venta_parcial {
+  background: var(--tinta);
+}
+
+.cta_sin_marcar {
+  background: var(--borde-fuerte);
+}
+
+.texto_conservar {
+  color: var(--acento-texto);
+}
+
+.texto_venta_total,
+.texto_venta_parcial {
+  color: var(--tinta);
+}
+
+.texto_sin_marcar {
+  color: var(--tinta-4);
+}
+
+.tenue {
+  font-size: 12px;
+  color: var(--tinta-4);
+}
+
+/* Punto discreto: lo toco una persona, no el parser. Centrado en la celda,
+   porque pegado arriba se lee como si perteneciera a la fila anterior. */
 .editado {
   position: relative;
 }
@@ -141,31 +347,19 @@
 .editado::after {
   content: '';
   position: absolute;
-  top: 6px;
+  top: 50%;
   right: 3px;
   width: 5px;
   height: 5px;
+  margin-top: -2.5px;
   border-radius: 50%;
-  background: var(--verde-sabbi);
+  background: var(--acento);
+  pointer-events: none;
 }
 
-.fueraDeCalculo {
-  color: var(--texto-tenue);
-}
-
-.fueraDeCalculo .texto,
-.fueraDeCalculo .numero {
-  color: var(--texto-tenue);
-}
-
-.marcas {
-  display: flex;
-  gap: 6px;
-  padding: 0 6px;
-}
-
-.marcaTenue,
-.marcaAtencion {
+.marca,
+.marcaAtencion,
+.marcaAlerta {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -174,27 +368,55 @@
   border-radius: 3px;
 }
 
-.marcaTenue {
+.marca {
   background: var(--borde);
-  color: var(--texto);
+  color: var(--tinta-2);
 }
 
 .marcaAtencion {
-  background: var(--lavanda);
-  color: var(--verde-noche);
+  background: var(--atencion-suave);
+  color: var(--atencion-texto);
 }
 
-.cta_conservar {
-  color: var(--verde-prof);
-  font-weight: 600;
+.marcaAlerta {
+  background: var(--alerta-suave);
+  color: var(--alerta-texto);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-.cta_venta_total,
-.cta_venta_parcial {
-  color: var(--morado);
-  font-weight: 600;
+.chevron {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  color: var(--tinta-4);
+  display: flex;
+  align-items: center;
+  border-radius: var(--radio-control);
 }
 
-.cta_sin_marcar {
-  color: var(--texto-tenue);
+.chevron:hover {
+  color: var(--tinta-2);
+}
+
+.giro {
+  transform: rotate(180deg);
+}
+
+.celdaDetalle {
+  padding: 0 !important;
+  background: var(--hundido);
+  border-bottom: 1px solid var(--borde) !important;
+}
+
+/* En pantalla angosta la tabla se desplaza sola y la cabecera deja de pegarse:
+   las dos cosas juntas no se pueden. */
+@media (max-width: 1100px) {
+  .envoltorio {
+    overflow-x: auto;
+  }
+
+  .tabla th {
+    position: static;
+  }
 }

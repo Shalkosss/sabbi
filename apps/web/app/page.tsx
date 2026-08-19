@@ -1,4 +1,5 @@
 import { ListaDeFichas } from '../componentes/ListaDeFichas'
+import { Marco } from '../componentes/Marco'
 import { SinAsesor } from '../componentes/SinAsesor'
 import { SubirFicha } from '../componentes/SubirFicha'
 import { listarFichas } from '../lib/datos/fichas'
@@ -22,31 +23,40 @@ export default async function Pagina() {
   const fichas = await listarFichas()
 
   return (
-    <main className={estilos.pagina}>
-      <header className={estilos.encabezado}>
-        <div>
-          <p className="eyebrow">Paso 1 de 3</p>
-          <h1>Subí la ficha patrimonial</h1>
-          <p className={estilos.detalle}>{asesor.nombre}</p>
-        </div>
+    <Marco
+      asesor={asesor}
+      activo="fichas"
+      migas={[{ texto: 'Fichas' }]}
+      acciones={
         <form action={salir}>
           <button type="submit" className="secundario">
             Salir
           </button>
         </form>
-      </header>
-
-      <SubirFicha />
-
-      {fichas.length > 0 && (
-        <section className={estilos.seccion} aria-labelledby="fichas-guardadas">
-          <h2 id="fichas-guardadas">Fichas que cargaste</h2>
-          <p className={estilos.pie}>
-            La revisión se guarda sola: cada una vuelve a abrirse donde la dejaste.
+      }
+    >
+      <div className={estilos.pagina}>
+        <header className={estilos.encabezado}>
+          <p className="eyebrow">Paso 1 de 3</p>
+          <h1>Subí la ficha patrimonial</h1>
+          <p className={estilos.detalle}>
+            El .xlsx que llena el cliente. Sale de acá con sus posiciones en una tabla, lista para
+            corregir lo que venga mal antes de calcular nada.
           </p>
-          <ListaDeFichas fichas={fichas} />
-        </section>
-      )}
-    </main>
+        </header>
+
+        <SubirFicha />
+
+        {fichas.length > 0 && (
+          <section className={estilos.seccion} aria-labelledby="fichas-guardadas">
+            <h2 id="fichas-guardadas">Fichas que cargaste</h2>
+            <p className={estilos.pie}>
+              La revisión se guarda sola: cada una vuelve a abrirse donde la dejaste.
+            </p>
+            <ListaDeFichas fichas={fichas} />
+          </section>
+        )}
+      </div>
+    </Marco>
   )
 }

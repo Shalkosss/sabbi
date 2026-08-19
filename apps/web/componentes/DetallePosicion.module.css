@@ -1,0 +1,98 @@
+/*
+ * El detalle de una fila, desplegado.
+ *
+ * Sangrado a la altura del nombre para que se lea como parte de su fila y no
+ * como un bloque suelto. Campos con linea abajo, no cajas: es una ficha, no un
+ * formulario nuevo.
+ */
+
+.detalle {
+  padding: 16px 12px 18px 46px;
+}
+
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px 22px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  position: relative;
+}
+
+.ancho {
+  margin-top: 16px;
+}
+
+.etiqueta {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.entrada {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--borde-fuerte);
+  border-radius: 0;
+  padding: 0 0 5px;
+  font-size: 13px;
+  color: var(--tinta);
+  width: 100%;
+}
+
+.entrada:hover {
+  border-bottom-color: var(--tinta-4);
+}
+
+.entrada:focus {
+  border-bottom-color: var(--acento);
+  outline: none;
+}
+
+.entrada::placeholder {
+  color: var(--tinta-4);
+}
+
+/* Lo que no se edita no se disfraza de campo editable. */
+.fijo {
+  font-size: 13px;
+  color: var(--tinta-2);
+  padding-bottom: 6px;
+}
+
+.aclaracion {
+  font-size: 11px;
+  color: var(--tinta-3);
+  margin-left: 8px;
+}
+
+.conSufijo {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sufijo {
+  font-size: 11px;
+  color: var(--tinta-4);
+}
+
+.editado::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--acento);
+  pointer-events: none;
+}

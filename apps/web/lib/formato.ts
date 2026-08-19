@@ -40,3 +40,15 @@ export function desdeInput(texto: string): number | null {
 /** Plural sin la muleta de "(s)". */
 export const plural = (cantidad: number, singular: string, plural: string): string =>
   `${cantidad} ${cantidad === 1 ? singular : plural}`
+
+/**
+ * Fraccion a porcentaje editable.
+ *
+ * Un cap rate calculado sale con quince decimales; en pantalla van dos. Lo que
+ * el asesor teclea se respeta tal cual, sin recortarle nada.
+ */
+export function porcentajeEditable(fraccion: number | null, editado: boolean): string {
+  if (fraccion === null) return ''
+  const escala = fraccion * 100
+  return editado ? String(escala) : String(Number(escala.toFixed(2)))
+}

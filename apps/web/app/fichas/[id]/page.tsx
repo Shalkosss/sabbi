@@ -22,5 +22,5 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   const revision = await cargarRevision(id)
   if (revision === null) notFound()
 
-  return <Revision inicial={revision} />
+  return <Revision inicial={revision} asesor={asesor} />
 }

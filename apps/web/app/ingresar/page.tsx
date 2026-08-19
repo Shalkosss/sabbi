@@ -11,11 +11,9 @@ export default async function PaginaIngreso({ searchParams }: Props) {
   return (
     <main className={estilos.pagina}>
       <header className={estilos.encabezado}>
-        <div>
-          <p className="eyebrow">Sabbi</p>
-          <h1>Plan Patrimonial</h1>
-          <p className={estilos.detalle}>Entrá con tu cuenta de asesor para empezar.</p>
-        </div>
+        <p className="eyebrow">Sabbi</p>
+        <h1>Plan Patrimonial</h1>
+        <p className={estilos.detalle}>Entrá con tu cuenta de asesor para empezar.</p>
       </header>
 
       <FormularioIngreso volver={volver ?? '/'} />

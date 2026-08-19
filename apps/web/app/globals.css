@@ -1,33 +1,109 @@
 /*
  * Sistema visual Sabbi.
  *
- * Los tokens salen del manual de marca 2026 (Anexo A de la especificacion).
- * Regla de contraste que no se negocia: tinta verde oscura sobre superficies
- * claras, texto oscuro sobre rellenos lima o verde Sabbi, y blanco solo sobre
- * morado o los verdes oscuros. Blanco sobre verde Sabbi no pasa AA.
+ * Dos capas. Abajo, los siete colores de marca, que no se tocan. Encima, los
+ * roles: fondo, superficie, tinta, borde, acento. Los componentes solo hablan
+ * de roles, nunca de marca, y por eso el juego oscuro existe sin duplicar una
+ * sola regla.
+ *
+ * El tema se resuelve con `light-dark()` sobre `color-scheme`: por defecto
+ * manda el sistema operativo, y `data-tema` en el <html> lo fuerza cuando el
+ * asesor elige. Cada valor de abajo esta medido contra su fondo; lo que carga
+ * texto queda en 4.5 a 1 o mas, que es el minimo AA para cuerpo. Lo unico por
+ * debajo es la tinta decorativa, que solo pinta numeros de fila y chevrones.
  */
 
 :root {
+  color-scheme: light dark;
+
+  /* Marca, sin tocar. */
   --hueso: #f4f4ed;
-  --superficie: #ffffff;
   --verde-sabbi: #79a82d;
   --verde-prof: #334f1b;
   --verde-noche: #223311;
   --lima: #c3ed74;
   --morado: #7562c6;
   --lavanda: #b5b3ff;
-  --borde: #e2e1d6;
-  --texto: #566347;
-  --texto-tenue: #6b7a5a;
 
-  --lavado-verde: #eef3e4;
-  --lavado-morado: #efedf8;
-  --lavado-lima: #f6fbe8;
+  /* Superficies. */
+  --fondo: light-dark(#f4f4ed, #141d0c);
+  --superficie: light-dark(#ffffff, #1b2713);
+  --hundido: light-dark(#faf9f2, #18220f);
+  --zebra: light-dark(#fcfbf6, #1e2b15);
 
-  --sombra: 0 1px 10px rgba(51, 79, 27, 0.06);
-  --radio-tarjeta: 16px;
-  --radio-boton: 40px;
-  --radio-control: 8px;
+  /* Bordes, de mas suave a mas firme. */
+  --borde-suave: light-dark(#efeee4, #243019);
+  --borde: light-dark(#e4e3d6, #2c3b21);
+  --borde-fuerte: light-dark(#d3d2c2, #3b4d2c);
+
+  /* Tintas. 1 titula, 2 es cuerpo, 3 etiqueta, 4 solo decora. */
+  --tinta: light-dark(#223311, #eceadd);
+  --tinta-2: light-dark(#47563a, #bcc6ac);
+  --tinta-3: light-dark(#657452, #9aa888);
+  --tinta-4: light-dark(#8a9679, #7d8b6f);
+
+  /* Acento: el verde que sostiene la pantalla. */
+  --acento: light-dark(#79a82d, #93c93f);
+  --acento-texto: light-dark(#55791c, #a8d858);
+  --acento-suave: light-dark(#eef3e4, #22331a);
+
+  /* Atencion: la cifra que importa. Una por pantalla. */
+  --atencion: light-dark(#7562c6, #8f7fdc);
+  --atencion-texto: light-dark(#5f4eab, #a596ea);
+  --atencion-suave: light-dark(#f1eff9, #221f33);
+
+  /* Alerta: lo que la base rechaza. */
+  --alerta: light-dark(#9c3b28, #c96a52);
+  --alerta-texto: light-dark(#9c3b28, #e0836c);
+  --alerta-suave: light-dark(#f8ede9, #2b1a14);
+
+  /* El rail de navegacion es oscuro en los dos juegos. */
+  --rail: light-dark(#223311, #0f1707);
+  --rail-tinta: light-dark(#f4f4ed, #eceadd);
+  --rail-tenue: light-dark(#8b9a7b, #7e8c6c);
+  --rail-borde: light-dark(rgba(244, 244, 237, 0.13), #26331b);
+  --rail-activo: light-dark(rgba(244, 244, 237, 0.11), #1e2b15);
+
+  /* El unico boton primario de la pantalla. */
+  --boton-fondo: light-dark(#334f1b, #93c93f);
+  --boton-tinta: light-dark(#f4f4ed, #141d0c);
+
+  /* Clases del modelo. El fondo agrupa la familia, la tinta la distingue. */
+  --clase-cash-fondo: light-dark(#eceadd, #26331b);
+  --clase-cash-tinta: light-dark(#4a5840, #bcc6ac);
+  --clase-fijo-fondo: light-dark(#e7efd8, #2b3f19);
+  --clase-fijo-tinta: light-dark(#41611c, #a8d858);
+  --clase-variable-fondo: light-dark(#eef7d5, #334a1c);
+  --clase-variable-tinta: light-dark(#4d6c14, #c3ed74);
+  --clase-privados-fondo: light-dark(#eeebf8, #292344);
+  --clase-privados-tinta: light-dark(#584aa0, #a596ea);
+  --clase-inm-fondo: light-dark(#e5e3f4, #241f3b);
+  --clase-inm-tinta: light-dark(#3f3585, #b5b3ff);
+
+  --sombra: light-dark(0 1px 10px rgba(51, 79, 27, 0.06), 0 1px 10px rgba(0, 0, 0, 0.35));
+  --radio-tarjeta: 12px;
+  --radio-boton: 6px;
+  --radio-control: 6px;
+
+  /* Alto de la barra superior: la cabecera de la tabla se pega debajo. */
+  --alto-barra: 57px;
+
+  /* Aliases del sistema anterior. Siguen vivos para que ninguna hoja quede
+     clavada en el juego claro mientras se migra componente por componente. */
+  --texto: var(--tinta-2);
+  --texto-tenue: var(--tinta-3);
+  --titulo: var(--tinta);
+  --lavado-verde: var(--acento-suave);
+  --lavado-lima: var(--acento-suave);
+  --lavado-morado: var(--atencion-suave);
+}
+
+:root[data-tema='claro'] {
+  color-scheme: light;
+}
+
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
 }
 
 * {
@@ -41,8 +117,8 @@ body {
 }
 
 body {
-  background: var(--hueso);
-  color: var(--verde-noche);
+  background: var(--fondo);
+  color: var(--tinta);
   font-family: var(--fuente-sabbi), system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.6;
@@ -52,27 +128,27 @@ body {
 h1,
 h2,
 h3 {
-  color: var(--verde-prof);
+  color: var(--tinta);
   margin: 0;
   text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(28px, 4vw, 40px);
-  font-weight: 800;
+  font-size: 26px;
+  font-weight: 700;
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.018em;
 }
 
 h2 {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 h3 {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -94,54 +170,57 @@ textarea {
 }
 
 .eyebrow {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--verde-sabbi);
+  color: var(--acento-texto);
 }
 
 .mono {
-  font-family: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* Un boton primario por pantalla; todo lo demas es secundario. */
 .primario {
-  background: var(--verde-prof);
-  color: var(--hueso);
+  background: var(--boton-fondo);
+  color: var(--boton-tinta);
   border: none;
   border-radius: var(--radio-boton);
-  padding: 12px 28px;
+  padding: 10px 22px;
+  font-size: 13px;
   font-weight: 700;
-  transition: background 120ms ease;
+  transition: filter 120ms ease;
 }
 
 .primario:hover:not(:disabled) {
-  background: var(--verde-noche);
+  filter: brightness(1.08);
 }
 
 .primario:disabled {
   background: var(--borde);
-  color: var(--texto-tenue);
+  color: var(--tinta-4);
   cursor: not-allowed;
 }
 
 .secundario {
   background: transparent;
-  color: var(--verde-prof);
-  border: 1px solid var(--borde);
+  color: var(--tinta-2);
+  border: 1px solid var(--borde-fuerte);
   border-radius: var(--radio-boton);
-  padding: 8px 18px;
+  padding: 7px 15px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .secundario:hover {
-  border-color: var(--verde-sabbi);
+  border-color: var(--acento);
+  color: var(--tinta);
 }
 
 :focus-visible {
-  outline: 2px solid var(--morado);
+  outline: 2px solid var(--atencion);
   outline-offset: 2px;
 }
 

@@ -1,10 +1,9 @@
+/* Vive plegado dentro de la barra de parametros: no lleva chrome propio,
+   porque un bloque abierto dentro de otro bloque se lee como dos cosas. */
 .panel {
   background: var(--superficie);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
-  box-shadow: var(--sombra);
-  padding: 18px 20px;
-  margin-bottom: 18px;
+  border-top: 1px solid var(--borde);
+  padding: 18px 26px 22px;
 }
 
 .principales {
@@ -26,12 +25,12 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--texto-tenue);
+  color: var(--tinta-3);
 }
 
 .campo select,
 .campo input {
-  background: var(--hueso);
+  background: var(--hundido);
   border: 1px solid var(--borde);
   border-radius: var(--radio-control);
   padding: 7px 10px;
@@ -39,13 +38,13 @@
 
 .campo select:focus,
 .campo input:focus {
-  border-color: var(--verde-sabbi);
+  border-color: var(--acento);
   outline: none;
 }
 
 .derivado {
   font-weight: 700;
-  color: var(--verde-prof);
+  color: var(--tinta);
   display: flex;
   flex-direction: column;
   padding-top: 4px;
@@ -54,7 +53,7 @@
 .ayuda {
   font-size: 11.5px;
   font-weight: 400;
-  color: var(--texto-tenue);
+  color: var(--tinta-3);
   line-height: 1.4;
   max-width: 40ch;
 }
@@ -69,7 +68,7 @@
 
 .interruptor input {
   margin-top: 3px;
-  accent-color: var(--verde-sabbi);
+  accent-color: var(--acento-texto);
   width: 16px;
   height: 16px;
 }
@@ -81,7 +80,7 @@
 }
 
 .interruptor b {
-  color: var(--verde-prof);
+  color: var(--tinta);
 }
 
 .avanzado {
@@ -96,7 +95,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--verde-sabbi);
+  color: var(--acento-texto);
   list-style: none;
 }
 

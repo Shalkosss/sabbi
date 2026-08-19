@@ -12,20 +12,19 @@ export function SinAsesor() {
   return (
     <main className={estilos.pagina}>
       <header className={estilos.encabezado}>
-        <div>
-          <p className="eyebrow">Cuenta sin dar de alta</p>
-          <h1>Falta un paso</h1>
-          <p className={estilos.detalle}>
-            Tu cuenta existe, pero todavía no está enlazada a un asesor de Sabbi. Pedile al admin
-            que te agregue y volvé a entrar.
-          </p>
-        </div>
-        <form action={salir}>
-          <button type="submit" className="secundario">
-            Salir
-          </button>
-        </form>
+        <p className="eyebrow">Cuenta sin dar de alta</p>
+        <h1>Falta un paso</h1>
+        <p className={estilos.detalle}>
+          Tu cuenta existe, pero todavía no está enlazada a un asesor de Sabbi. Pedile al admin que
+          te agregue y volvé a entrar.
+        </p>
       </header>
+
+      <form action={salir} className={estilos.acciones}>
+        <button type="submit" className="secundario">
+          Salir
+        </button>
+      </form>
     </main>
   )
 }

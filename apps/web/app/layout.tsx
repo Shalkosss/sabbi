@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Hanken_Grotesk } from 'next/font/google'
 
+import { GUION_TEMA } from '../lib/tema'
 import './globals.css'
 
 /**
@@ -22,7 +23,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={hanken.variable}>
+    // El tema elegido lo escribe el guion de abajo antes del primer pintado,
+    // asi que el atributo cambia entre servidor y cliente a proposito.
+    <html lang="es" className={hanken.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />
+      </head>
       <body>{children}</body>
     </html>
   )

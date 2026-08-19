@@ -30,13 +30,13 @@
 }
 
 .tarjeta:hover {
-  border-color: var(--verde-sabbi);
+  border-color: var(--acento);
   box-shadow: var(--sombra);
 }
 
 .cliente {
   font-weight: 700;
-  color: var(--verde-prof);
+  color: var(--tinta);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -45,7 +45,7 @@
 .archivo,
 .fecha {
   font-size: 13px;
-  color: var(--texto-tenue);
+  color: var(--tinta-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -53,7 +53,7 @@
 
 .monto {
   font-size: 14px;
-  color: var(--texto);
+  color: var(--tinta-2);
   text-align: right;
 }
 

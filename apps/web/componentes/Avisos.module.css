@@ -14,15 +14,15 @@
 }
 
 .bloqueo {
-  background: var(--lavado-morado);
-  border-left: 3px solid var(--morado);
-  color: var(--verde-noche);
+  background: var(--atencion-suave);
+  border-left: 3px solid var(--atencion);
+  color: var(--tinta);
 }
 
 .aviso {
-  background: var(--lavado-lima);
-  border-left: 3px solid var(--verde-sabbi);
-  color: var(--texto);
+  background: var(--acento-suave);
+  border-left: 3px solid var(--acento);
+  color: var(--tinta-2);
 }
 
 .fila {
@@ -32,7 +32,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   background: var(--borde);
-  color: var(--texto);
+  color: var(--tinta-2);
   border-radius: 3px;
   padding: 1px 6px;
   margin-right: 8px;
@@ -40,7 +40,7 @@
 
 .ignoradas {
   font-size: 13px;
-  color: var(--texto);
+  color: var(--tinta-2);
   background: var(--superficie);
   border: 1px solid var(--borde);
   border-radius: var(--radio-control);
@@ -50,7 +50,7 @@
 .ignoradas summary {
   cursor: pointer;
   font-weight: 600;
-  color: var(--verde-prof);
+  color: var(--tinta);
 }
 
 .ignoradas ul {
@@ -64,6 +64,6 @@
 }
 
 .motivo {
-  color: var(--texto-tenue);
+  color: var(--tinta-3);
   font-size: 12px;
 }

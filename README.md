@@ -23,7 +23,7 @@ Reemplaza dos herramientas: un HTML monolítico de 10,863 líneas y la macro
    un `.tsx` es un error.
 3. **Una sola función `claseDe(posición)`**, usada por el motor y por la UI. Dos
    criterios en paralelo produjeron el bug v37.25b.
-4. **Neteo solo contra el menú real de cada clase.** El catálogo tiene 308
+4. **Neteo solo contra el menú real de cada clase.** El catálogo tiene 319
    productos y solo 24 son ofrecibles. Confundirlos produjo el bug v37.25, en el
    que 2.3 MM conservados se volvieron invisibles para el motor.
 5. **Golden tests desde el día uno.** El caso Ana Tumi es regresión permanente.
@@ -132,10 +132,9 @@ USD sobre el caso Ana Tumi.
 
 ### Pendientes con el equipo
 
-- **Dos productos del menú ofrecible sin dato.** Son los que salen impresos en
-  propuestas reales, así que van primero: **IBIT** no tiene retorno cargado
-  —por eso la línea de BTC viaja sin cifra— y **Flip - Buho Consciente** no
-  tiene clase. `select * from productos_incompletos where urgente` los lista.
+- **IBIT no tiene retorno cargado.** Es el único producto del menú ofrecible al
+  que le falta un dato, y por eso la línea de BTC sale sin cifra en propuestas
+  reales. `select * from productos_incompletos where urgente` lo lista.
 - **El instrumento del oro.** La clase Otros se abre en BTC y Oro, pero el
   catálogo no tiene un producto de oro cargado. Qué vehículo lo implementa
   —GLD, otro ETF, físico— es decisión de la mesa; hasta entonces esa línea
@@ -144,7 +143,13 @@ USD sobre el caso Ana Tumi.
   ETF` está cargado dos veces, al 7–9% y al 6.5–9.5%. El emparejador se
   abstiene, así que el ETF sale sin retorno. La lista completa está en la vista
   `productos_duplicados`.
-- **63 productos con algún dato faltante.** `productos_incompletos` es la cola
+- **Cinco celdas de la planilla `BD_Productos` para corregir.** Una parte de
+  `Sura Fondo de Inversión FIRBI A` dice 200%, que es imposible para una parte
+  sola y el importador la descarta avisando. Y cuatro composiciones no cierran
+  en 100%: `AFP Habitat - Fondo 3` (96%), las dos clases de
+  `Sabbi Dividendos Global` (7%) y `Scotiabank Fondo Mediano Plazo Soles`
+  (103.1%). Se guardan igual y quedan en `productos_descuadrados`.
+- **56 productos con algún dato faltante.** `productos_incompletos` es la cola
   de trabajo; cada uno es una celda vacía en alguna propuesta.
 - **Tipografía.** La marca pide Avenir Next Pro. Sin confirmar la licencia, la
   plantilla usa una genérica; cambiar `TIPOGRAFIA` en `tokenizar.py` y volver a

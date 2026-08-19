@@ -8,6 +8,10 @@ en una biblioteca compartida del equipo.
 ficha .xlsx  →  revisión y decisión  →  motor  →  propuesta  →  2 decks
 ```
 
+Subir la ficha es el único paso obligatorio: la app cataloga los productos que
+trae, propone qué se conserva y qué se vende, y deja la propuesta calculada. El
+asesor corrige excepciones, no llena casillas.
+
 Reemplaza dos herramientas: un HTML monolítico de 10,863 líneas y la macro
 `Benchmark Sabbi` en VBA.
 
@@ -19,10 +23,18 @@ Reemplaza dos herramientas: un HTML monolítico de 10,863 líneas y la macro
    un `.tsx` es un error.
 3. **Una sola función `claseDe(posición)`**, usada por el motor y por la UI. Dos
    criterios en paralelo produjeron el bug v37.25b.
-4. **Neteo solo contra el menú real de cada clase.** El catálogo tiene 307
+4. **Neteo solo contra el menú real de cada clase.** El catálogo tiene 308
    productos y solo 24 son ofrecibles. Confundirlos produjo el bug v37.25, en el
    que 2.3 MM conservados se volvieron invisibles para el motor.
 5. **Golden tests desde el día uno.** El caso Ana Tumi es regresión permanente.
+6. **Ningún dato vacío pasa en silencio.** `camposFaltantes()` define qué es una
+   posición completa; con esa lista la revisión marca cada fila y la propuesta
+   se bloquea. Lo que el catálogo ya sabe se completa solo; lo que nadie sabe se
+   pide.
+7. **No inventar lo que los datos no sostienen.** Un retorno que no está en el
+   catálogo viaja como `null` y la vista lo dice en su nota de cobertura. Ante
+   dos productos con el mismo nombre y distinto retorno, el emparejador se
+   abstiene en vez de elegir.
 
 ## Estructura
 
@@ -31,7 +43,8 @@ apps/web/              Next.js. UI delgada, sin reglas de negocio
 packages/
   core/                MOTOR PURO
     domain/            tipos: Perfil, Segmento, ClaseModelo, Posición, Piso
-    rules/             reparto, cascada, privados, neteo, cuadre
+    rules/             reparto, cascada, privados, club, otros, residuales
+    propuesta/         las siete secciones y las dos miradas del cliente
   config/              schema Zod y carga de configuración
   io/                  parsers de ficha
   export/
@@ -68,6 +81,31 @@ clases según el benchmark del perfil; si a una clase le tocaría menos de lo qu
 ya tiene cubierto, se cierra en ese piso y el resto se redistribuye entre las
 demás. Itera hasta converger.
 
+### Las siete clases
+
+La hoja `Allocation detallado` trae Club Deals y Otros como bloques de primer
+nivel, no como familias dentro de Mercados Privados, y desde la configuración v4
+el motor las trata así:
+
+| Clase | Qué entra | Mínimo |
+|---|---|---|
+| Mercados Públicos — Fijo | ETFs de bonos | 20,000 por ETF; abajo, Flip - Panda Zen |
+| Mercados Públicos — Variable | ETFs de acciones | 20,000 por ETF; abajo, Flip - Cobra achorada |
+| Mercados Privados | FM RE Infra, FM PC, FM PE VC, Fondo Oportunidad | 50,000 por fondo mutuo; el Fondo Oportunidad no tiene |
+| Club Deals | Edifica Clase A o B; Fondo Estratégico con flujos | 10,000 |
+| Otros | BTC (IBIT) y Oro | 10,000 |
+| Inmobiliario Directo | el inmueble propio o TBD | la clase se disuelve bajo 500,000 de ticket |
+| Cash | Sura Ultracash Dólares | — |
+
+Partir la clase en tres no mueve un centavo del bloque: el solver es
+proporcional y el caso Ana Tumi se reproduce al centavo. Lo que cambia es dónde
+vive el neteo — ahora lo hace el solver de pisos, clase por clase, en vez de la
+rutina de familias.
+
+Lo que no llega a su mínimo no imprime una línea inejecutable: Club Deals y
+Otros por debajo de 10,000 pasan al Fondo Oportunidad, que no tiene mínimo, y un
+aviso lo deja escrito.
+
 Los pisos vienen de dos fuentes que el motor trata igual: posiciones que el
 cliente conserva y restricciones que pone el asesor. Por eso "el cliente quiere
 quedarse con esta casa aunque el modelo pida menos" no necesita código aparte.
@@ -82,10 +120,10 @@ USD sobre el caso Ana Tumi.
 | Fase | Alcance | Estado |
 |---|---|---|
 | 0 | Monorepo, TypeScript estricto, Vitest | hecho |
-| 1 | Esquema Supabase, auth, configuración | en curso |
-| 2 | Parser de ficha y pantalla de revisión | |
-| 3 | Motor `generarPlan()` y golden test | reparto por clase hecho |
-| 4 | Vista web de la propuesta | |
+| 1 | Esquema Supabase, auth, configuración | hecho |
+| 2 | Parser de ficha y pantalla de revisión | hecho |
+| 3 | Motor `generarPlan()` y golden test | hecho |
+| 4 | Vista web de la propuesta | hecho |
 | 5 | Export a Excel | |
 | 6 | PPT réplica | plantilla tokenizada |
 | 7 | PPT rediseñado | |
@@ -94,9 +132,25 @@ USD sobre el caso Ana Tumi.
 
 ### Pendientes con el equipo
 
+- **Dos productos del menú ofrecible sin dato.** Son los que salen impresos en
+  propuestas reales, así que van primero: **IBIT** no tiene retorno cargado
+  —por eso la línea de BTC viaja sin cifra— y **Flip - Buho Consciente** no
+  tiene clase. `select * from productos_incompletos where urgente` los lista.
+- **El instrumento del oro.** La clase Otros se abre en BTC y Oro, pero el
+  catálogo no tiene un producto de oro cargado. Qué vehículo lo implementa
+  —GLD, otro ETF, físico— es decisión de la mesa; hasta entonces esa línea
+  viaja sin retorno y la vista lo dice en su nota de cobertura.
+- **Un producto duplicado con dos retornos.** `iShares Core MSCI EM IMI UCITS
+  ETF` está cargado dos veces, al 7–9% y al 6.5–9.5%. El emparejador se
+  abstiene, así que el ETF sale sin retorno. La lista completa está en la vista
+  `productos_duplicados`.
+- **63 productos con algún dato faltante.** `productos_incompletos` es la cola
+  de trabajo; cada uno es una celda vacía en alguna propuesta.
 - **Tipografía.** La marca pide Avenir Next Pro. Sin confirmar la licencia, la
   plantilla usa una genérica; cambiar `TIPOGRAFIA` en `tokenizar.py` y volver a
   correrlo es toda la migración.
-- **Regla de flujos.** El §8.4 manda el club a Sabbi Fondo Estratégico cuando el
-  cliente necesita flujos. El motor canónico no la implementa. En stand by.
+- **Regla de flujos.** El toggle está implementado y saca a los fondos mutuos de
+  Mercados Privados, pero no se enciende solo: la ficha de Ana Tumi declara un
+  flujo de 3,000 soles mensuales y encenderlo cambia el portafolio entero. Que
+  esa inferencia sea automática o siga siendo del asesor es decisión del equipo.
 - **Láminas 1 a 8 del deck réplica.** Definir cuáles llevan dato. En stand by.

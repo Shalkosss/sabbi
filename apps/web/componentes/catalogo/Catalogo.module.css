@@ -1,0 +1,478 @@
+/*
+ * El catalogo de productos.
+ *
+ * Mas denso todavia que la tabla de revision: son trescientas filas con la
+ * composicion de cada una a la vista. Lo que hace legible eso no es el espacio
+ * sino la jerarquia — el nombre pesa, la composicion es tenue, y lo unico que
+ * grita es la fila que no suma cien.
+ */
+
+.pantalla {
+  width: 100%;
+  padding: 28px 26px 64px;
+}
+
+.encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.encabezado h1 {
+  margin-top: 8px;
+}
+
+.detalle {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--tinta-3);
+  max-width: 76ch;
+}
+
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 0;
+}
+
+.busqueda {
+  flex-grow: 1;
+  max-width: 420px;
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.busqueda:focus {
+  border-color: var(--acento);
+  outline: none;
+}
+
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--tinta-2);
+  cursor: pointer;
+}
+
+.interruptor input {
+  accent-color: var(--acento);
+}
+
+.conteo {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--tinta-3);
+}
+
+.envoltorio {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: var(--superficie);
+  overflow-x: auto;
+}
+
+.tabla {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1180px;
+  font-size: 12.5px;
+}
+
+.tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--hundido);
+  border-bottom: 1px solid var(--borde);
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--borde-suave);
+  vertical-align: top;
+}
+
+.tabla tbody tr:nth-child(odd) {
+  background: var(--zebra);
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.nombre,
+.nombreBoton {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta);
+  display: block;
+  text-align: left;
+}
+
+.nombreBoton {
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--borde-fuerte);
+  text-underline-offset: 3px;
+}
+
+.nombreBoton:hover {
+  color: var(--acento-texto);
+  text-decoration-color: var(--acento);
+}
+
+.marcas {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.marca,
+.marcaSabbi,
+.marcaAlerta {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.marca {
+  background: var(--borde);
+  color: var(--tinta-2);
+}
+
+.marcaSabbi {
+  background: var(--acento-suave);
+  color: var(--acento-texto);
+}
+
+.marcaAlerta {
+  background: var(--alerta-suave);
+  color: var(--alerta-texto);
+}
+
+/* La fila que no cierra: la unica que se ve distinta de lejos. */
+.descuadrado td:first-child {
+  box-shadow: inset 3px 0 0 var(--alerta);
+}
+
+.partes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.parte {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--tinta-2);
+  max-width: 260px;
+}
+
+.parte b {
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.actor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--tinta-2);
+}
+
+.score {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--acento-suave);
+  color: var(--acento-texto);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.vacio {
+  color: var(--tinta-4);
+  font-style: italic;
+}
+
+.sinResultados {
+  padding: 28px;
+  text-align: center;
+  color: var(--tinta-3);
+  font-size: 13px;
+}
+
+/* ── Formulario ───────────────────────────────────────────────────────────── */
+
+.telon {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(34, 51, 17, 0.4);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.panel {
+  width: min(680px, 100%);
+  background: var(--fondo);
+  border-left: 1px solid var(--borde);
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;
+}
+
+.panelCabecera {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie);
+}
+
+.panelCabecera h2 {
+  margin-top: 6px;
+}
+
+.cuerpo {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panelPie {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--borde);
+  background: var(--superficie);
+}
+
+.panelPie button {
+  margin-left: auto;
+}
+
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.campo input,
+.campo select {
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 10px;
+  font-size: 13px;
+  width: 100%;
+}
+
+.campo input:focus,
+.campo select:focus {
+  border-color: var(--acento);
+  outline: none;
+}
+
+.ayuda {
+  font-size: 12px;
+  color: var(--tinta-3);
+  line-height: 1.45;
+}
+
+.composicion {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  background: var(--superficie);
+  padding: 14px 16px;
+}
+
+.composicionCabecera {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.composicionTitulo {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.totalOk,
+.totalRoto {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 7px;
+  border-radius: 3px;
+}
+
+.totalOk {
+  background: var(--acento-suave);
+  color: var(--acento-texto);
+}
+
+.totalRoto {
+  background: var(--alerta-suave);
+  color: var(--alerta-texto);
+}
+
+.agregar {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tinta-2);
+}
+
+.agregar:hover:not(:disabled) {
+  border-color: var(--acento);
+  color: var(--tinta);
+}
+
+.agregar:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.filasComposicion {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filasComposicion li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filasComposicion select {
+  flex-grow: 1;
+  min-width: 0;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+
+.conSufijo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.conSufijo input {
+  width: 72px;
+  text-align: right;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+
+.quitar {
+  background: transparent;
+  border: none;
+  color: var(--tinta-4);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radio-control);
+}
+
+.quitar:hover {
+  color: var(--alerta-texto);
+  background: var(--alerta-suave);
+}
+
+.banderas {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.banderas label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.banderas input {
+  accent-color: var(--acento);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--alerta-texto);
+  background: var(--alerta-suave);
+  border-left: 3px solid var(--alerta);
+  border-radius: 0 var(--radio-control) var(--radio-control) 0;
+  padding: 10px 14px;
+}

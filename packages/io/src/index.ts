@@ -21,3 +21,17 @@ export type {
 export { celda, leerLibro, refA1 } from './xlsx/leer.js'
 export type { Celda, Hoja, Libro } from './xlsx/leer.js'
 export { contiene, equivale, normalizar } from './texto.js'
+export { parsearCatalogo } from './catalogo/parsear.js'
+export { CLASES_ACTIVO, REGIONES } from './catalogo/vocabulario.js'
+export { LIQUIDECES } from './catalogo/tipos.js'
+export type {
+  ActorCatalogo,
+  AvisoCatalogo,
+  CatalogoParseado,
+  Componente,
+  Liquidez,
+  MotivoAviso,
+  ProductoCatalogo,
+  RegionCatalogo,
+  SubyacenteCatalogo,
+} from './catalogo/tipos.js'

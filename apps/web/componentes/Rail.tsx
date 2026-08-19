@@ -28,7 +28,7 @@ const SECCIONES: readonly Item[] = [
     icono: 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm-5 6c0-2.5 2.2-4 5-4s5 1.5 5 4',
     ruta: null,
   },
-  { clave: 'catalogo', texto: 'Catálogo', icono: 'M2 3h5v10H2zm7 0h5v10H9z', ruta: null },
+  { clave: 'catalogo', texto: 'Catálogo', icono: 'M2 3h5v10H2zm7 0h5v10H9z', ruta: '/catalogo' },
   { clave: 'bitacora', texto: 'Bitácora', icono: 'M8 4v4l3 2M8 14A6 6 0 108 2a6 6 0 000 12z', ruta: null },
 ]
 

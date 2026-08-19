@@ -50,7 +50,7 @@ export function Cabecera({ cliente, archivo, posiciones, resumen }: Props) {
         <Cifra
           etiqueta="A reinvertir"
           valor={usd(resumen.dineroDisponibleUsd)}
-          nota="lo que el plan reparte entre las cinco clases"
+          nota="lo que el plan reparte entre las siete clases"
           destacada
         />
         <Cifra

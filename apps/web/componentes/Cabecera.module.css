@@ -35,8 +35,9 @@
 .cifra {
   padding: 0 26px;
   border-left: 1px solid var(--borde);
-  min-width: 190px;
-  max-width: 230px;
+  flex: 1 1 auto;
+  min-width: 200px;
+  max-width: 290px;
 }
 
 .etiqueta {
@@ -47,13 +48,16 @@
   color: var(--tinta-3);
 }
 
+/* Un patrimonio de ocho cifras no entra a 27px en una columna de 190: el
+   tamaño cede antes que el número, que nunca se corta ni se parte. */
 .valor {
-  font-size: 27px;
+  font-size: clamp(20px, 1.85vw, 27px);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--tinta);
   margin-top: 8px;
+  white-space: nowrap;
 }
 
 /* La unica cifra en morado de toda la pantalla. */

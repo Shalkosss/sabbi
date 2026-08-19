@@ -89,6 +89,10 @@
   --clase-variable-tinta: light-dark(#4d6c14, #c3ed74);
   --clase-privados-fondo: light-dark(#eeebf8, #251f3e);
   --clase-privados-tinta: light-dark(#584aa0, #a99aec);
+  --clase-club-fondo: light-dark(#f0edfb, #2a2447);
+  --clase-club-tinta: light-dark(#6a5cc0, #b5b3ff);
+  --clase-otros-fondo: light-dark(#f5eeda, #2e2610);
+  --clase-otros-tinta: light-dark(#7d6224, #d9b75a);
   --clase-inm-fondo: light-dark(#e5e3f4, #201b36);
   --clase-inm-tinta: light-dark(#3f3585, #b5b3ff);
 

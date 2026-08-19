@@ -7,7 +7,9 @@ import { Blotter } from '../../../componentes/propuesta/Blotter'
 import { Distribucion } from '../../../componentes/propuesta/Distribucion'
 import { FotoActual } from '../../../componentes/propuesta/FotoActual'
 import { Objetivo } from '../../../componentes/propuesta/Objetivo'
+import { Vistas } from '../../../componentes/propuesta/Vistas'
 import { construirPropuesta } from '../../../lib/armar-propuesta'
+import vistas from '../../../componentes/propuesta/Vistas.module.css'
 import {
   cargarPropuesta,
   catalogoDeAssetClass,
@@ -110,10 +112,24 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         </ul>
       )}
 
-      <FotoActual propuesta={propuesta} />
-      <Distribucion propuesta={propuesta} />
-      <Objetivo propuesta={propuesta} />
-      <Blotter propuesta={propuesta} />
+      <Vistas propuesta={propuesta} />
+
+      {/*
+        El detalle de trabajo — la ficha completa, el objetivo instrumento por
+        instrumento y el blotter de ventas y compras — queda plegado: es para
+        la mesa, no para la primera lectura. Marco lo pidió así: la historia
+        del cliente es el antes contra el después, no qué mover a dónde.
+      */}
+      <details className={vistas.tecnico}>
+        <summary>
+          <span className={vistas.eyebrowTecnico}>Detalle de trabajo</span>
+          La ficha completa, el objetivo instrumento por instrumento y el blotter de la mesa
+        </summary>
+        <FotoActual propuesta={propuesta} />
+        <Distribucion propuesta={propuesta} />
+        <Objetivo propuesta={propuesta} />
+        <Blotter propuesta={propuesta} />
+      </details>
     </div>,
   )
 }

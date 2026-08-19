@@ -39,6 +39,16 @@ function porSubcadena(
   return candidatos.length === 1 ? (candidatos[0] ?? null) : null
 }
 
+/**
+ * De la fracción de la ficha a los puntos porcentuales de `products`.
+ *
+ * Las dos unidades conviven en el sistema y confundirlas escribe un 0.045 en
+ * una columna donde 4.5 quiere decir 4.5%: el producto queda con un retorno
+ * cien veces menor y nadie lo nota hasta que sale impreso.
+ */
+const aPuntos = (fraccion: number | null): number | null =>
+  fraccion === null ? null : fraccion * 100
+
 /** Un id legible y único para un producto nuevo. */
 function idDe(nombre: string, tomados: ReadonlySet<string>): string {
   const base = normalizarNombre(nombre).replace(/ /g, '-').slice(0, 40) || 'producto'
@@ -115,8 +125,10 @@ export async function altaProductosDeFicha(
       moneda: posicion.moneda,
       // El rendimiento que estimó el cliente es el único dato de retorno que
       // hay; queda como punto de partida y la mesa lo corrige al completar.
-      ret_min: posicion.rendimientoEst,
-      ret_max: posicion.rendimientoEst,
+      // La columna va en puntos porcentuales — un 4.5 quiere decir 4.5% — y la
+      // ficha trae fracciones, así que se convierte al escribir.
+      ret_min: aPuntos(posicion.rendimientoEst),
+      ret_max: aPuntos(posicion.rendimientoEst),
       ofrecer: false,
       reconocible: true,
       origen: 'ficha',

@@ -61,12 +61,19 @@ describe('emparejarCatalogo', () => {
     expect(indice.get('iShares Core S&P 500')?.retMin).toBe(0.08)
   })
 
-  it('no empareja cuando el catálogo escribe el nombre distinto', () => {
-    // «Corporate» contra «Corp»: ninguno contiene al otro, y adivinar acá sería
-    // ponerle a un ETF el retorno de otro.
+  it('resuelve por alias lo que ninguna regla de texto alcanza', () => {
+    // «Corporate» contra «Corp»: ninguno contiene al otro. Adivinar sería
+    // ponerle a un ETF el retorno de otro, así que la equivalencia está
+    // declarada a mano en la tabla de alias, producto por producto.
     const indice = emparejarCatalogo(['iShares $ High Yield Corporate Bond UCITS ETF Acc'], CATALOGO)
 
-    expect(indice.has('iShares $ High Yield Corporate Bond UCITS ETF Acc')).toBe(false)
+    expect(indice.get('iShares $ High Yield Corporate Bond UCITS ETF Acc')?.retMin).toBe(0.06)
+  })
+
+  it('no empareja un nombre parecido que nadie declaró equivalente', () => {
+    const indice = emparejarCatalogo(['iShares $ Corporativo Bono UCITS'], CATALOGO)
+
+    expect(indice.size).toBe(0)
   })
 
   it('se abstiene cuando hay más de un candidato', () => {
@@ -74,6 +81,22 @@ describe('emparejarCatalogo', () => {
     const indice = emparejarCatalogo(['Fondo Alfa II Serie B'], ambiguo)
 
     expect(indice.size).toBe(0)
+  })
+
+  it('se abstiene cuando el catálogo trae el mismo nombre con dos retornos', () => {
+    // Pasa de verdad: «iShares Core MSCI EM IMI UCITS ETF» está dos veces, al
+    // 7% y al 6.5%. Elegir una es inventar la cifra que el cliente firma.
+    const duplicado = [producto('Fondo Beta', 0.07), producto('Fondo Beta', 0.065)]
+    const indice = emparejarCatalogo(['Fondo Beta'], duplicado)
+
+    expect(indice.size).toBe(0)
+  })
+
+  it('una fila duplicada sin retorno no tapa a la que sí lo tiene', () => {
+    const sinDato: ProductoCatalogo = { ...producto('Fondo Gamma'), retMin: null, retMax: null }
+    const indice = emparejarCatalogo(['Fondo Gamma'], [sinDato, producto('Fondo Gamma', 0.09)])
+
+    expect(indice.get('Fondo Gamma')?.retMin).toBe(0.09)
   })
 
   it('deja fuera lo que no está en el catálogo', () => {

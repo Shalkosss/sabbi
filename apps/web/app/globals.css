@@ -151,3 +151,9 @@ textarea {
   border-radius: var(--radio-tarjeta);
   box-shadow: var(--sombra);
 }
+
+/* El secundario tambien se usa sobre un enlace: mismo aspecto, sin subrayado. */
+a.secundario {
+  display: inline-block;
+  text-decoration: none;
+}

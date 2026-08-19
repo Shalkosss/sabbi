@@ -1,22 +1,21 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useActionState, useRef, useState } from 'react'
 
+import { subirFicha } from '../app/acciones'
 import estilos from './SubirFicha.module.css'
-
-interface Props {
-  readonly accion: (datos: FormData) => void
-  readonly pendiente: boolean
-  readonly error?: string | undefined
-}
 
 /**
  * Paso 1: subir la ficha.
  *
  * Estado vacío que enseña: antes de arrastrar nada, la pantalla dice en dos
- * líneas qué va a pasar. Un solo botón primario.
+ * líneas qué va a pasar. Un solo botón primario. Si el archivo se lee bien, la
+ * acción guarda la ficha y redirige a su pantalla de revisión; acá solo vuelve
+ * lo que salió mal.
  */
-export function SubirFicha({ accion, pendiente, error }: Props) {
+export function SubirFicha() {
+  const [resultado, accion, pendiente] = useActionState(subirFicha, null)
+  const error = resultado === null ? undefined : resultado.error
   const entrada = useRef<HTMLInputElement>(null)
   const formulario = useRef<HTMLFormElement>(null)
   const [encima, setEncima] = useState(false)

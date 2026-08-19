@@ -1,17 +1,20 @@
 import type { Cta, EstadoInstitucional, Perfil, PosicionRevisada } from '@sabbi/core'
-import type { FichaParseada, PosicionFicha } from '@sabbi/io'
+import type { Aviso, DatosCliente, FilaIgnorada, PortafolioModelo, PosicionFicha } from '@sabbi/io'
 
 /**
  * Estado de la pantalla de revisión.
  *
- * Todo lo que la ficha trajo es editable, porque las fichas llegan con errores.
- * Cada campo que el asesor toca queda anotado en `camposEditados` para poder
- * distinguir de un vistazo lo que corrigió una persona de lo que leyó el
- * parser. Nada se muta: cada acción devuelve un estado nuevo.
+ * Es la misma forma que tiene la revisión en la base: la pantalla no inventa
+ * un modelo propio, lee el que vino del servidor y le aplica los cambios del
+ * asesor mientras el autoguardado los devuelve. Todo lo que la ficha trajo es
+ * editable, porque las fichas llegan con errores, y cada campo que el asesor
+ * toca queda anotado en `camposEditados` para poder distinguir de un vistazo
+ * lo que corrigió una persona de lo que leyó el parser. Nada se muta: cada
+ * acción devuelve un estado nuevo.
  */
 
 export interface PosicionEditada extends PosicionFicha {
-  /** Clave estable para React y para las acciones. */
+  /** El uuid de la fila en `ficha_positions`: clave de React y de cada guardado. */
   readonly id: string
   readonly nota: string
   readonly camposEditados: readonly string[]
@@ -28,22 +31,34 @@ export interface Parametros {
   readonly fxPenUsd: number
 }
 
+/**
+ * Una revisión completa, tal como sale de la base.
+ *
+ * Los tres identificadores viajan con ella porque cada cambio va a una tabla
+ * distinta: las celdas a `ficha_positions`, el perfil regulatorio al cliente y
+ * el resto de parámetros a la propuesta.
+ */
 export interface EstadoRevision {
+  readonly fichaId: string
+  readonly propuestaId: string
+  readonly clienteId: string
   readonly archivo: string
-  readonly ficha: FichaParseada
+  readonly hoja: string
+  readonly cliente: DatosCliente
+  readonly avisos: readonly Aviso[]
+  readonly ignoradas: readonly FilaIgnorada[]
+  readonly modelo: PortafolioModelo | null
   readonly posiciones: readonly PosicionEditada[]
   readonly parametros: Parametros
 }
 
 export type Accion =
-  | { readonly tipo: 'cargar'; readonly ficha: FichaParseada; readonly archivo: string }
   | { readonly tipo: 'editar'; readonly id: string; readonly cambios: Partial<PosicionEditada> }
   | { readonly tipo: 'cta'; readonly id: string; readonly cta: Cta }
   | { readonly tipo: 'parametros'; readonly cambios: Partial<Parametros> }
-  | { readonly tipo: 'descartar' }
 
 /** Campos que el asesor puede corregir. El resto es derivado o de sistema. */
-const EDITABLES = new Set([
+export const EDITABLES: ReadonlySet<string> = new Set([
   'institucionProducto',
   'tipoFicha',
   'assetClass',
@@ -58,58 +73,44 @@ const EDITABLES = new Set([
   'nota',
 ])
 
-const FX_POR_DEFECTO = 3.4
-const TICKET_ETF_POR_DEFECTO = 20_000
-
-export function estadoInicial(ficha: FichaParseada, archivo: string): EstadoRevision {
-  return {
-    archivo,
-    ficha,
-    posiciones: ficha.posiciones.map((posicion) => ({
-      ...posicion,
-      id: `${posicion.origen}-${posicion.fila}`,
-      // La ficha no trae notas: son del asesor y nacen vacías.
-      nota: '',
-      camposEditados: [],
-    })),
-    parametros: {
-      perfil: 'Moderado',
-      necesitaFlujos: false,
-      usPerson: false,
-      institucional: 'auto',
-      incluirInmueblesDeRenta: true,
-      colchonLiquidezUsd: 0,
-      // La propia ficha suele traer el mínimo de ETF en su bloque de la derecha.
-      ticketMinimoUsd: ficha.modelo?.montoMinimoEtfUsd ?? TICKET_ETF_POR_DEFECTO,
-      fxPenUsd: FX_POR_DEFECTO,
-    },
-  }
-}
-
-function aplicar(posicion: PosicionEditada, cambios: Partial<PosicionEditada>): PosicionEditada {
+/**
+ * Los campos que quedan marcados como tocados tras aplicar unos cambios.
+ *
+ * Vive aparte porque la usan dos: el reductor, para pintar el punto en la
+ * celda, y el autoguardado, para mandar la lista a la base sin recalcularla
+ * distinto.
+ */
+export function camposTrasEditar(
+  posicion: PosicionEditada,
+  cambios: Partial<PosicionEditada>,
+): readonly string[] {
   const tocados = Object.keys(cambios).filter(
     (campo) =>
       EDITABLES.has(campo) &&
       cambios[campo as keyof PosicionEditada] !== posicion[campo as keyof PosicionEditada],
   )
-  if (tocados.length === 0) return posicion
-
-  return {
-    ...posicion,
-    ...cambios,
-    editadoManualmente: true,
-    camposEditados: [...new Set([...posicion.camposEditados, ...tocados])],
-  }
+  return tocados.length === 0
+    ? posicion.camposEditados
+    : [...new Set([...posicion.camposEditados, ...tocados])]
 }
 
-/**
- * Reductor de la pantalla. `null` es "todavia no hay ficha".
- */
-export function reducir(estado: EstadoRevision | null, accion: Accion): EstadoRevision | null {
-  if (accion.tipo === 'cargar') return estadoInicial(accion.ficha, accion.archivo)
-  if (accion.tipo === 'descartar') return null
-  if (estado === null) return null
+function aplicar(posicion: PosicionEditada, cambios: Partial<PosicionEditada>): PosicionEditada {
+  const camposEditados = camposTrasEditar(posicion, cambios)
+  if (camposEditados === posicion.camposEditados) return posicion
 
+  return { ...posicion, ...cambios, editadoManualmente: true, camposEditados }
+}
+
+/** Los cambios que produce marcar una decisión, sin aplicarlos. */
+export const cambiosDeCta = (posicion: PosicionEditada, cta: Cta): Partial<PosicionEditada> => ({
+  cta,
+  // Cambiar de decisión limpia el monto: un "conservar" con un monto a vender
+  // colgado es la clase de dato que descuadra todo.
+  montoVentaParcial: cta === 'venta_parcial' ? posicion.montoVentaParcial : 0,
+})
+
+/** Reductor de la pantalla. */
+export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision {
   switch (accion.tipo) {
     case 'editar':
       return {
@@ -123,14 +124,7 @@ export function reducir(estado: EstadoRevision | null, accion: Accion): EstadoRe
       return {
         ...estado,
         posiciones: estado.posiciones.map((posicion) =>
-          posicion.id === accion.id
-            ? aplicar(posicion, {
-                cta: accion.cta,
-                // Cambiar de decisión limpia el monto: un "conservar" con un
-                // monto a vender colgado es la clase de dato que descuadra todo.
-                montoVentaParcial: accion.cta === 'venta_parcial' ? posicion.montoVentaParcial : 0,
-              })
-            : posicion,
+          posicion.id === accion.id ? aplicar(posicion, cambiosDeCta(posicion, accion.cta)) : posicion,
         ),
       }
 
@@ -151,3 +145,7 @@ export const aRevisadas = (posiciones: readonly PosicionEditada[]): readonly Pos
     cta: posicion.cta,
     montoVentaParcial: posicion.montoVentaParcial,
   }))
+
+/** Una venta parcial por encima de la posición no se puede guardar: la base la rechaza. */
+export const ventaParcialInvalida = (posicion: PosicionEditada): boolean =>
+  posicion.cta === 'venta_parcial' && posicion.montoVentaParcial > posicion.valorUsd

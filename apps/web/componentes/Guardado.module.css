@@ -1,0 +1,71 @@
+/*
+ * Indicador de autoguardado.
+ *
+ * Tenue cuando todo va bien y con peso solo cuando algo falla: es informacion
+ * de fondo hasta que deja de serlo.
+ */
+
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+  white-space: nowrap;
+}
+
+.punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--borde);
+  flex: none;
+}
+
+.guardando .punto {
+  background: var(--verde-sabbi);
+  animation: latido 1s ease-in-out infinite;
+}
+
+.guardado .punto {
+  background: var(--verde-sabbi);
+}
+
+.pendiente,
+.error {
+  white-space: normal;
+  max-width: 42ch;
+  font-weight: 600;
+}
+
+.pendiente {
+  color: var(--morado);
+}
+
+.pendiente .punto {
+  background: var(--morado);
+}
+
+.error {
+  color: #a4331f;
+}
+
+.error .punto {
+  background: #a4331f;
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guardando .punto {
+    animation: none;
+  }
+}

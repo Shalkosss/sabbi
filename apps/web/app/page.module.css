@@ -59,3 +59,15 @@
   font-size: 13px;
   color: var(--texto-tenue);
 }
+
+.accionesEncabezado {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.seccion {
+  margin-top: 40px;
+}

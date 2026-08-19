@@ -1,0 +1,68 @@
+/*
+ * Lista de fichas guardadas.
+ *
+ * Una fila por ficha, con el nombre del cliente adelante: es lo unico que el
+ * asesor recuerda cuando vuelve tres dias despues.
+ */
+
+.lista {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.tarjeta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) auto auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 18px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.tarjeta:hover {
+  border-color: var(--verde-sabbi);
+  box-shadow: var(--sombra);
+}
+
+.cliente {
+  font-weight: 700;
+  color: var(--verde-prof);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archivo,
+.fecha {
+  font-size: 13px;
+  color: var(--texto-tenue);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monto {
+  font-size: 14px;
+  color: var(--texto);
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .tarjeta {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .archivo {
+    order: 3;
+  }
+}

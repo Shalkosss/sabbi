@@ -25,7 +25,6 @@ import type { Cta } from './domain/tipos.js'
 
 export interface PosicionDecidible {
   readonly origen: 'financiero' | 'inmueble'
-  readonly esInvertible: boolean
   /** Referencia al catálogo. `null` cuando la posición no se reconoció. */
   readonly productoId: string | null
   readonly claseModelo: string | null

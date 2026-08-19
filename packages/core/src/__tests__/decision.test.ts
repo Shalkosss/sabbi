@@ -7,7 +7,6 @@ const OFRECIBLES = new Set(['fondo-oportunidad', 'ishares-core-sp500'])
 
 const posicion = (parcial: Partial<PosicionDecidible> = {}): PosicionDecidible => ({
   origen: 'financiero',
-  esInvertible: true,
   productoId: null,
   claseModelo: 'cash',
   ...parcial,
@@ -35,10 +34,7 @@ describe('decisionInicial', () => {
       decisionInicial(posicion({ origen: 'inmueble', claseModelo: 'inm' }), OFRECIBLES),
     ).toBe('conservar')
     expect(
-      decisionInicial(
-        posicion({ origen: 'inmueble', esInvertible: false, claseModelo: null }),
-        OFRECIBLES,
-      ),
+      decisionInicial(posicion({ origen: 'inmueble', claseModelo: null }), OFRECIBLES),
     ).toBe('conservar')
   })
 

@@ -1,0 +1,53 @@
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 380px;
+  margin: 0 auto;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 32px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.campo span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-tenue);
+}
+
+.campo input {
+  background: var(--hueso);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 10px 12px;
+}
+
+.campo input:focus {
+  border-color: var(--verde-sabbi);
+  outline: none;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--verde-noche);
+  background: var(--lavado-morado);
+  border-left: 3px solid var(--morado);
+  border-radius: 0 var(--radio-control) var(--radio-control) 0;
+  padding: 10px 14px;
+}
+
+.pie {
+  font-size: 12px;
+  color: var(--texto-tenue);
+  text-align: center;
+}

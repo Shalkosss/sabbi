@@ -58,18 +58,22 @@ const clave = (texto) =>
 /**
  * La clase del motor a partir de la clase macro dominante.
  *
- * El motor reparte en cinco clases y la planilla describe en seis: separa Club
- * deals de Mercados Privados, que para el motor son la misma bolsa. Se toma la
- * parte mas grande, que es la que decide donde vive el producto.
+ * Desde la config v4 el motor reparte en siete clases y Club deals es una de
+ * ellas. Se toma la parte mas grande, que es la que decide donde vive el
+ * producto; el oro y el BTC se reconocen por nombre porque la planilla los
+ * mezcla dentro de Cash y Otros.
  */
 const CLASE_MOTOR = {
   'Mercados Públicos - Fijo': 'fijo',
   'Mercados Públicos - Variable': 'variable',
   'Mercados Privados': 'privados',
-  'Club deals': 'privados',
+  'Club deals': 'club',
   'Inmobiliario Directo': 'inm',
   'Cash y Otros': 'cash',
 }
+
+/** Nombres que viven en la clase Otros aunque la planilla los llame cash. */
+const ES_OTROS = (nombre) => /(ibit|bitcoin|\bbtc\b|ethereum|cripto|\boro\b|lingote|\bxau\b)/i.test(nombre) && !/tesoro/i.test(nombre)
 
 /** Un id legible para un producto que la planilla trae y el catalogo no tenia. */
 const idDe = (nombre, tomados) => {
@@ -177,7 +181,11 @@ try {
     else actualizados += 1
 
     const dominante = producto.claseActivo[0]?.nombre
-    const claseMotor = dominante === undefined ? null : (CLASE_MOTOR[dominante] ?? null)
+    const claseMotor = ES_OTROS(producto.nombre)
+      ? 'otros'
+      : dominante === undefined
+        ? null
+        : (CLASE_MOTOR[dominante] ?? null)
 
     const gestor = await asegurar('gestores', gestores, producto.gestor)
     const administrador = await asegurar('administradores', administradores, producto.administrador)

@@ -102,6 +102,7 @@ export function Revision({ inicial, asesor }: Props) {
         usPerson: parametros.usPerson,
         incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
         colchonLiquidezUsd: parametros.colchonLiquidezUsd,
+        ticketMinimoUsd: parametros.ticketMinimoUsd,
       }),
     [posiciones, parametros],
   )

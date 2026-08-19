@@ -86,6 +86,8 @@ export type CodigoBloqueo =
    * propuesta — no `evaluarRevision`, que solo ve el subconjunto del motor.
    */
   | 'datos_incompletos'
+  /** El ticket minimo quedo en cero o negativo. */
+  | 'ticket_invalido'
 
 export interface Bloqueo {
   readonly codigo: CodigoBloqueo
@@ -168,6 +170,14 @@ export interface OpcionesRevision {
   readonly incluirInmueblesDeRenta?: boolean
   readonly colchonLiquidezUsd?: number
   readonly restricciones?: readonly Restriccion[]
+  /**
+   * Ticket minimo de la propuesta, solo para validarlo.
+   *
+   * Vaciar el campo en pantalla lo dejaba en cero y el gate no decia nada: el
+   * boton seguia habilitado y `generarPlan` reventaba despues, del otro lado
+   * del servidor, donde nadie ve el mensaje.
+   */
+  readonly ticketMinimoUsd?: number
 }
 
 export interface Revision {
@@ -186,6 +196,7 @@ export function evaluarRevision(
     incluirInmueblesDeRenta = true,
     colchonLiquidezUsd = 0,
     restricciones = [],
+    ticketMinimoUsd,
   } = opciones
 
   const invertibles = posiciones.filter((posicion) => posicion.esInvertible)
@@ -250,6 +261,15 @@ export function evaluarRevision(
     })
   }
 
+  if (ticketMinimoUsd !== undefined && !(ticketMinimoUsd > 0)) {
+    bloqueos.push({
+      codigo: 'ticket_invalido',
+      mensaje:
+        'El ticket mínimo de ETF tiene que ser mayor que cero. Sin él, el motor no puede ' +
+        'decidir qué línea es ejecutable.',
+    })
+  }
+
   if (conservadoUsd + restringidoUsd > patrimonioInvertibleUsd + TOL) {
     bloqueos.push({
       codigo: 'conservado_excede',
@@ -285,6 +305,7 @@ export function armarEntradaPlan(
     incluirInmueblesDeRenta,
     colchonLiquidezUsd,
     restricciones,
+    ticketMinimoUsd,
   })
 
   if (bloqueos.length > 0) return { ok: false, bloqueos, resumen }

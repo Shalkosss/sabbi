@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Benchmark, Piso } from '../../domain/tipos.js'
+import { redistribuirInmobiliario } from '../../entrada.js'
 import { generarPlan } from '../../plan.js'
 import type { DatosProducto, PosicionPropuesta } from '../tipos.js'
 import { armarComparativa, armarVistaHoy, SUBCLASE_SIN_DATO } from '../vistas.js'
@@ -180,6 +181,46 @@ describe('armarComparativa', () => {
   it('los totales de los dos lados cuadran entre si', () => {
     expect(comparativa.totalAntesUsd).toBe(1_000_000)
     expect(comparativa.totalDespuesUsd).toBeCloseTo(1_000_000, 2)
+  })
+
+  it('con el toggle de inmuebles apagado, los dos lados miran el mismo universo', () => {
+    // Comparar un "antes" que incluye los inmuebles de renta contra un
+    // "despues" que el motor calculo sin ellos hacia que el patrimonio se
+    // encogiera en pantalla sin que nadie vendiera nada.
+    const conInmueble: PosicionPropuesta[] = [
+      posicion({ institucionProducto: 'Depósito', valorUsd: 700_000, cta: 'venta_total' }),
+      posicion({
+        institucionProducto: 'Depto en renta',
+        origen: 'inmueble',
+        claseModelo: 'inm',
+        assetClass: 'Inmobiliario Directo',
+        uso: 'Renta',
+        valorUsd: 300_000,
+        cta: 'conservar',
+      }),
+    ]
+
+    // Con el toggle apagado el motor recibe el benchmark sin la clase
+    // inmobiliaria, igual que hace `armarEntradaPlan`.
+    const planSinInmuebles = generarPlan({
+      perfil: 'Moderado',
+      patrimonioTotalUsd: 700_000,
+      benchmark: redistribuirInmobiliario(BENCHMARK),
+      pesos: {
+        fijo: { 'ETF Bonos': 1 },
+        variable: { 'iShares Core S&P 500': 1 },
+        otros: { 'BTC (IBIT)': 1 },
+      },
+      pisos: [] as Piso[],
+      ticketMinimoUsd: 20_000,
+      fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },
+    })
+
+    const r = armarComparativa(conInmueble, planSinInmuebles, catalogo, false)
+
+    expect(r.totalAntesUsd).toBe(700_000)
+    expect(r.totalDespuesUsd).toBeCloseTo(700_000, 2)
+    expect(r.filas.every((f) => f.clase !== 'inm')).toBe(true)
   })
 
   it('una linea conservada hereda el rendimiento de la posicion original', () => {

@@ -1,6 +1,7 @@
 'use client'
 
 import type { ParteEntrada } from '../../app/catalogo/acciones'
+import { CampoNumero } from '../CampoNumero'
 import estilos from './Catalogo.module.css'
 
 interface Props {
@@ -81,15 +82,11 @@ export function EditorComposicion({ titulo, opciones, partes, alCambiar }: Props
               </select>
 
               <span className={estilos.conSufijo}>
-                <input
+                <CampoNumero
                   className="mono"
-                  inputMode="decimal"
                   aria-label={`Porcentaje de ${parte.nombre}`}
-                  value={Number((parte.pct * 100).toFixed(4))}
-                  onChange={(e) => {
-                    const leido = Number.parseFloat(e.target.value.replace(',', '.'))
-                    cambiar(i, { pct: Number.isFinite(leido) ? leido / 100 : 0 })
-                  }}
+                  texto={String(Number((parte.pct * 100).toFixed(4)))}
+                  alCambiar={(valor) => cambiar(i, { pct: (valor ?? 0) / 100 })}
                 />
                 <span>%</span>
               </span>

@@ -4,7 +4,8 @@ import { camposFaltantes, ETIQUETA_CAMPO } from '@sabbi/core'
 import type { ClaseModelo, Cta } from '@sabbi/core'
 
 import type { PosicionEditada } from '../lib/estado'
-import { desdeInput, paraInput, porcentajeEditable, usd } from '../lib/formato'
+import { paraInput, porcentajeEditable, usd } from '../lib/formato'
+import { CampoNumero } from './CampoNumero'
 import { DetallePosicion } from './DetallePosicion'
 import estilos from './TablaPosiciones.module.css'
 
@@ -126,38 +127,35 @@ export function FilaPosicion({ posicion, abierta, alternar, editar, marcar }: Pr
         </td>
 
         <td className={`${estilos.derecha} ${editado('valorUsd')}`}>
-          <input
+          <CampoNumero
             className={`${estilos.numero} mono`}
-            inputMode="decimal"
             // La ficha convierte a dólares con una división y deja quince
             // decimales. Se muestran dos, y el estado conserva el valor entero:
             // esos decimales son la diferencia entre cuadrar y no cuadrar. En
             // cuanto el asesor lo corrige, manda lo que él escribió.
-            value={
+            texto={
               posicion.camposEditados.includes('valorUsd')
                 ? paraInput(posicion.valorUsd)
                 : posicion.valorUsd.toFixed(2)
             }
             aria-label="Valor en dólares"
-            onChange={(e) => editar({ valorUsd: desdeInput(e.target.value) ?? 0 })}
+            alCambiar={(valor) => editar({ valorUsd: valor ?? 0 })}
           />
         </td>
 
         <td className={`${estilos.derecha} ${editado('rendimientoEst')}`}>
           <span className={estilos.conSufijo}>
-            <input
+            <CampoNumero
               className={`${estilos.numeroCorto} mono`}
-              inputMode="decimal"
               placeholder="—"
-              value={porcentajeEditable(
+              texto={porcentajeEditable(
                 posicion.rendimientoEst,
                 posicion.camposEditados.includes('rendimientoEst'),
               )}
               aria-label="Rendimiento anual estimado, en porcentaje"
-              onChange={(e) => {
-                const leido = desdeInput(e.target.value)
-                editar({ rendimientoEst: leido === null ? null : leido / 100 })
-              }}
+              alCambiar={(valor) =>
+                editar({ rendimientoEst: valor === null ? null : valor / 100 })
+              }
             />
             {posicion.rendimientoEst !== null && <span className={estilos.sufijo}>%</span>}
           </span>
@@ -188,13 +186,12 @@ export function FilaPosicion({ posicion, abierta, alternar, editar, marcar }: Pr
           )}
 
           {posicion.cta === 'venta_parcial' && (
-            <input
+            <CampoNumero
               className={`${estilos.numeroParcial} mono ${parcialExcedido ? estilos.invalido : ''}`}
-              inputMode="decimal"
-              value={paraInput(posicion.montoVentaParcial)}
+              texto={paraInput(posicion.montoVentaParcial)}
               aria-label="Monto a vender"
               aria-invalid={parcialExcedido}
-              onChange={(e) => editar({ montoVentaParcial: desdeInput(e.target.value) ?? 0 })}
+              alCambiar={(valor) => editar({ montoVentaParcial: valor ?? 0 })}
             />
           )}
         </td>

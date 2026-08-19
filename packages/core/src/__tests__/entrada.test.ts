@@ -249,6 +249,37 @@ describe('armarEntradaPlan: gates', () => {
   })
 })
 
+describe('gate del ticket minimo', () => {
+  it('bloquea cuando el campo queda vacio o en cero', () => {
+    // Vaciar el campo en pantalla lo dejaba en cero, el boton seguia
+    // habilitado y `generarPlan` reventaba del otro lado del servidor.
+    const r = evaluarRevision([posicion({ cta: 'venta_total' })], { ticketMinimoUsd: 0 })
+
+    expect(r.bloqueos.map((b) => b.codigo)).toContain('ticket_invalido')
+  })
+
+  it('no dice nada con un ticket valido, ni cuando no se lo pasan', () => {
+    const conTicket = evaluarRevision([posicion({ cta: 'venta_total' })], {
+      ticketMinimoUsd: 20_000,
+    })
+    const sinTicket = evaluarRevision([posicion({ cta: 'venta_total' })])
+
+    expect(conTicket.bloqueos).toStrictEqual([])
+    expect(sinTicket.bloqueos).toStrictEqual([])
+  })
+
+  it('armarEntradaPlan devuelve el bloqueo en vez de reventar despues', () => {
+    const d = armarEntradaPlan([posicion({ cta: 'venta_total' })], {
+      ...DECISIONES,
+      ticketMinimoUsd: 0,
+    })
+
+    expect(d.ok).toBe(false)
+    if (d.ok) return
+    expect(d.bloqueos.map((b) => b.codigo)).toContain('ticket_invalido')
+  })
+})
+
 describe('redistribuirInmobiliario', () => {
   it('reparte el peso del inmobiliario entre las demas clases en proporcion', () => {
     const sinInm = redistribuirInmobiliario(BENCHMARK)

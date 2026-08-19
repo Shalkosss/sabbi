@@ -25,8 +25,14 @@ export interface PosicionFicha {
   readonly claseModelo: ClaseModelo | null
   /** La clase se infirio de un tipo ambiguo, o no se pudo resolver. */
   readonly requiereConfirmacion: boolean
-  /** El emparejamiento contra el catalogo es un paso posterior. */
-  readonly productoId: null
+  /**
+   * Enlace al catalogo.
+   *
+   * El parser siempre lo deja en `null`: emparejar contra el catalogo es un
+   * paso posterior, que corre al guardar la ficha. Al releerla desde la base
+   * ya viene resuelto, y por eso el tipo admite las dos cosas.
+   */
+  readonly productoId: string | null
   readonly moneda: Moneda
   readonly plaza: Plaza
   readonly pertenencia: string | null

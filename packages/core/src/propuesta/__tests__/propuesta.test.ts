@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Benchmark, ClaseModelo, Piso } from '../../domain/tipos.js'
+import { ETIQUETA_COLCHON } from '../../entrada.js'
 import { generarPlan } from '../../plan.js'
 import type { EntradaPlan, Plan } from '../../plan.js'
 import { armarPropuesta, TOLERANCIA_CUADRE } from '../index.js'
@@ -152,6 +153,59 @@ function propuesta(posiciones: readonly PosicionPropuesta[] = POSICIONES) {
     catalogo: CATALOGO,
   })
 }
+
+describe('el colchón de liquidez cuadra el blotter', () => {
+  /**
+   * Las ventas financian las compras MÁS lo que queda clavado por restricción.
+   * Sin contar el colchón como destino, `dineroNuevo = ventas − colchón` y
+   * toda propuesta con colchón salía marcada como imposible de publicar.
+   */
+  const conColchon = (colchonLiquidezUsd: number) => {
+    const pisos: Piso[] = [
+      ...PISOS,
+      ...(colchonLiquidezUsd > 0
+        ? [
+            {
+              clase: 'cash' as const,
+              montoUsd: colchonLiquidezUsd,
+              origen: 'restriccion' as const,
+              etiqueta: ETIQUETA_COLCHON,
+            },
+          ]
+        : []),
+    ]
+
+    return armarPropuesta({
+      cliente: { nombre: 'Cliente de prueba', perfil: 'Moderado', mandato: null },
+      posiciones: POSICIONES,
+      plan: generarPlan(entradaPlan(pisos)),
+      modeloPuro: generarPlan(entradaPlan([])),
+      pisos,
+      benchmark: BENCHMARK,
+      parametros: { ticketMinimoUsd: 20_000, colchonLiquidezUsd, fxPenUsd: 3.4 },
+      catalogo: CATALOGO,
+    })
+  }
+
+  it('cierra en cero y no avisa nada', () => {
+    const p = conColchon(50_000)
+
+    expect(Math.abs(p.seccion7.cuadreUsd)).toBeLessThan(TOLERANCIA_CUADRE)
+    expect(p.avisos.some((aviso) => aviso.includes('no cuadran'))).toBe(false)
+  })
+
+  it('muestra el colchón como destino del dinero, no lo esconde', () => {
+    const p = conColchon(50_000)
+    const linea = p.seccion7.compras.find((c) => c.instrumento === ETIQUETA_COLCHON)
+
+    expect(linea?.usd).toBe(50_000)
+    expect(linea?.clase).toBe('cash')
+  })
+
+  it('sin colchón el blotter no cambia', () => {
+    expect(conColchon(0).seccion7.compras).toStrictEqual(propuesta().seccion7.compras)
+  })
+})
 
 describe('sección 1, foto actual', () => {
   it('deja fuera el uso propio y suma el patrimonio financiero', () => {

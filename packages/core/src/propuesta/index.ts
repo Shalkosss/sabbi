@@ -23,7 +23,7 @@ import {
   armarVentas,
 } from './objetivo.js'
 import type { DatosProducto, EntradaPropuesta, Propuesta } from './tipos.js'
-import { armarComparativa, armarVistaHoy } from './vistas.js'
+import { armarComparativa, armarVistaHoy, cuentanEnElCalculo } from './vistas.js'
 
 /** Un centavo. Debajo de eso, un cuadre es ruido de coma flotante. */
 export const TOLERANCIA_CUADRE = 0.01
@@ -33,6 +33,7 @@ const SIN_CATALOGO: ReadonlyMap<string, DatosProducto> = new Map()
 export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
   const { cliente, posiciones, plan, modeloPuro, pisos, benchmark, parametros } = entrada
   const catalogo = entrada.catalogo ?? SIN_CATALOGO
+  const incluirInmueblesDeRenta = entrada.incluirInmueblesDeRenta ?? true
 
   const seccion1 = armarSeccion1(posiciones)
   const seccion2 = armarSeccion2(posiciones)
@@ -42,7 +43,15 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 
   const grupos = armarGrupos(plan, pisos, catalogo)
   const comparativo = armarComparativo(plan, modeloPuro)
-  const cuadreObjetivo = plan.totalObjetivoUsd - seccion1.totalUsd
+
+  // El objetivo se compara contra el patrimonio que el motor reparte, no contra
+  // la foto entera de la ficha: con el toggle de inmuebles apagado son dos
+  // universos distintos y la diferencia no seria un descuadre sino el toggle.
+  const patrimonioDelCalculo = cuentanEnElCalculo(posiciones, incluirInmueblesDeRenta).reduce(
+    (acc, posicion) => acc + posicion.valorUsd,
+    0,
+  )
+  const cuadreObjetivo = plan.totalObjetivoUsd - patrimonioDelCalculo
 
   const ventas = armarVentas(posiciones)
   const compras = armarCompras(plan, pisos)
@@ -64,8 +73,8 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 
   return {
     cliente,
-    vistaHoy: armarVistaHoy(posiciones),
-    comparativa: armarComparativa(posiciones, plan, catalogo),
+    vistaHoy: armarVistaHoy(posiciones, incluirInmueblesDeRenta),
+    comparativa: armarComparativa(posiciones, plan, catalogo, incluirInmueblesDeRenta),
     seccion1,
     seccion2,
     seccion3,
@@ -91,7 +100,12 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 
 export * from './tipos.js'
 export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './foto.js'
-export { armarVistaHoy, armarComparativa, SUBCLASE_SIN_DATO } from './vistas.js'
+export {
+  armarVistaHoy,
+  armarComparativa,
+  cuentanEnElCalculo,
+  SUBCLASE_SIN_DATO,
+} from './vistas.js'
 export type {
   FilaComparativa,
   FilaVistaClase,

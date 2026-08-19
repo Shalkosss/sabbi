@@ -45,12 +45,16 @@ export const plural = (cantidad: number, singular: string, plural: string): stri
  * Fraccion a porcentaje editable.
  *
  * Un cap rate calculado sale con quince decimales; en pantalla van dos. Lo que
- * el asesor teclea se respeta tal cual, sin recortarle nada.
+ * el asesor corrigio se muestra con la precision que escribio, pero pasado por
+ * `toFixed`: multiplicar por cien tiene error de coma flotante y sin eso
+ * teclear un 29 dejaba la celda mostrando 28.999999999999996. Mientras el
+ * campo esta enfocado manda el texto tecleado — ver `CampoNumero` —, asi que
+ * redondear aca no le pisa nada a nadie.
  */
 export function porcentajeEditable(fraccion: number | null, editado: boolean): string {
   if (fraccion === null) return ''
   const escala = fraccion * 100
-  return editado ? String(escala) : String(Number(escala.toFixed(2)))
+  return String(Number(escala.toFixed(editado ? 6 : 2)))
 }
 
 /*

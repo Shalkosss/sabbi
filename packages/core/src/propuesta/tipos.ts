@@ -74,6 +74,15 @@ export interface EntradaPropuesta {
   readonly pisos: readonly Piso[]
   readonly benchmark: Benchmark
   readonly parametros: ParametrosPropuesta
+  /**
+   * El mismo toggle que recibio el motor.
+   *
+   * Apagado, los inmuebles de renta salen del patrimonio financiero y el plan
+   * no los reparte. La foto de hoy y los cuadres tienen que mirar ese mismo
+   * universo: comparar un "antes" que los incluye contra un "despues" que no
+   * hace que el patrimonio se encoja en pantalla sin que nadie venda nada.
+   */
+  readonly incluirInmueblesDeRenta?: boolean
   /** Catalogo por nombre de instrumento. Lo que no esta, no se afirma. */
   readonly catalogo?: ReadonlyMap<string, DatosProducto>
   /** Asset classes del catalogo, para poder mostrar tambien las que van en cero. */

@@ -137,7 +137,10 @@ export const posicionDeFila = (fila: FilaPosicion): PosicionEditada => ({
   // Lo que vuelve sin clase es exactamente lo que hay que confirmar: el parser
   // no inventa una y el motor no corre sin ella.
   requiereConfirmacion: fila.clase_modelo === null,
-  productoId: null,
+  // El enlace al catálogo lo escribió el alta automática al subir la ficha;
+  // descartarlo acá dejaba a toda la revisión creyendo que ninguna posición
+  // tenía producto, que es justo lo que decide qué se conserva.
+  productoId: fila.producto_id,
   moneda: fila.moneda === 'PEN' ? 'PEN' : 'USD',
   plaza: fila.plaza === 'Offshore' ? 'Offshore' : 'Perú',
   pertenencia: fila.pertenencia,

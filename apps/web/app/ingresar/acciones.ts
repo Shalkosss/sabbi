@@ -15,10 +15,18 @@ import { clienteServidor } from '../../lib/supabase/servidor'
 
 export type ResultadoIngreso = { readonly error: string } | null
 
-/** Rechaza un `volver` que apunte fuera de la app. */
+/**
+ * Rechaza un `volver` que apunte fuera de la app.
+ *
+ * No alcanza con exigir que empiece en `/` y no en `//`: el navegador
+ * normaliza la barra invertida a barra, así que `/\evil.com` sale de acá como
+ * ruta interna y llega al navegador como `//evil.com`, que es un host. El
+ * valor viene del query string, o sea que lo elige quien manda el enlace.
+ */
 const destinoSeguro = (volver: FormDataEntryValue | null): string => {
   if (typeof volver !== 'string') return '/'
-  return volver.startsWith('/') && !volver.startsWith('//') ? volver : '/'
+  const normalizado = volver.replace(/\\/g, '/')
+  return normalizado.startsWith('/') && !normalizado.startsWith('//') ? normalizado : '/'
 }
 
 export async function ingresar(_previo: ResultadoIngreso, datos: FormData): Promise<ResultadoIngreso> {

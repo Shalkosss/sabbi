@@ -1,7 +1,8 @@
 'use client'
 
 import type { PosicionEditada } from '../lib/estado'
-import { desdeInput, porcentajeEditable, usd } from '../lib/formato'
+import { porcentajeEditable, usd } from '../lib/formato'
+import { CampoNumero } from './CampoNumero'
 import estilos from './DetallePosicion.module.css'
 
 interface Props {
@@ -79,15 +80,15 @@ export function DetallePosicion({ posicion, editar }: Props) {
         <label className={`${estilos.campo} ${editado('feePct')}`}>
           <span className={estilos.etiqueta}>Comisión anual</span>
           <span className={estilos.conSufijo}>
-            <input
+            <CampoNumero
               className={`${estilos.entrada} mono`}
-              inputMode="decimal"
               placeholder="sin dato"
-              value={porcentajeEditable(posicion.feePct, posicion.camposEditados.includes('feePct'))}
-              onChange={(e) => {
-                const leido = desdeInput(e.target.value)
-                editar({ feePct: leido === null ? null : leido / 100 })
-              }}
+              aria-label="Comisión anual, en porcentaje"
+              texto={porcentajeEditable(
+                posicion.feePct,
+                posicion.camposEditados.includes('feePct'),
+              )}
+              alCambiar={(valor) => editar({ feePct: valor === null ? null : valor / 100 })}
             />
             {posicion.feePct !== null && <span className={estilos.sufijo}>%</span>}
           </span>

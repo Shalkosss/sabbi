@@ -134,6 +134,7 @@ export function construirPropuesta(
       colchonLiquidezUsd: parametros.colchonLiquidezUsd,
       fxPenUsd: parametros.fxPenUsd,
     },
+    incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
     catalogo,
     assetClassCatalogo: opciones.assetClassCatalogo,
   })

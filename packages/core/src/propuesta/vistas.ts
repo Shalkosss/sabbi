@@ -136,12 +136,34 @@ const rentaAnual = (
 // --- Vista 1: hoy ---
 
 /**
+ * Las posiciones que entran al calculo, que son las que el "antes" muestra.
+ *
+ * Con el toggle de inmuebles de renta apagado, esos inmuebles salen del
+ * patrimonio financiero — el motor no los reparte — y por lo tanto tampoco son
+ * parte de la foto que se compara contra el plan.
+ */
+export function cuentanEnElCalculo(
+  posiciones: readonly PosicionPropuesta[],
+  incluirInmueblesDeRenta = true,
+): readonly PosicionPropuesta[] {
+  return posiciones.filter(
+    (p) =>
+      p.esInvertible &&
+      p.claseModelo !== null &&
+      (incluirInmueblesDeRenta || p.origen !== 'inmueble'),
+  )
+}
+
+/**
  * El "antes" se arma de las posiciones invertibles enteras: es la foto del
  * patrimonio, no de lo que se vende. La subclase es el asset class de la
  * ficha; lo que no lo tiene no se esconde, se llama por su falta.
  */
-export function armarVistaHoy(posiciones: readonly PosicionPropuesta[]): VistaHoy {
-  const invertibles = posiciones.filter((p) => p.esInvertible && p.claseModelo !== null)
+export function armarVistaHoy(
+  posiciones: readonly PosicionPropuesta[],
+  incluirInmueblesDeRenta = true,
+): VistaHoy {
+  const invertibles = cuentanEnElCalculo(posiciones, incluirInmueblesDeRenta)
   const totalUsd = invertibles.reduce((acc, p) => acc + p.valorUsd, 0)
 
   const filas = ORDEN_CLASES.flatMap((clase): FilaVistaClase[] => {
@@ -201,8 +223,9 @@ export function armarComparativa(
   posiciones: readonly PosicionPropuesta[],
   plan: Plan,
   catalogo: ReadonlyMap<string, DatosProducto>,
+  incluirInmueblesDeRenta = true,
 ): VistaComparativa {
-  const hoy = armarVistaHoy(posiciones)
+  const hoy = armarVistaHoy(posiciones, incluirInmueblesDeRenta)
   const totalDespuesUsd = plan.totalObjetivoUsd
 
   const rendimientoPorNombre = new Map(

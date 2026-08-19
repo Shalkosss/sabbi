@@ -37,7 +37,11 @@ export async function proxy(peticion: NextRequest) {
   } = await supabase.auth.getUser()
 
   const ruta = peticion.nextUrl.pathname
-  const esPublica = PUBLICAS.some((publica) => ruta.startsWith(publica))
+  // La ruta o un segmento suyo, no cualquier cosa que empiece igual:
+  // `startsWith` dejaba pasar `/ingresarLoQueSea` como pública.
+  const esPublica = PUBLICAS.some(
+    (publica) => ruta === publica || ruta.startsWith(`${publica}/`),
+  )
 
   if (user === null && !esPublica) {
     const destino = peticion.nextUrl.clone()

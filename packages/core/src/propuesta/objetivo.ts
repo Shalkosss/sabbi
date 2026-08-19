@@ -202,8 +202,22 @@ export function armarVentas(posiciones: readonly PosicionPropuesta[]): readonly 
  * instrumento; cuando esas lineas no suman exactamente ese monto — pasa en
  * Mercados Privados, que reparte el objetivo entero de la clase — se prorratea
  * para que el bloque cierre en la cifra del motor y no en otra.
+ *
+ * Lo que el asesor clava por restriccion tambien es destino del dinero que se
+ * libera, aunque no se compre ningun instrumento: el colchon de liquidez es
+ * exactamente eso. Sin esa linea el blotter no cierra nunca —
+ * `dineroNuevo = ventas − restricciones` — y toda propuesta con colchon salia
+ * marcada como imposible de publicar.
  */
 export function armarCompras(plan: Plan, pisos: readonly Piso[]): readonly LineaCompra[] {
+  const clavadas: LineaCompra[] = pisos
+    .filter((piso) => piso.origen === 'restriccion' && piso.montoUsd > EPS)
+    .map((piso) => ({ instrumento: piso.etiqueta, clase: piso.clase, usd: piso.montoUsd }))
+
+  return [...comprasDeClases(plan, pisos), ...clavadas]
+}
+
+function comprasDeClases(plan: Plan, pisos: readonly Piso[]): LineaCompra[] {
   return ORDEN_CLASES.flatMap((clase): LineaCompra[] => {
     const dineroNuevo = plan.reparto.porClase.find((c) => c.clase === clase)?.dineroNuevoUsd ?? 0
     if (dineroNuevo <= EPS) return []

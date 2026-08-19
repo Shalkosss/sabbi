@@ -4,7 +4,8 @@ import { PERFILES } from '@sabbi/core'
 import type { EstadoInstitucional, Perfil } from '@sabbi/core'
 
 import type { Parametros } from '../lib/estado'
-import { desdeInput, paraInput, usd } from '../lib/formato'
+import { paraInput, usd } from '../lib/formato'
+import { CampoNumero } from './CampoNumero'
 import estilos from './PanelParametros.module.css'
 
 interface Props {
@@ -108,33 +109,33 @@ export function PanelParametros({
 
           <label className={estilos.campo}>
             <span className={estilos.etiqueta}>Colchón de liquidez</span>
-            <input
+            <CampoNumero
               className="mono"
-              inputMode="decimal"
-              value={paraInput(parametros.colchonLiquidezUsd)}
-              onChange={(e) => cambiar({ colchonLiquidezUsd: desdeInput(e.target.value) ?? 0 })}
+              aria-label="Colchón de liquidez"
+              texto={paraInput(parametros.colchonLiquidezUsd)}
+              alCambiar={(valor) => cambiar({ colchonLiquidezUsd: valor ?? 0 })}
             />
             <span className={estilos.ayuda}>clava ese monto en cash dentro del ticket</span>
           </label>
 
           <label className={estilos.campo}>
             <span className={estilos.etiqueta}>Ticket mínimo de ETF</span>
-            <input
+            <CampoNumero
               className="mono"
-              inputMode="decimal"
-              value={paraInput(parametros.ticketMinimoUsd)}
-              onChange={(e) => cambiar({ ticketMinimoUsd: desdeInput(e.target.value) ?? 0 })}
+              aria-label="Ticket mínimo de ETF"
+              texto={paraInput(parametros.ticketMinimoUsd)}
+              alCambiar={(valor) => cambiar({ ticketMinimoUsd: valor ?? 0 })}
             />
             <span className={estilos.ayuda}>debajo de la mitad, la línea se descarta</span>
           </label>
 
           <label className={estilos.campo}>
             <span className={estilos.etiqueta}>FX PEN/USD</span>
-            <input
+            <CampoNumero
               className="mono"
-              inputMode="decimal"
-              value={paraInput(parametros.fxPenUsd)}
-              onChange={(e) => cambiar({ fxPenUsd: desdeInput(e.target.value) ?? 0 })}
+              aria-label="FX PEN/USD"
+              texto={paraInput(parametros.fxPenUsd)}
+              alCambiar={(valor) => cambiar({ fxPenUsd: valor ?? 0 })}
             />
             <span className={estilos.ayuda}>solo para el check institucional</span>
           </label>

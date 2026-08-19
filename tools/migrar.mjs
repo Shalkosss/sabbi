@@ -1,7 +1,8 @@
 /**
  * Aplica las migraciones SQL contra la base de Supabase.
  *
- *   DBPASS='...' node tools/migrar.mjs [--dry]
+ *   npm run migrar            (lee DBPASS de .env.local)
+ *   npm run migrar -- --dry   (dice que aplicaria, sin tocar nada)
  *
  * Cada archivo de supabase/migrations corre dentro de una transaccion y queda
  * anotado en la tabla `_migraciones`. Volver a correr el script no repite lo ya
@@ -22,7 +23,12 @@ const seco = process.argv.includes('--dry')
 
 const pass = process.env.DBPASS
 if (!pass) {
-  console.error('Falta DBPASS. Ejecuta:  DBPASS=... node tools/migrar.mjs')
+  console.error(`Falta DBPASS.
+
+  1. Pone la contrasena de la base en .env.local, en una linea:  DBPASS=...
+  2. Corre:  npm run migrar
+
+El archivo .env.local esta en .gitignore, asi que la contrasena no sale del equipo.`)
   process.exit(1)
 }
 

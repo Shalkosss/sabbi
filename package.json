@@ -15,7 +15,10 @@
     "test:watch": "vitest",
     "typecheck": "tsc --build --force",
     "lint": "eslint .",
-    "build:paquetes": "tsc --build"
+    "build:paquetes": "tsc --build",
+    "migrar": "node --env-file-if-exists=.env.local tools/migrar.mjs",
+    "revisar-catalogo": "node tools/revisar-catalogo.mjs \"reference/BD_Productos (1).xlsx\"",
+    "importar-catalogo": "node --env-file-if-exists=.env.local tools/importar-catalogo.mjs \"reference/BD_Productos (1).xlsx\""
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -1,7 +1,8 @@
 /**
  * Carga la BD de productos en Supabase.
  *
- *   DBPASS='...' node tools/importar-catalogo.mjs "reference/BD_Productos (1).xlsx" [--dry]
+ *   npm run importar-catalogo            (lee DBPASS de .env.local)
+ *   npm run importar-catalogo -- --dry   (solo lee el .xlsx y cuenta)
  *
  * Es idempotente: escribe por clave y vuelve a armar la composicion de cada
  * producto en lugar de acumularla. Se puede correr cada vez que la mesa toque
@@ -34,7 +35,12 @@ if (ruta === undefined) {
 
 const pass = process.env.DBPASS
 if (!pass && !seco) {
-  console.error('Falta DBPASS. Ejecuta:  DBPASS=... node tools/importar-catalogo.mjs <ruta>')
+  console.error(`Falta DBPASS.
+
+  1. Pone la contrasena de la base en .env.local, en una linea:  DBPASS=...
+  2. Corre:  npm run importar-catalogo
+
+El archivo .env.local esta en .gitignore, asi que la contrasena no sale del equipo.`)
   process.exit(1)
 }
 

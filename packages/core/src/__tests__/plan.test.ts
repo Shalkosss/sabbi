@@ -258,3 +258,71 @@ describe('generarPlan — toggles', () => {
     expect(() => generarPlan({ ...ENTRADA, ticketMinimoUsd: 0 })).toThrow(/ticket minimo/i)
   })
 })
+
+/**
+ * Derivar el residuo de Club y Otros a Mercados Privados mueve dinero entre
+ * clases despues del solver. Es el paso donde un descuadre no se veria hasta
+ * que alguien sumara la propuesta a mano, asi que se comprueba clase por clase.
+ */
+describe('generarPlan — residuos de Club y Otros', () => {
+  const chico = (pisos: readonly Piso[]) =>
+    generarPlan({ ...ENTRADA, patrimonioTotalUsd: 400_000, pisos })
+
+  it('cada clase sigue cuadrando contra sus lineas', () => {
+    for (const pisos of [
+      [] as Piso[],
+      [{ clase: 'club', montoUsd: 30_000, origen: 'conservado', etiqueta: 'Edifica que ya tenia' }],
+      [{ clase: 'otros', montoUsd: 25_000, origen: 'conservado', etiqueta: 'BTC en Binance' }],
+    ] as const) {
+      const plan = chico(pisos)
+      for (const clase of plan.reparto.porClase) {
+        expect(sumaClase(plan.lineas, clase.clase)).toBeCloseTo(clase.objetivoUsd, 2)
+      }
+      expect(plan.totalObjetivoUsd).toBeCloseTo(400_000, 2)
+    }
+  })
+
+  it('derivar Otros equivale a que el benchmark nunca le hubiera dado nada', () => {
+    const plan = chico([])
+
+    // La propiedad, sin reimplementar la cuenta: un Otros que no llega a su
+    // mínimo tiene que dejar el mismo reparto que un benchmark donde ese peso
+    // ya viviera en Mercados Privados. Si el residuo se perdiera o se contara
+    // dos veces, estas dos corridas no coincidirían.
+    const sinOtros = generarPlan({
+      ...ENTRADA,
+      patrimonioTotalUsd: 400_000,
+      pisos: [],
+      benchmark: {
+        ...BENCHMARK,
+        privados: BENCHMARK.privados + BENCHMARK.otros,
+        otros: 0,
+      },
+    })
+
+    expect(objetivo(plan, 'otros')).toBe(0)
+    expect(objetivo(plan, 'privados')).toBeCloseTo(objetivo(sinOtros, 'privados'), 2)
+    expect(objetivo(plan, 'club')).toBeCloseTo(objetivo(sinOtros, 'club'), 2)
+    expect(plan.avisos.some((a) => a.includes('Otros: el dinero nuevo'))).toBe(true)
+  })
+
+  it('con la clase entera bajo el mínimo de los FM, todo cae al Fondo Oportunidad', () => {
+    // Es el caso que describe la regla: si a los fondos les tocarían menos de
+    // 50,000 cada uno, no se abre ninguno.
+    const plan = generarPlan({ ...ENTRADA, patrimonioTotalUsd: 150_000, pisos: [] })
+
+    expect(monto(plan.lineas, FONDO_OPORTUNIDAD)).toBeGreaterThan(0)
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
+    expect(sumaClase(plan.lineas, 'privados')).toBeCloseTo(objetivo(plan, 'privados'), 2)
+  })
+
+  it('una clase con piso conserva su linea aunque su dinero nuevo se derive', () => {
+    // El piso no se toca: lo que se deriva es solo la compra que no llega.
+    const plan = chico([
+      { clase: 'otros', montoUsd: 25_000, origen: 'conservado', etiqueta: 'BTC en Binance' },
+    ])
+
+    expect(monto(plan.lineas, 'BTC en Binance')).toBe(25_000)
+    expect(objetivo(plan, 'otros')).toBeCloseTo(25_000, 2)
+  })
+})

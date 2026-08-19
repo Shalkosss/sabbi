@@ -8,7 +8,9 @@ const BENCHMARK: Benchmark = {
   inm: 0.24,
   fijo: 0.19,
   variable: 0.16,
-  privados: 0.31,
+  privados: 0.21,
+  club: 0.09,
+  otros: 0.01,
   cash: 0.1,
 }
 
@@ -18,7 +20,7 @@ const DECISIONES: DecisionesPropuesta = {
   pesos: {
     fijo: { IBTA: 0.5, IBTM: 0.5 },
     variable: { 'iShares Core S&P 500': 1 },
-    privados: { clase: 0.31, club: 0.09, otros: 0.01 },
+    otros: { 'BTC (IBIT)': 0.85, Oro: 0.15 },
   },
   ticketMinimoUsd: 20_000,
   fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },
@@ -170,15 +172,11 @@ describe('armarEntradaPlan', () => {
       ...DECISIONES,
       necesitaFlujos: true,
       institucional: 'si',
-      clubFijado: true,
-      otrosFijado: true,
     })
 
     expect(entrada).toMatchObject({
       necesitaFlujos: true,
       institucional: 'si',
-      clubFijado: true,
-      otrosFijado: true,
       perfil: 'Moderado',
       ticketMinimoUsd: 20_000,
     })
@@ -256,9 +254,12 @@ describe('redistribuirInmobiliario', () => {
     const sinInm = redistribuirInmobiliario(BENCHMARK)
 
     expect(sinInm.inm).toBe(0)
-    expect(sinInm.fijo + sinInm.variable + sinInm.privados + sinInm.cash).toBeCloseTo(1, 10)
-    // Las proporciones relativas entre las otras cuatro no cambian.
+    expect(
+      sinInm.fijo + sinInm.variable + sinInm.privados + sinInm.club + sinInm.otros + sinInm.cash,
+    ).toBeCloseTo(1, 10)
+    // Las proporciones relativas entre las demas no cambian.
     expect(sinInm.fijo / sinInm.variable).toBeCloseTo(BENCHMARK.fijo / BENCHMARK.variable, 10)
+    expect(sinInm.club / sinInm.otros).toBeCloseTo(BENCHMARK.club / BENCHMARK.otros, 10)
   })
 
   it('devuelve el benchmark intacto si el inmobiliario ya pesaba cero', () => {

@@ -63,6 +63,7 @@ export function Rail({ asesor, activo }: Props) {
         />
       </div>
 
+      <p className={estilos.grupo}>Plataforma</p>
       <ul className={estilos.lista}>
         {SECCIONES.map((seccion) => (
           <li key={seccion.clave}>

@@ -1,5 +1,6 @@
 /* Pegado y de alto de ventana: la navegacion y el nombre del asesor no se
-   van con el scroll de una tabla de dieciseis filas. */
+   van con el scroll de una tabla de dieciseis filas. Degradado vertical y
+   borde de un pixel: el ancla oscura de la pantalla, en los dos juegos. */
 .rail {
   position: sticky;
   top: 0;
@@ -7,14 +8,17 @@
   height: 100vh;
   width: 216px;
   flex: none;
-  background: var(--rail);
+  background: linear-gradient(180deg, var(--rail), var(--rail-2));
+  border-right: 1px solid var(--rail-borde);
   display: flex;
   flex-direction: column;
   z-index: 4;
 }
 
 .marca {
-  padding: 24px 22px 26px;
+  padding: 24px 22px 22px;
+  border-bottom: 1px solid var(--rail-borde);
+  margin-bottom: 14px;
 }
 
 .logo {
@@ -23,26 +27,41 @@
   display: block;
 }
 
+/* Rotulo de grupo: microtipografia institucional, casi un susurro. */
+.grupo {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rail-tenue);
+  opacity: 0.7;
+  padding: 0 22px 8px;
+  margin: 0;
+}
+
 .lista {
   list-style: none;
   margin: 0;
   padding: 0 10px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 11px;
   padding: 8px 12px;
   border-radius: var(--radio-control);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--rail-tenue);
   text-decoration: none;
-  transition: background 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .item:hover {
@@ -50,14 +69,32 @@
   color: var(--rail-tinta);
 }
 
+/* La seccion abierta: fondo tenue del acento y una barra de dos pixeles al
+   borde del rail, como el indicador de un terminal financiero. */
 .activo {
   background: var(--rail-activo);
   color: var(--rail-tinta);
   font-weight: 600;
 }
 
+.activo::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--acento);
+}
+
+.activo .icono {
+  color: var(--acento);
+  opacity: 1;
+}
+
 .pendiente {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: default;
 }
 
@@ -68,7 +105,12 @@
 
 .icono {
   flex: none;
-  opacity: 0.8;
+  opacity: 0.75;
+  transition: opacity 120ms ease;
+}
+
+.item:hover .icono {
+  opacity: 1;
 }
 
 .pie {
@@ -76,22 +118,24 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 22px 20px;
+  padding: 14px 18px 18px;
   border-top: 1px solid var(--rail-borde);
 }
 
 .avatar {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: var(--acento);
+  background: linear-gradient(135deg, var(--lima), var(--verde-sabbi));
   color: var(--verde-noche);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
+  box-shadow: 0 0 0 1px var(--rail-borde);
 }
 
 .identidad {
@@ -128,10 +172,18 @@
     gap: 14px;
     padding-right: 14px;
     overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--rail-borde);
   }
 
   .marca {
     padding: 14px 18px;
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .grupo {
+    display: none;
   }
 
   .lista {
@@ -141,6 +193,10 @@
 
   .item {
     white-space: nowrap;
+  }
+
+  .activo::before {
+    display: none;
   }
 
   .pie {

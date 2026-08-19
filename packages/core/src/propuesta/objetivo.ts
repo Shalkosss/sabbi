@@ -28,8 +28,16 @@ import { seVendeUsd } from './foto.js'
 
 const EPS = 1e-6
 
-/** El mismo orden de bloques que usa el motor y la hoja Data. */
-const ORDEN_CLASES: readonly ClaseModelo[] = ['inm', 'fijo', 'variable', 'privados', 'cash']
+/** El mismo orden de bloques que usa el motor y la hoja Allocation detallado. */
+const ORDEN_CLASES: readonly ClaseModelo[] = [
+  'inm',
+  'fijo',
+  'variable',
+  'privados',
+  'club',
+  'otros',
+  'cash',
+]
 
 const share = (parte: number, total: number): number => (total > EPS ? parte / total : 0)
 

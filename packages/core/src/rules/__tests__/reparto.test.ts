@@ -14,7 +14,11 @@ const MODERADO: Benchmark = {
   inm: 0.24030062266972713,
   fijo: 0.18987950950338972,
   variable: 0.1642687853554088,
-  privados: 0.31081141150218566,
+  // Desde la v4, la clase de la hoja (0.31081141150218566) se abre en tres:
+  // privados es la clase menos el club y otros.
+  privados: 0.21397086081763286,
+  club: 0.09133824666838504,
+  otros: 0.005502304016167772,
   cash: 0.09473967096928874,
 }
 
@@ -43,23 +47,35 @@ describe('repartirPorClase', () => {
       expect(clase('cash').objetivoUsd).toBeCloseTo(214_492.75, 2)
     })
 
-    it('deja abiertas fijo, variable y privados', () => {
+    it('deja abiertas fijo, variable, privados, club y otros', () => {
       expect(clase('fijo').cerrada).toBe(false)
       expect(clase('variable').cerrada).toBe(false)
       expect(clase('privados').cerrada).toBe(false)
+      expect(clase('club').cerrada).toBe(false)
+      expect(clase('otros').cerrada).toBe(false)
     })
 
     it('calcula los objetivos por clase al centavo', () => {
       expect(clase('fijo').objetivoUsd).toBeCloseTo(141_318.9610218216, 2)
       expect(clase('variable').objetivoUsd).toBeCloseTo(122_258.0263423767, 2)
-      expect(clase('privados').objetivoUsd).toBeCloseTo(231_323.25263580168, 2)
+      expect(clase('privados').objetivoUsd).toBeCloseTo(159_249.09337915084, 2)
+      expect(clase('club').objetivoUsd).toBeCloseTo(67_979.03657161385, 2)
+      expect(clase('otros').objetivoUsd).toBeCloseTo(4_095.122685036978, 2)
+    })
+
+    it('las tres clases que eran una suman lo que la clase madre valia', () => {
+      // El solver es proporcional: partir Mercados Privados en tres no mueve
+      // un centavo del bloque. 231,323.25 era el objetivo de la clase entera.
+      const bloque =
+        clase('privados').objetivoUsd + clase('club').objetivoUsd + clase('otros').objetivoUsd
+      expect(bloque).toBeCloseTo(231_323.25263580168, 2)
     })
 
     it('descuenta del dinero nuevo lo que la clase ya tiene cubierto', () => {
       // Fijo trae 16,000 del seguro conservado, asi que solo compra la diferencia.
       expect(clase('fijo').dineroNuevoUsd).toBeCloseTo(125_318.9610218216, 2)
       expect(clase('variable').dineroNuevoUsd).toBeCloseTo(122_258.0263423767, 2)
-      expect(clase('privados').dineroNuevoUsd).toBeCloseTo(231_323.25263580168, 2)
+      expect(clase('privados').dineroNuevoUsd).toBeCloseTo(159_249.09337915084, 2)
       // Las clases cerradas no piden dinero nuevo. Fue el bug v37.25.
       expect(clase('inm').dineroNuevoUsd).toBe(0)
       expect(clase('cash').dineroNuevoUsd).toBe(0)
@@ -163,7 +179,9 @@ describe('repartirPorClase', () => {
       inm: 0.18861099499614553,
       fijo: 0,
       variable: 0.27488416305431934,
-      privados: 0.4773035990406503,
+      privados: 0.3317054564995304,
+      club: 0.09053724418058932,
+      otros: 0.055060898360530526,
       cash: 0.0592012429088848,
     }
 

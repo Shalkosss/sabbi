@@ -4,10 +4,12 @@
   gap: 16px;
   max-width: 380px;
   margin: 0 auto;
-  background: var(--superficie);
+  background: linear-gradient(180deg, var(--superficie-alta), var(--superficie));
   border: 1px solid var(--borde);
   border-radius: var(--radio-tarjeta);
-  box-shadow: var(--sombra);
+  box-shadow:
+    inset 0 1px 0 var(--realce),
+    var(--sombra);
   padding: 32px;
 }
 
@@ -34,6 +36,7 @@
 
 .campo input:focus {
   border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
   outline: none;
 }
 

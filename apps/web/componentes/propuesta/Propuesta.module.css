@@ -16,10 +16,11 @@
 
 /* Banda de titulo: el unico bloque de color pleno del documento. */
 .banda {
-  background: var(--verde-prof);
+  background: linear-gradient(130deg, var(--verde-prof), var(--verde-noche) 78%);
   color: var(--hueso);
   padding: 20px 26px;
   border-radius: var(--radio-control) var(--radio-control) 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .banda h1 {

@@ -1,16 +1,9 @@
-import type { ClaseModelo, Propuesta } from '@sabbi/core'
+import type { Propuesta } from '@sabbi/core'
 
+import { NOMBRE_CLASE_CORTO as NOMBRE_CLASE } from '../../lib/clases'
 import { usdTabla } from '../../lib/formato'
 import { Cuadre, Seccion, Tabla } from './Seccion'
 import estilos from './Propuesta.module.css'
-
-const NOMBRE_CLASE: Readonly<Record<ClaseModelo, string>> = {
-  inm: 'Inmobiliario',
-  fijo: 'Renta Fija',
-  variable: 'Renta Variable',
-  privados: 'Privados',
-  cash: 'Cash',
-}
 
 /**
  * Sección 7: el blotter.

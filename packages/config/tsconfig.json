@@ -5,5 +5,5 @@
     "outDir": "./dist",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "benchmarks.v3.json"]
+  "include": ["src/**/*.ts", "benchmarks.v4.json"]
 }

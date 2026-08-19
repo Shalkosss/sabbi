@@ -19,6 +19,8 @@ const CLASES: readonly { readonly valor: ClaseModelo; readonly texto: string }[]
   { valor: 'fijo', texto: 'Fijo' },
   { valor: 'variable', texto: 'Variable' },
   { valor: 'privados', texto: 'Privados' },
+  { valor: 'club', texto: 'Club Deals' },
+  { valor: 'otros', texto: 'Otros (Oro/BTC)' },
   { valor: 'inm', texto: 'Inmuebles' },
   { valor: 'cash', texto: 'Cash' },
 ]

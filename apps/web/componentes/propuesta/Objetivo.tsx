@@ -1,16 +1,9 @@
-import type { ClaseModelo, Propuesta } from '@sabbi/core'
+import type { Propuesta } from '@sabbi/core'
 
+import { NOMBRE_CLASE } from '../../lib/clases'
 import { pct1, puntos, rangoPct, rangoUsd, usdTabla } from '../../lib/formato'
 import { Cuadre, Seccion, Tabla } from './Seccion'
 import estilos from './Propuesta.module.css'
-
-const NOMBRE_CLASE: Readonly<Record<ClaseModelo, string>> = {
-  inm: 'Inmobiliario Directo',
-  fijo: 'Mercados Públicos — Renta Fija',
-  variable: 'Mercados Públicos — Renta Variable',
-  privados: 'Mercados Privados',
-  cash: 'Cash',
-}
 
 /**
  * Sección 6: el portafolio objetivo.

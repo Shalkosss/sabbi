@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { armarEntradaPlan, armarPropuesta, generarPlan, TOLERANCIA_CUADRE } from '@sabbi/core'
 import type { PosicionPropuesta, PosicionRevisada } from '@sabbi/core'
-import { benchmarkDe, pesosDeClase, pesosPrivadosDe } from '@sabbi/config'
+import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import { describe, expect, it } from 'vitest'
 
 import { parsearFicha } from '../parsear.js'
@@ -67,7 +67,7 @@ describe.skipIf(RUTA === undefined)('de la ficha al plan', () => {
       pesos: {
         fijo: pesosDeClase('fijo', 'Moderado'),
         variable: pesosDeClase('variable', 'Moderado'),
-        privados: pesosPrivadosDe('Moderado'),
+        otros: pesosDeClase('otros', 'Moderado'),
       },
       ticketMinimoUsd: ficha.modelo?.montoMinimoEtfUsd ?? 20_000,
       fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },
@@ -123,7 +123,11 @@ describe.skipIf(RUTA === undefined)('de la ficha al plan', () => {
     expect(objetivo('cash')).toBeCloseTo(214_492.75, 1)
     expect(objetivo('fijo')).toBeCloseTo(141_318.96, 1)
     expect(objetivo('variable')).toBeCloseTo(122_258.03, 1)
-    expect(objetivo('privados')).toBeCloseTo(231_323.25, 1)
+    // Privados absorbe el residuo de Otros, que no llega a su minimo; el
+    // bloque completo sigue siendo los 231,323.25 de la clase madre.
+    expect(objetivo('privados')).toBeCloseTo(163_344.22, 1)
+    expect(objetivo('club')).toBeCloseTo(67_979.04, 1)
+    expect(objetivo('privados') + objetivo('club') + objetivo('otros')).toBeCloseTo(231_323.25, 1)
   })
 
   it('cuadra el total del plan contra el patrimonio y las compras contra el dinero disponible', () => {
@@ -175,7 +179,7 @@ describe.skipIf(RUTA === undefined)('de la ficha a la propuesta', () => {
       pesos: {
         fijo: pesosDeClase('fijo', 'Moderado'),
         variable: pesosDeClase('variable', 'Moderado'),
-        privados: pesosPrivadosDe('Moderado'),
+        otros: pesosDeClase('otros', 'Moderado'),
       },
       ticketMinimoUsd: ficha.modelo?.montoMinimoEtfUsd ?? 20_000,
       fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },

@@ -11,6 +11,8 @@
   min-width: 0;
 }
 
+/* Translucida con desenfoque: el contenido pasa por debajo y se insinua, que
+   es lo que hace que la barra se lea como vidrio y no como una franja mas. */
 .barra {
   position: sticky;
   top: 0;
@@ -23,7 +25,9 @@
   flex-wrap: wrap;
   padding: 8px 26px;
   border-bottom: 1px solid var(--borde);
-  background: var(--fondo);
+  background: color-mix(in srgb, var(--fondo) 78%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .migas {

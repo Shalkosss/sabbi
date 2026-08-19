@@ -4,19 +4,28 @@
 }
 
 .zona {
-  background: var(--superficie);
-  border: 2px dashed var(--borde);
+  background: linear-gradient(180deg, var(--superficie-alta), var(--superficie));
+  border: 1.5px dashed var(--borde-fuerte);
   border-radius: var(--radio-tarjeta);
+  box-shadow: inset 0 1px 0 var(--realce);
   padding: 56px 32px;
   text-align: center;
   transition:
     border-color 120ms ease,
-    background 120ms ease;
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.zona:hover {
+  border-color: var(--acento-borde);
 }
 
 .encima {
   border-color: var(--acento);
   background: var(--acento-suave);
+  box-shadow:
+    inset 0 1px 0 var(--realce),
+    0 0 0 4px var(--anillo);
 }
 
 .titulo {

@@ -4,9 +4,9 @@ import type { Benchmark, LineaPlan, Piso } from '../domain/tipos.js'
 import { generarPlan, INMOBILIARIO_TBD } from '../plan.js'
 import type { EntradaPlan } from '../plan.js'
 import { UMBRAL_INMOBILIARIO } from '../rules/inmobiliario.js'
+import { FONDO_ESTRATEGICO } from '../rules/club.js'
 import {
   FONDO_DIVIDENDOS_GLOBAL,
-  FONDO_ESTRATEGICO,
   FONDO_OPORTUNIDAD,
   FONDO_RE_INFRA,
   NOTA_INSTITUCIONAL,
@@ -21,12 +21,19 @@ import {
  * estan re-baselinizadas a la salida de v8.
  */
 
-/** Pesos exactos de Data!E, perfil Moderado. */
+/**
+ * Pesos exactos de Data!E, perfil Moderado, con la clase Mercados Privados de
+ * la hoja (0.31081141150218566) abierta en privados + club + otros como manda
+ * la hoja Allocation detallado. El solver es proporcional, asi que el bloque
+ * completo sigue moviendo el mismo dinero que la clase madre.
+ */
 const BENCHMARK: Benchmark = {
   inm: 0.24030062266972713,
   fijo: 0.18987950950338972,
   variable: 0.1642687853554088,
-  privados: 0.31081141150218566,
+  privados: 0.21397086081763286,
+  club: 0.09133824666838504,
+  otros: 0.005502304016167772,
   cash: 0.09473967096928874,
 }
 
@@ -46,10 +53,10 @@ const PESOS_VARIABLE = {
   ISFD: 0.008013111480751647,
 }
 
-const PESOS_PRIVADOS = {
-  clase: 0.31081141150218566,
-  club: 0.09133824666838504,
-  otros: 0.005502304016167772,
+/** Particion de Otros del perfil Moderado, hoja Allocation detallado. */
+const PESOS_OTROS = {
+  'BTC (IBIT)': 0.0046 / 0.005525,
+  Oro: 0.000925 / 0.005525,
 }
 
 const PATRIMONIO = 1_264_392.99
@@ -64,7 +71,7 @@ const ENTRADA: EntradaPlan = {
   perfil: 'Moderado',
   patrimonioTotalUsd: PATRIMONIO,
   benchmark: BENCHMARK,
-  pesos: { fijo: PESOS_FIJO, variable: PESOS_VARIABLE, privados: PESOS_PRIVADOS },
+  pesos: { fijo: PESOS_FIJO, variable: PESOS_VARIABLE, otros: PESOS_OTROS },
   pisos: PISOS,
   ticketMinimoUsd: 20_000,
   fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },
@@ -92,15 +99,25 @@ describe('generarPlan — caso Ana Tumi', () => {
       expect(objetivo(plan, 'cash')).toBeCloseTo(214_492.75, 4)
     })
 
-    it('reproduce los tres objetivos de clase abiertos', () => {
+    it('reproduce los objetivos de clase abiertos', () => {
       expect(objetivo(plan, 'fijo')).toBeCloseTo(141_318.9610218216, 4)
       expect(objetivo(plan, 'variable')).toBeCloseTo(122_258.0263423767, 4)
-      expect(objetivo(plan, 'privados')).toBeCloseTo(231_323.25263580168, 4)
+      expect(objetivo(plan, 'club')).toBeCloseTo(67_979.03657161385, 4)
+      // Privados absorbe los 4,095.12 de Otros, que no llegan a su minimo.
+      expect(objetivo(plan, 'privados')).toBeCloseTo(163_344.2160641878, 4)
+      expect(objetivo(plan, 'otros')).toBe(0)
     })
 
-    it('no toca el inmobiliario: el ticket supera el umbral', () => {
+    it('el bloque privados + club + otros mueve lo mismo que la clase madre', () => {
+      const bloque =
+        objetivo(plan, 'privados') + objetivo(plan, 'club') + objetivo(plan, 'otros')
+      expect(bloque).toBeCloseTo(231_323.25263580168, 4)
+    })
+
+    it('no toca el inmobiliario y solo avisa el residuo de Otros', () => {
       expect(PATRIMONIO).toBeGreaterThan(UMBRAL_INMOBILIARIO)
-      expect(plan.avisos).toStrictEqual([])
+      expect(plan.avisos).toHaveLength(1)
+      expect(plan.avisos[0]).toMatch(/Otros: el dinero nuevo .* no llega al minimo/)
     })
   })
 
@@ -114,7 +131,7 @@ describe('generarPlan — caso Ana Tumi', () => {
     })
 
     it('cada bloque cierra contra su objetivo de clase', () => {
-      for (const clase of ['inm', 'fijo', 'variable', 'privados', 'cash'] as const) {
+      for (const clase of ['inm', 'fijo', 'variable', 'privados', 'club', 'otros', 'cash'] as const) {
         expect(sumaClase(plan.lineas, clase)).toBeCloseTo(objetivo(plan, clase), 4)
       }
     })
@@ -157,7 +174,7 @@ describe('generarPlan — caso Ana Tumi', () => {
     })
 
     it('ordena por bloque y, dentro del bloque, de mayor a menor', () => {
-      const orden = ['inm', 'fijo', 'variable', 'privados', 'cash']
+      const orden = ['inm', 'fijo', 'variable', 'privados', 'club', 'otros', 'cash']
       let anterior = -1
       for (const l of plan.lineas) {
         const bloque = orden.indexOf(l.clase)

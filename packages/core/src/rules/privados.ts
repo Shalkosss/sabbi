@@ -1,43 +1,33 @@
 /**
  * Reparto de Mercados Privados.
  *
- * Port de `ProcesarMercadosPrivados` de la macro Benchmark Sabbi v8. A
- * diferencia de la cascada de ETFs, esta rutina da el mismo resultado que la
- * propuesta de Ana Tumi: el reparto de privados no cambio entre versiones.
+ * Desde la separacion de Club Deals y Otros en clases propias, esta clase es
+ * solo la familia de fondos: los tres fondos mutuos institucionales y el Fondo
+ * Oportunidad. El neteo contra lo conservado ya no vive aca — lo hace el
+ * solver de pisos, clase por clase — asi que esta rutina recibe el dinero
+ * nuevo y decide en que fondos entra.
  *
- * La clase se abre en tres familias. Club y Otros toman su parte segun los
- * pesos del benchmark; lo que queda es el Fondo Oportunidad, que a su vez puede
- * desglosarse en los tres fondos institucionales.
+ * Las reglas, en orden:
  *
- * Las dos reglas que gobiernan el resultado:
- *
- *  - Umbral por familia. Si Club no llega a 10,000 o si Otros no llega al
- *    ticket minimo, esa familia no se abre y su monto cae al Fondo Oportunidad.
- *    Sumarlo alli y no antes es lo que evita el bug que reporto Max: netear la
- *    familia antes hacia aparecer residuos chicos como dinero nuevo aunque la
- *    clase ya estuviera sobrecubierta.
+ *  - Flujos mandan. Los fondos mutuos no distribuyen; con el toggle activo el
+ *    destino es Vision Dividendos Global si alcanza su ticket de 80,000, y el
+ *    Fondo Oportunidad si no.
+ *  - Check institucional. `auto` reproduce v8: abre el split en los tres FM y
+ *    estampa la nota que traslada la decision al asesor. Solo un forzado a
+ *    `no` lo cierra.
  *  - Todo o nada. Si algun subfondo activo no llega a 50,000, no se abre
- *    ninguno: todo se muestra como Fondo Oportunidad. Media apertura no existe.
+ *    ninguno: todo va al Fondo Oportunidad. Media apertura no existe.
  *
- * Sobre esas dos se monta la regla de flujos, que la macro no tiene y sale del
- * HTML v37 (§8.4 de la especificacion). Cuando el cliente necesita flujos, los
- * fondos mutuos quedan fuera por iliquidos: el club va al unico producto de su
- * familia que paga flujos y el resto va a Vision Dividendos Global, con el
- * Fondo Oportunidad como unica alternativa si no alcanza su ticket.
+ * El Fondo Oportunidad no tiene minimo de inversion: es el destino residual de
+ * la clase y de los montos de Club Deals y Otros que no llegan a su umbral.
  */
 
 import type { Perfil } from '../domain/tipos.js'
 import { aperturaFm } from './institucional.js'
 import type { EstadoInstitucional } from './institucional.js'
 
-/** Minimo para que Club deals se abra como linea propia. */
-const MIN_CLUB = 10_000
-
 /** Minimo por subfondo institucional. Debajo de esto no se abre ninguno. */
-const MIN_SUBFONDO = 50_000
-
-/** Frontera entre las dos clases del fondo Edifica. */
-const UMBRAL_CLASE_A = 70_000
+export const MIN_SUBFONDO = 50_000
 
 /**
  * Ticket minimo de Vision Dividendos Global (Clase B, §4.7).
@@ -54,12 +44,8 @@ export const FONDO_OPORTUNIDAD = 'Sabbi Fondo Oportunidad'
 export const FONDO_RE_INFRA = 'FM RE Infra'
 export const FONDO_PRIVATE_CREDIT = 'FM PC'
 export const FONDO_PE_VC = 'FM PE VC'
-export const OTROS_IBIT = 'Otros - IBIT'
 
-/** Unico producto de la familia club que paga flujos. Trimestral, 8.25%. */
-export const FONDO_ESTRATEGICO = 'Sabbi Fondo Estratégico'
-
-/** Destino de flujos de la familia oportunidad. Mensual, 6.65% o 7.25%. */
+/** Destino de flujos de la clase. Mensual, 6.65% o 7.25%. */
 export const FONDO_DIVIDENDOS_GLOBAL = 'Fondo Visión Dividendos Global'
 
 /**
@@ -75,25 +61,11 @@ export const NOTA_INSTITUCIONAL =
 export interface LineaPrivados {
   readonly instrumento: string
   readonly usd: number
-  readonly familia: 'club' | 'otros' | 'oportunidad'
   readonly nota?: string
-}
-
-export interface PesosPrivados {
-  /** Peso de la clase entera sobre el patrimonio. */
-  readonly clase: number
-  readonly club: number
-  readonly otros: number
 }
 
 export interface OpcionesPrivados {
   readonly perfil: Perfil
-  readonly pesos: PesosPrivados
-  /** Ticket minimo general. Es el umbral que debe superar Otros. */
-  readonly ticketMinimo: number
-  /** Club y Otros clavados por restriccion no se disuelven aunque no lleguen. */
-  readonly clubFijado?: boolean
-  readonly otrosFijado?: boolean
   /**
    * Toggle de flujos de la propuesta. Con el activo ningun fondo mutuo recibe
    * dinero: los FM son iliquidos y no distribuyen.
@@ -114,83 +86,22 @@ function splitInstitucional(perfil: Perfil): { reInfra: number; pc: number; pevc
 }
 
 /**
- * Nombre de la clase del fondo Edifica segun el monto.
- *
- * Con Ana Tumi el club queda en 67,979 y por eso la propuesta dice Clase B.
- */
-export function etiquetaClubDeal(montoUsd: number): string {
-  return montoUsd >= UMBRAL_CLASE_A
-    ? 'Fondo Edifica Diversificado Clase A'
-    : 'Fondo Edifica Diversificado Clase B'
-}
-
-/**
- * Reparte el objetivo de Mercados Privados entre sus instrumentos.
- *
- * @param objetivoUsd  monto total de la clase, no el dinero nuevo
- */
-export function repartirPrivados(
-  objetivoUsd: number,
-  opciones: OpcionesPrivados,
-): LineaPrivados[] {
-  const {
-    perfil,
-    pesos,
-    ticketMinimo,
-    clubFijado = false,
-    otrosFijado = false,
-    necesitaFlujos = false,
-    institucional = 'auto',
-  } = opciones
-  if (objetivoUsd <= EPS) return []
-  if (pesos.clase <= EPS) {
-    return [lineaOportunidad(objetivoUsd, necesitaFlujos)]
-  }
-
-  let club = objetivoUsd * (pesos.club / pesos.clase)
-  let otros = objetivoUsd * (pesos.otros / pesos.clase)
-
-  // Una familia que no llega a su umbral no se abre: su monto engorda el Fondo
-  // Oportunidad en lugar de quedar como una linea inviable.
-  if (!clubFijado && club < MIN_CLUB - TOL) club = 0
-  if (!otrosFijado && otros < ticketMinimo - TOL) otros = 0
-
-  const oportunidad = Math.max(0, objetivoUsd - club - otros)
-
-  const lineas: LineaPrivados[] = []
-
-  if (club > EPS) {
-    // Con flujos activos el club no va a Edifica: Sabbi Fondo Estrategico es el
-    // unico de la familia que distribuye.
-    const instrumento = necesitaFlujos ? FONDO_ESTRATEGICO : etiquetaClubDeal(club)
-    lineas.push({ instrumento, usd: club, familia: 'club' })
-  }
-  if (otros > EPS) {
-    lineas.push({ instrumento: OTROS_IBIT, usd: otros, familia: 'otros' })
-  }
-
-  lineas.push(...abrirOportunidad(oportunidad, perfil, necesitaFlujos, institucional))
-
-  return lineas.sort((a, b) => b.usd - a.usd)
-}
-
-/**
- * Linea unica de la familia oportunidad, sin abrir subfondos.
+ * Linea unica de la clase, sin abrir subfondos.
  *
  * Con flujos activos el destino es Vision Dividendos Global mientras alcance su
  * ticket; por debajo se queda en el Fondo Oportunidad. Son los dos unicos
- * destinos posibles de la familia cuando el cliente necesita flujos.
+ * destinos posibles cuando el cliente necesita flujos.
  */
 function lineaOportunidad(montoUsd: number, necesitaFlujos: boolean): LineaPrivados {
   const instrumento =
     necesitaFlujos && montoUsd >= MIN_DIVIDENDOS_GLOBAL - TOL
       ? FONDO_DIVIDENDOS_GLOBAL
       : FONDO_OPORTUNIDAD
-  return { instrumento, usd: montoUsd, familia: 'oportunidad' }
+  return { instrumento, usd: montoUsd }
 }
 
 /**
- * Abre el Fondo Oportunidad en sus tres subfondos, o lo deja entero.
+ * Reparte el dinero nuevo de Mercados Privados entre sus fondos.
  *
  * Tres compuertas, en orden. Los flujos mandan: con el toggle activo los FM
  * quedan fuera por iliquidos y el split ni se evalua. Despues el check
@@ -198,12 +109,11 @@ function lineaOportunidad(montoUsd: number, necesitaFlujos: boolean): LineaPriva
  * regla de todo o nada: basta con que un subfondo activo no llegue a 50,000
  * para que no se abra ninguno.
  */
-function abrirOportunidad(
+export function repartirPrivados(
   montoUsd: number,
-  perfil: Perfil,
-  necesitaFlujos: boolean,
-  institucional: EstadoInstitucional,
+  opciones: OpcionesPrivados,
 ): LineaPrivados[] {
+  const { perfil, necesitaFlujos = false, institucional = 'auto' } = opciones
   if (montoUsd <= EPS) return []
 
   // Los FM no distribuyen. Con flujos activos el split ni se evalua.
@@ -229,7 +139,6 @@ function abrirOportunidad(
   return candidatos.map((c) => ({
     instrumento: c.instrumento,
     usd: c.usd,
-    familia: 'oportunidad' as const,
     // Confirmado por el asesor, el disclaimer sobra.
     ...(apertura === 'con-nota' ? { nota: NOTA_INSTITUCIONAL } : {}),
   }))

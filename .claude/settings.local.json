@@ -10,7 +10,8 @@
       "PowerShell(winget install *)",
       "Bash(python -c \"import openpyxl; print\\('ok', openpyxl.__version__\\)\")",
       "Bash(python -c \"import pptx; print\\('ok'\\)\")",
-      "Read(//c/Users/Rodrigo Challco/**)"
+      "Read(//c/Users/Rodrigo Challco/**)",
+      "PowerShell(Get-ChildItem apps -Recurse -Directory | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object -ExpandProperty FullName)"
     ]
   }
 }

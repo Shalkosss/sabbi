@@ -45,8 +45,11 @@
    maneja abajo, donde la cabecera deja de ser pegajosa. */
 .envoltorio {
   border: 1px solid var(--borde);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--superficie);
+  box-shadow:
+    inset 0 1px 0 var(--realce),
+    var(--sombra);
 }
 
 .tabla {
@@ -201,7 +204,8 @@
 .numeroCorto:focus,
 .numeroParcial:focus {
   border-color: var(--acento);
-  background: var(--superficie);
+  background: var(--superficie-alta);
+  box-shadow: 0 0 0 3px var(--anillo);
   outline: none;
 }
 

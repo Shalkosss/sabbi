@@ -39,6 +39,7 @@
 .campo select:focus,
 .campo input:focus {
   border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
   outline: none;
 }
 

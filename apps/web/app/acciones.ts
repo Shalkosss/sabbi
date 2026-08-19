@@ -1,6 +1,6 @@
 'use server'
 
-import { benchmarkDe, pesosDeClase, pesosPrivadosDe } from '@sabbi/config'
+import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import { armarEntradaPlan, generarPlan } from '@sabbi/core'
 import type { Bloqueo, EstadoInstitucional, Perfil, PosicionRevisada } from '@sabbi/core'
 import { parsearFicha } from '@sabbi/io'
@@ -121,7 +121,7 @@ export async function calcularPlan(
     pesos: {
       fijo: pesosDeClase('fijo', parametros.perfil),
       variable: pesosDeClase('variable', parametros.perfil),
-      privados: pesosPrivadosDe(parametros.perfil),
+      otros: pesosDeClase('otros', parametros.perfil),
     },
     ticketMinimoUsd: parametros.ticketMinimoUsd,
     fallbacks: FALLBACKS,

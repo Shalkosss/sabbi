@@ -42,15 +42,16 @@
 .etiqueta {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--tinta-3);
 }
 
 .valor {
-  font-size: 25px;
+  font-size: 27px;
   font-weight: 700;
   line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--tinta);
   margin-top: 8px;
 }

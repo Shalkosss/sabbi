@@ -21,17 +21,19 @@ export type {
 } from './rules/institucional.js'
 export {
   repartirPrivados,
-  etiquetaClubDeal,
   FONDO_OPORTUNIDAD,
   FONDO_RE_INFRA,
   FONDO_PRIVATE_CREDIT,
   FONDO_PE_VC,
-  FONDO_ESTRATEGICO,
   FONDO_DIVIDENDOS_GLOBAL,
-  OTROS_IBIT,
   NOTA_INSTITUCIONAL,
+  MIN_SUBFONDO,
 } from './rules/privados.js'
-export type { LineaPrivados, OpcionesPrivados, PesosPrivados } from './rules/privados.js'
+export type { LineaPrivados, OpcionesPrivados } from './rules/privados.js'
+export { repartirClub, etiquetaClubDeal, FONDO_ESTRATEGICO, MIN_CLUB } from './rules/club.js'
+export type { LineaClub, OpcionesClub } from './rules/club.js'
+export { repartirOtros, OTROS_BTC, OTROS_ORO, MIN_OTROS } from './rules/otros.js'
+export type { LineaOtros } from './rules/otros.js'
 export { generarPlan, INMOBILIARIO_TBD, LINEA_CASH } from './plan.js'
 export {
   armarEntradaPlan,

@@ -40,7 +40,7 @@ describe('clasificar', () => {
   it('separa las familias de privados que el motor trata distinto', () => {
     expect(clasificar({ tipoFicha: 'Otro', nombre: 'Edifica Clase B' })).toMatchObject({
       assetClass: 'Club Deals Real Estate',
-      claseModelo: 'privados',
+      claseModelo: 'club',
     })
 
     expect(
@@ -91,8 +91,28 @@ describe('clasificar', () => {
     })
   })
 
+  it('clasifica cripto y oro en la clase Otros', () => {
+    expect(clasificar({ tipoFicha: 'Cripto', nombre: 'Bitcoin en Binance' })).toMatchObject({
+      assetClass: 'Criptomonedas',
+      claseModelo: 'otros',
+      requiereConfirmacion: false,
+    })
+    expect(clasificar({ tipoFicha: 'Otro', nombre: 'iShares Bitcoin Trust (IBIT)' })).toMatchObject({
+      assetClass: 'Criptomonedas',
+      claseModelo: 'otros',
+    })
+    expect(clasificar({ tipoFicha: 'Otro', nombre: 'Oro físico en bóveda' })).toMatchObject({
+      assetClass: 'Oro',
+      claseModelo: 'otros',
+    })
+    // "tesoro" contiene "oro": la regla de bonos tiene que ganar.
+    expect(clasificar({ tipoFicha: 'Otro', nombre: 'Bonos del Tesoro Americano' })).toMatchObject({
+      claseModelo: 'fijo',
+    })
+  })
+
   it('no adivina una clase cuando no reconoce nada', () => {
-    const desconocido = clasificar({ tipoFicha: 'Cripto', nombre: 'Bitcoin en Binance' })
+    const desconocido = clasificar({ tipoFicha: 'Arte', nombre: 'Colección de cuadros' })
 
     expect(desconocido.claseModelo).toBeNull()
     expect(desconocido.assetClass).toBeNull()

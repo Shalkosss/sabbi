@@ -3,6 +3,7 @@
 import Link from 'next/link'
 
 import type { PlanResumido } from '../app/acciones'
+import { NOMBRE_CLASE } from '../lib/clases'
 import { pct, usd } from '../lib/formato'
 import estilos from './PanelPlan.module.css'
 
@@ -10,14 +11,6 @@ interface Props {
   readonly plan: PlanResumido
   /** Sin propuesta abierta no hay adonde ir: la ficha se subio antes del cambio. */
   readonly propuestaId: string
-}
-
-const NOMBRE_CLASE: Readonly<Record<string, string>> = {
-  inm: 'Inmobiliario Directo',
-  fijo: 'Mercados Públicos — Fijo',
-  variable: 'Mercados Públicos — Variable',
-  privados: 'Mercados Privados',
-  cash: 'Cash',
 }
 
 /**
@@ -64,7 +57,7 @@ export function PanelPlan({ plan, propuestaId }: Props) {
             {plan.porClase.map((clase) => (
               <tr key={clase.clase}>
                 <td>
-                  {NOMBRE_CLASE[clase.clase] ?? clase.clase}
+                  {(NOMBRE_CLASE as Readonly<Record<string, string>>)[clase.clase] ?? clase.clase}
                   {clase.cerrada && clase.objetivoUsd > 0 && (
                     <span className={estilos.marca} title="Cubierta por lo que el cliente conserva">
                       cerrada

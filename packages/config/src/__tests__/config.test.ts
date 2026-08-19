@@ -6,13 +6,12 @@ import {
   benchmarksSchema,
   CLASES,
   pesosDeClase,
-  pesosPrivadosDe,
 } from '../index.js'
 
 describe('configuración de benchmarks', () => {
   it('carga y valida el archivo extraído de la hoja Data', () => {
-    expect(benchmarks.version).toBe(3)
-    expect(benchmarks.hoja).toBe('Data')
+    expect(benchmarks.version).toBe(4)
+    expect(benchmarks.hoja).toContain('Data')
     expect(benchmarks.perfiles).toHaveLength(5)
   })
 
@@ -23,8 +22,14 @@ describe('configuración de benchmarks', () => {
     expect(moderado.inm).toBe(0.24030062266972713)
     expect(moderado.fijo).toBe(0.18987950950338972)
     expect(moderado.variable).toBe(0.1642687853554088)
-    expect(moderado.privados).toBe(0.31081141150218566)
     expect(moderado.cash).toBe(0.09473967096928874)
+    // La clase Mercados Privados de la hoja, abierta en sus tres clases.
+    expect(moderado.privados + moderado.club + moderado.otros).toBeCloseTo(
+      0.31081141150218566,
+      12,
+    )
+    expect(moderado.club).toBe(0.09133824666838504)
+    expect(moderado.otros).toBe(0.005502304016167772)
   })
 
   it('cuadra en 1 para los cinco perfiles', () => {
@@ -86,20 +91,23 @@ describe('validación del esquema', () => {
   })
 })
 
-describe('pesos de Mercados Privados', () => {
-  it('devuelve los tres pesos en la escala del patrimonio, sin renormalizar', () => {
-    // Los mismos que reproducen el reparto de privados de la propuesta real.
-    expect(pesosPrivadosDe('Moderado')).toStrictEqual({
-      clase: 0.31081141150218566,
-      club: 0.09133824666838504,
-      otros: 0.005502304016167772,
-    })
+describe('clase Otros', () => {
+  it('parte Otros en BTC y Oro según la hoja Allocation detallado', () => {
+    const otros = pesosDeClase('otros', 'Moderado')
+    const total = Object.values(otros).reduce((a, b) => a + b, 0)
+    expect(total).toBeCloseTo(1, 12)
+    // Moderado: cripto 0.0046 y oro 0.000925 sobre el patrimonio.
+    expect(otros['BTC (IBIT)']).toBeCloseTo(0.0046 / 0.005525, 4)
+    expect(otros['Oro']).toBeCloseTo(0.000925 / 0.005525, 4)
   })
 
-  it('el club y otros nunca superan a su clase', () => {
-    for (const perfil of benchmarks.perfiles) {
-      const { clase, club, otros } = pesosPrivadosDe(perfil)
-      expect(club + otros).toBeLessThanOrEqual(clase + 1e-9)
-    }
+  it('los perfiles conservadores no llevan oro', () => {
+    expect(pesosDeClase('otros', 'Conservador')['Oro'] ?? 0).toBe(0)
+    expect(pesosDeClase('otros', 'Conservador & Moderado')['Oro'] ?? 0).toBe(0)
+  })
+
+  it('en Arriesgado el BTC domina la clase', () => {
+    const otros = pesosDeClase('otros', 'Arriesgado')
+    expect(otros['BTC (IBIT)']).toBeGreaterThan(0.9)
   })
 })

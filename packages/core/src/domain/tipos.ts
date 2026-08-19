@@ -20,13 +20,19 @@ export const SEGMENTOS = ['lt500', 'gte500'] as const
 export type Segmento = (typeof SEGMENTOS)[number]
 
 /**
- * Las cinco clases del motor.
+ * Las siete clases del motor.
  *
  * Distinta de `assetClass`, que es la taxonomia granular que ve el cliente en
  * la propuesta. Confundirlas produjo el bug v37.25b: el motor contaba el dinero
  * en una clase y la tabla lo mostraba en otra.
+ *
+ * Club Deals y Otros fueron familias internas de Mercados Privados hasta la
+ * config v3. Son clases propias desde la v4: la hoja Allocation detallado las
+ * trae como bloques de primer nivel, y como clases el solver de pisos las netea
+ * contra lo conservado por si solo — el neteo por familia que el motor viejo
+ * hacia a mano dentro de privados.
  */
-export const CLASES = ['fijo', 'variable', 'privados', 'inm', 'cash'] as const
+export const CLASES = ['fijo', 'variable', 'privados', 'club', 'otros', 'inm', 'cash'] as const
 export type ClaseModelo = (typeof CLASES)[number]
 
 /** Decision del asesor sobre una posicion. */

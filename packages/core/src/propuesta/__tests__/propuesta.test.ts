@@ -15,14 +15,20 @@ import type { DatosProducto, PosicionPropuesta } from '../tipos.js'
  * objetivo cuadre y que las compras cuadren contra las ventas.
  */
 
-const BENCHMARK: Benchmark = { fijo: 0.3, variable: 0.25, privados: 0.25, inm: 0.1, cash: 0.1 }
+const BENCHMARK: Benchmark = {
+  fijo: 0.3,
+  variable: 0.25,
+  privados: 0.1,
+  club: 0.1,
+  otros: 0.05,
+  inm: 0.1,
+  cash: 0.1,
+}
 
 const PESOS = {
   fijo: { 'ETF Fijo A': 0.6, 'ETF Fijo B': 0.4 },
   variable: { 'ETF Variable A': 0.7, 'ETF Variable B': 0.3 },
-  // club y otros pesan sobre el patrimonio, no sobre la clase: dentro de
-  // Privados quedan en 40% y 20%, y el resto va al Fondo Oportunidad.
-  privados: { clase: 0.25, club: 0.1, otros: 0.05 },
+  otros: { 'BTC (IBIT)': 0.85, Oro: 0.15 },
 }
 
 function posicion(parcial: Partial<PosicionPropuesta> & { valorUsd: number }): PosicionPropuesta {
@@ -382,7 +388,15 @@ describe('avisos', () => {
 describe('clases del reparto', () => {
   it('agrupa las líneas en el orden de la hoja Data', () => {
     const { seccion6 } = propuesta()
-    const orden: readonly ClaseModelo[] = ['inm', 'fijo', 'variable', 'privados', 'cash']
+    const orden: readonly ClaseModelo[] = [
+      'inm',
+      'fijo',
+      'variable',
+      'privados',
+      'club',
+      'otros',
+      'cash',
+    ]
     const presentes = seccion6.grupos.map((grupo) => grupo.clase)
 
     expect(presentes).toEqual(orden.filter((clase) => presentes.includes(clase)))

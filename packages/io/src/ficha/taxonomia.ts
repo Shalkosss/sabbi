@@ -59,6 +59,8 @@ const ALT_MAC = 'Alternativos Multi Asset Class'
 const ALT_PE = 'Alternativos Private Equity'
 const ALT_CREDITO = 'Alternativos Crédito Privado'
 const NOTAS = 'Notas estructuradas'
+const CRIPTO = 'Criptomonedas'
+const ORO = 'Oro'
 
 const porNombre = (
   patron: string,
@@ -93,11 +95,23 @@ export const SEED_TAXONOMIA: readonly ReglaTaxonomia[] = [
   // ── Productos Sabbi y familias de privados, que el motor trata distinto ──
   porNombre('fondo oportunidad', ALT_MAC, 'privados', 10),
   porNombre('vision dividendos', ALT_MAC, 'privados', 10),
-  porNombre('fondo estrategico', ALT_MAC, 'privados', 10),
-  porNombre('edifica', CLUB_RE, 'privados', 10),
-  porNombre('club deal', CLUB_RE, 'privados', 10),
-  porNombre('cds-fed', CLUB_RE, 'privados', 10),
+  // El Fondo Estrategico es el producto de flujos de la familia club.
+  porNombre('fondo estrategico', CLUB_RE, 'club', 10),
+  porNombre('edifica', CLUB_RE, 'club', 10),
+  porNombre('club deal', CLUB_RE, 'club', 10),
+  porNombre('cds-fed', CLUB_RE, 'club', 10),
   porNombre('re infra', ALT_RE, 'privados', 10),
+  // La clase Otros: BTC via IBIT y oro, cada uno con su subclase.
+  porNombre('ibit', CRIPTO, 'otros', 10),
+  porNombre('bitcoin', CRIPTO, 'otros', 10),
+  porNombre('btc', CRIPTO, 'otros', 12),
+  porNombre('ethereum', CRIPTO, 'otros', 12),
+  porNombre('cripto', CRIPTO, 'otros', 12),
+  // "tesoro" contiene "oro": la regla de bonos del tesoro escuda a la del metal.
+  porNombre('tesoro', BONOS, 'fijo', 15),
+  porNombre('oro', ORO, 'otros', 25),
+  porNombre('xau', ORO, 'otros', 25),
+  porNombre('lingote', ORO, 'otros', 25),
   porNombre('prestamo directo', ALT_CREDITO, 'privados', 10),
   porNombre('deuda privada', ALT_CREDITO, 'privados', 10),
   porNombre('credito privado', ALT_CREDITO, 'privados', 10),

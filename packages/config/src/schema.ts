@@ -16,7 +16,7 @@ export const PERFILES = [
   'Arriesgado',
 ] as const
 
-export const CLASES = ['fijo', 'variable', 'privados', 'inm', 'cash'] as const
+export const CLASES = ['fijo', 'variable', 'privados', 'club', 'otros', 'inm', 'cash'] as const
 
 /** Peso de benchmark: una fraccion, nunca un porcentaje de 0 a 100. */
 const peso = z

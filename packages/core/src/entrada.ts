@@ -73,8 +73,6 @@ export interface DecisionesPropuesta {
   /** Efectivo que la propuesta reserva. Clava cash dentro del ticket. */
   readonly colchonLiquidezUsd?: number
   readonly restricciones?: readonly Restriccion[]
-  readonly clubFijado?: boolean
-  readonly otrosFijado?: boolean
 }
 
 export type CodigoBloqueo =
@@ -130,13 +128,9 @@ export function redistribuirInmobiliario(benchmark: Benchmark): Benchmark {
   if (resto <= EPS) return benchmark
 
   const factor = (resto + benchmark.inm) / resto
-  return {
-    inm: 0,
-    fijo: benchmark.fijo * factor,
-    variable: benchmark.variable * factor,
-    privados: benchmark.privados * factor,
-    cash: benchmark.cash * factor,
-  }
+  return Object.fromEntries(
+    CLASES.map((clase) => [clase, clase === 'inm' ? 0 : benchmark[clase] * factor]),
+  ) as Record<ClaseModelo, number> as Benchmark
 }
 
 /** Lo que el cliente conserva de una posicion: su valor menos lo que vende. */
@@ -279,8 +273,6 @@ export function armarEntradaPlan(
     incluirInmueblesDeRenta = true,
     colchonLiquidezUsd = 0,
     restricciones = [],
-    clubFijado = false,
-    otrosFijado = false,
   } = decisiones
 
   const { resumen, bloqueos, cuentan } = evaluarRevision(posiciones, {
@@ -350,8 +342,6 @@ export function armarEntradaPlan(
     // Una restriccion sobre la clase inmobiliaria la salva del umbral de los
     // 500,000, que si no la disolveria por ticket bajo.
     inmFijado: restricciones.some((r) => r.clase === 'inm' && r.montoUsd > EPS),
-    clubFijado,
-    otrosFijado,
   }
 
   return { ok: true, entrada, resumen, avisos }

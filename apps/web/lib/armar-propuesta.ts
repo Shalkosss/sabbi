@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { benchmarkDe, pesosDeClase, pesosPrivadosDe } from '@sabbi/config'
+import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import { armarEntradaPlan, armarPropuesta, generarPlan } from '@sabbi/core'
 import type { Bloqueo, PosicionPropuesta, Propuesta } from '@sabbi/core'
 
@@ -68,7 +68,7 @@ export function construirPropuesta(
     pesos: {
       fijo: pesosDeClase('fijo', parametros.perfil),
       variable: pesosDeClase('variable', parametros.perfil),
-      privados: pesosPrivadosDe(parametros.perfil),
+      otros: pesosDeClase('otros', parametros.perfil),
     },
     ticketMinimoUsd: parametros.ticketMinimoUsd,
     fallbacks: FALLBACKS,

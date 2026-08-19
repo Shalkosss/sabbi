@@ -21,8 +21,20 @@ import type { ClaseModelo, RepartoClase, ResultadoReparto } from '../domain/tipo
 /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
 export const UMBRAL_INMOBILIARIO = 500_000
 
-/** Las tres clases que absorben el capital del inmobiliario disuelto. */
-const RECEPTORAS: ReadonlySet<ClaseModelo> = new Set(['fijo', 'variable', 'privados'])
+/**
+ * Las clases que absorben el capital del inmobiliario disuelto.
+ *
+ * En la macro eran Fijo, Variable y Privados; Club y Otros entran porque antes
+ * vivian dentro de Privados y el prorrateo proporcional les daba su parte a
+ * traves de la clase madre. Cash sigue sin participar.
+ */
+const RECEPTORAS: ReadonlySet<ClaseModelo> = new Set([
+  'fijo',
+  'variable',
+  'privados',
+  'club',
+  'otros',
+])
 
 const EPS = 1e-6
 const TOL = 0.01

@@ -214,11 +214,11 @@ describe('parsearFicha', () => {
       ...FICHA,
       filas: [
         ...FICHA.filas.slice(0, 12),
-        fila({ 2: 'Bitcoin en Binance', 9: 'Cripto', 10: 'Dólares', 11: 'Solo tu', 12: 30000 }),
+        fila({ 2: 'Colección de arte', 9: 'Arte', 10: 'Dólares', 11: 'Solo tu', 12: 30000 }),
         ...FICHA.filas.slice(12),
       ],
     })
-    const cripto = ficha.posiciones.find((p) => p.institucionProducto === 'Bitcoin en Binance')
+    const cripto = ficha.posiciones.find((p) => p.institucionProducto === 'Colección de arte')
 
     expect(cripto).toMatchObject({ claseModelo: null, requiereConfirmacion: true })
     expect(ficha.avisos.some((a) => a.codigo === 'clase_sin_resolver')).toBe(true)

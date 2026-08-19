@@ -46,6 +46,9 @@ interface Props {
 export function Revision({ inicial, asesor }: Props) {
   const [estado, despacharCrudo] = useReducer(reducir, inicial)
   const [plan, setPlan] = useState<PlanResumido | null>(null)
+  // Lo que el servidor rechazó y el gate del navegador no había previsto. Sin
+  // esto el botón giraba y no pasaba nada: nadie sabía por qué.
+  const [rechazo, setRechazo] = useState<readonly Bloqueo[]>([])
   const [calculando, calcular] = useTransition()
 
   const { estado: guardado, encolar } = useAutoguardado<Cambio>(async (clave, cambios) => {
@@ -72,6 +75,7 @@ export function Revision({ inicial, asesor }: Props) {
     // Cualquier cambio invalida el plan ya calculado: mostrar cifras viejas al
     // lado de posiciones nuevas es la forma más rápida de mandar mal una propuesta.
     setPlan(null)
+    setRechazo([])
     despacharCrudo({ tipo: 'editar', id, cambios })
 
     const siguiente = { ...posicion, ...cambios }
@@ -90,6 +94,7 @@ export function Revision({ inicial, asesor }: Props) {
 
   const cambiarParametros = (cambios: Partial<Parametros>) => {
     setPlan(null)
+    setRechazo([])
     despacharCrudo({ tipo: 'parametros', cambios })
     encolar(CLAVE_PARAMETROS, { ...estado.parametros, ...cambios })
   }
@@ -125,8 +130,9 @@ export function Revision({ inicial, asesor }: Props) {
         ]
 
   const bloqueado = bloqueos.length > 0
+  const aMostrar = [...bloqueos, ...rechazo]
   const hayAvisos =
-    bloqueos.length > 0 || estado.avisos.length > 0 || estado.ignoradas.length > 0
+    aMostrar.length > 0 || estado.avisos.length > 0 || estado.ignoradas.length > 0
 
   const alCalcular = () => {
     calcular(async () => {
@@ -140,6 +146,7 @@ export function Revision({ inicial, asesor }: Props) {
         ticketMinimoUsd: parametros.ticketMinimoUsd,
       })
       setPlan(resultado.ok ? resultado.plan : null)
+      setRechazo(resultado.ok ? [] : resultado.bloqueos)
     })
   }
 
@@ -176,7 +183,7 @@ export function Revision({ inicial, asesor }: Props) {
 
       {hayAvisos && (
         <div className={estilos.avisos}>
-          <Avisos bloqueos={bloqueos} avisos={estado.avisos} ignoradas={estado.ignoradas} />
+          <Avisos bloqueos={aMostrar} avisos={estado.avisos} ignoradas={estado.ignoradas} />
         </div>
       )}
 

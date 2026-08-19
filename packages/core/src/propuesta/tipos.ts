@@ -210,7 +210,13 @@ export interface LineaCompra {
 
 // --- La propuesta entera ---
 
+import type { VistaComparativa, VistaHoy } from './vistas.js'
+
 export interface Propuesta {
+  /** Vista 1: el portafolio de hoy, por clase y subclase, con su rentabilidad. */
+  readonly vistaHoy: VistaHoy
+  /** Vista 2: antes contra despues — la historia que ve el cliente. */
+  readonly comparativa: VistaComparativa
   readonly cliente: EntradaPropuesta['cliente']
   readonly seccion1: {
     readonly filas: readonly FilaActivo[]

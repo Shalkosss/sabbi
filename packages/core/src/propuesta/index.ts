@@ -23,6 +23,7 @@ import {
   armarVentas,
 } from './objetivo.js'
 import type { DatosProducto, EntradaPropuesta, Propuesta } from './tipos.js'
+import { armarComparativa, armarVistaHoy } from './vistas.js'
 
 /** Un centavo. Debajo de eso, un cuadre es ruido de coma flotante. */
 export const TOLERANCIA_CUADRE = 0.01
@@ -63,6 +64,8 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 
   return {
     cliente,
+    vistaHoy: armarVistaHoy(posiciones),
+    comparativa: armarComparativa(posiciones, plan, catalogo),
     seccion1,
     seccion2,
     seccion3,
@@ -88,3 +91,12 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 
 export * from './tipos.js'
 export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './foto.js'
+export { armarVistaHoy, armarComparativa, SUBCLASE_SIN_DATO } from './vistas.js'
+export type {
+  FilaComparativa,
+  FilaVistaClase,
+  RentabilidadPonderada,
+  SubfilaVista,
+  VistaComparativa,
+  VistaHoy,
+} from './vistas.js'

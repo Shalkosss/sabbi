@@ -60,6 +60,15 @@ export {
   ETIQUETA_CAMPO,
 } from './propuesta/completitud.js'
 export type { FaltanteDePosicion, PosicionCompletable } from './propuesta/completitud.js'
+export { armarVistaHoy, armarComparativa, SUBCLASE_SIN_DATO } from './propuesta/vistas.js'
+export type {
+  FilaComparativa,
+  FilaVistaClase,
+  RentabilidadPonderada,
+  SubfilaVista,
+  VistaComparativa,
+  VistaHoy,
+} from './propuesta/vistas.js'
 export type {
   CategoriaCta,
   DatosProducto,

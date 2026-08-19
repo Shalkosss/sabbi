@@ -30,6 +30,15 @@ export function EditorComposicion({ titulo, opciones, partes, alCambiar }: Props
   const usadas = new Set(partes.map((parte) => parte.nombre))
   const disponibles = opciones.filter((opcion) => !usadas.has(opcion))
 
+  // Un botón apagado sin explicación manda a nadie a ningún lado. Los dos
+  // motivos por los que puede estarlo son distintos y se arreglan distinto:
+  // la lista vacía es un catálogo sin importar, y la lista agotada no es un
+  // problema.
+  const porQueNoSePuede =
+    opciones.length === 0
+      ? `No hay ${titulo.toLowerCase()} cargadas todavía. Se cargan importando la BD de productos.`
+      : 'Ya están todas las partes de la lista en esta composición.'
+
   const cambiar = (i: number, cambios: Partial<ParteEntrada>) =>
     alCambiar(partes.map((parte, j) => (i === j ? { ...parte, ...cambios } : parte)))
 
@@ -54,6 +63,7 @@ export function EditorComposicion({ titulo, opciones, partes, alCambiar }: Props
           type="button"
           className={estilos.agregar}
           disabled={disponibles.length === 0}
+          {...(disponibles.length === 0 ? { title: porQueNoSePuede } : {})}
           onClick={agregar}
         >
           Agregar parte
@@ -61,7 +71,9 @@ export function EditorComposicion({ titulo, opciones, partes, alCambiar }: Props
       </header>
 
       {partes.length === 0 ? (
-        <p className={estilos.vacio}>Sin cargar.</p>
+        <p className={estilos.vacio}>
+          {opciones.length === 0 ? porQueNoSePuede : 'Sin cargar.'}
+        </p>
       ) : (
         <ul className={estilos.filasComposicion}>
           {partes.map((parte, i) => (

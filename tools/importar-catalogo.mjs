@@ -173,6 +173,8 @@ try {
 
   let actualizados = 0
   let nuevos = 0
+  /** Partes con un porcentaje que la base no acepta. Se listan al final. */
+  const descartadas = []
 
   for (const producto of catalogo.productos) {
     const existente = porNombre.get(clave(producto.nombre))
@@ -238,6 +240,13 @@ try {
     ]) {
       await cliente.query(`delete from ${tabla} where producto_id = $1`, [id])
       for (const parte of partes) {
+        // Una parte no puede pesar mas que el entero. La planilla trae alguna
+        // celda con 200%, y perder los 296 productos por una sola celda mala
+        // seria exactamente la fragilidad de la que venimos: se anota y sigue.
+        if (!(parte.pct > 0) || parte.pct > 1) {
+          descartadas.push(`${producto.nombre} · ${columna} «${parte.nombre}» ${(parte.pct * 100).toFixed(1)}%`)
+          continue
+        }
         await cliente.query(
           `insert into ${tabla} (producto_id, ${columna}, pct) values ($1, $2, $3)`,
           [id, parte.nombre, parte.pct],
@@ -254,6 +263,13 @@ try {
   console.log(`  gestores                ${catalogo.gestores.length}`)
   console.log(`  administradores         ${catalogo.administradores.length}`)
   console.log(`  subyacentes             ${catalogo.subyacentes.length}`)
+
+  if (descartadas.length > 0) {
+    console.log(`
+=== ${descartadas.length} parte(s) descartada(s) por un porcentaje imposible`)
+    console.log('  La planilla las trae fuera del rango 0-100%. Hay que corregirlas ahi.')
+    for (const linea of descartadas) console.log(`  ${linea}`)
+  }
 
   const { rows: descuadrados } = await cliente.query(
     'select nombre, foco, clase, subyacente from productos_descuadrados order by nombre',

@@ -171,9 +171,14 @@
     align-items: center;
     gap: 14px;
     padding-right: 14px;
-    overflow-x: auto;
     border-right: none;
     border-bottom: 1px solid var(--rail-borde);
+    /* Baja de línea en vez de desplazarse. Con `overflow-x: auto` la barra se
+       podía arrastrar, pero nada lo insinuaba: «Bitácora» quedaba cortada
+       contra el borde como si no existiera, y a un enlace que no se ve no se
+       llega. Envolver no esconde nada. */
+    flex-wrap: wrap;
+    row-gap: 0;
   }
 
   .marca {
@@ -188,6 +193,7 @@
 
   .lista {
     flex-direction: row;
+    flex-wrap: wrap;
     padding: 0;
   }
 

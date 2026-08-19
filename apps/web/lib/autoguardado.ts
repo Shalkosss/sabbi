@@ -39,8 +39,8 @@ export function useAutoguardado<T extends object>(
     [retardoMs],
   )
 
-  const pendientes = useRef(0)
-  pendientes.current = estado.pendientes
+  const sinEnviar = useRef(0)
+  sinEnviar.current = estado.sinEnviar
 
   useEffect(() => {
     const vaciar = () => cola.vaciar()
@@ -52,8 +52,12 @@ export function useAutoguardado<T extends object>(
     }
 
     const alCerrar = (evento: BeforeUnloadEvent) => {
+      // Empujar primero: lo que alcance a salir, sale. Solo se avisa por lo
+      // que ni siquiera se entregó al navegador, que es lo que se pierde
+      // seguro; por un envío ya en vuelo no vale la pena molestar.
+      const quedaba = sinEnviar.current
       cola.vaciar()
-      if (pendientes.current === 0) return
+      if (quedaba === 0) return
       evento.preventDefault()
     }
 

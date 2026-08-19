@@ -131,11 +131,13 @@ describe('cola de autoguardado', () => {
       alCambiar: (estado) => fases.push(estado),
     })
 
+    // Recien encolado todavia no salio: cuenta como sin enviar, que es lo que
+    // decide si hay que avisarle al asesor antes de cerrar la pestaña.
     cola.encolar('p1', { nota: 'a' })
-    expect(fases.at(-1)).toEqual({ fase: 'guardando', pendientes: 1, error: null })
+    expect(fases.at(-1)).toEqual({ fase: 'guardando', pendientes: 1, sinEnviar: 1, error: null })
 
     await vi.advanceTimersByTimeAsync(700)
-    expect(fases.at(-1)).toEqual({ fase: 'guardado', pendientes: 0, error: null })
+    expect(fases.at(-1)).toEqual({ fase: 'guardado', pendientes: 0, sinEnviar: 0, error: null })
   })
 
   it('deja el error a la vista en vez de tragarselo', async () => {
@@ -149,7 +151,7 @@ describe('cola de autoguardado', () => {
     cola.encolar('p1', { nota: 'a' })
     await vi.advanceTimersByTimeAsync(700)
 
-    expect(fases.at(-1)).toEqual({ fase: 'error', pendientes: 0, error: 'RLS lo rechazo' })
+    expect(fases.at(-1)).toEqual({ fase: 'error', pendientes: 0, sinEnviar: 0, error: 'RLS lo rechazo' })
   })
 
   it('un fallo de red no rompe la cola', async () => {
@@ -165,6 +167,6 @@ describe('cola de autoguardado', () => {
     cola.encolar('p1', { nota: 'a' })
     await vi.advanceTimersByTimeAsync(700)
 
-    expect(fases.at(-1)).toEqual({ fase: 'error', pendientes: 0, error: 'Failed to fetch' })
+    expect(fases.at(-1)).toEqual({ fase: 'error', pendientes: 0, sinEnviar: 0, error: 'Failed to fetch' })
   })
 })

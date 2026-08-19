@@ -24,6 +24,14 @@ export interface EstadoCola {
   readonly fase: FaseCola
   /** Claves esperando el retardo o con un envío en vuelo. */
   readonly pendientes: number
+  /**
+   * Claves que ni siquiera salieron todavía.
+   *
+   * Se cuenta aparte de las que están en vuelo porque son dos riesgos
+   * distintos al cerrar la pestaña: lo que ya se entregó al navegador suele
+   * llegar, lo que sigue en la cola se pierde seguro.
+   */
+  readonly sinEnviar: number
   readonly error: string | null
 }
 
@@ -41,7 +49,7 @@ export interface OpcionesCola<T> {
   readonly alCambiar?: (estado: EstadoCola) => void
 }
 
-const LIMPIO: EstadoCola = { fase: 'limpio', pendientes: 0, error: null }
+const LIMPIO: EstadoCola = { fase: 'limpio', pendientes: 0, sinEnviar: 0, error: null }
 
 export function crearCola<T extends object>({
   enviar,
@@ -59,7 +67,7 @@ export function crearCola<T extends object>({
     const pendientes = acumulado.size + enVuelo.size
     const fase: FaseCola =
       error !== null ? 'error' : pendientes > 0 ? 'guardando' : guardoAlgo ? 'guardado' : 'limpio'
-    alCambiar?.({ fase, pendientes, error })
+    alCambiar?.({ fase, pendientes, sinEnviar: acumulado.size, error })
   }
 
   const despachar = (clave: string) => {

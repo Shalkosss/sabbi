@@ -86,6 +86,32 @@ describe('cola de autoguardado', () => {
     expect(envios).toHaveLength(1)
   })
 
+  it('vaciar no deja colgado lo que espera detras de un envio en vuelo', async () => {
+    // El caso real: el asesor teclea, se dispara un guardado, teclea otra vez y
+    // cierra la pestaña. `vaciar` re-armaba un temporizador que en ese momento
+    // ya no llega a dispararse nunca, y esa correccion se perdia en silencio.
+    const enCurso: ((resultado: { error?: string }) => void)[] = []
+    const envios: Cambio[] = []
+    const cola = crearCola<Cambio>({
+      retardoMs: 700,
+      enviar: async (_clave, cambios) => {
+        envios.push(cambios)
+        return new Promise((resolver) => enCurso.push(resolver))
+      },
+    })
+
+    cola.encolar('p1', { nota: 'a' })
+    vi.advanceTimersByTime(700)
+    cola.encolar('p1', { nota: 'ab' })
+    cola.vaciar()
+
+    // Sin dejar pasar el retardo: alcanza con que vuelva el primer envio.
+    enCurso[0]?.({})
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(envios).toEqual([{ nota: 'a' }, { nota: 'ab' }])
+  })
+
   it('detener descarta lo que no salio', () => {
     const { envios, enviar } = enviosDe()
     const cola = crearCola<Cambio>({ enviar, retardoMs: 700 })

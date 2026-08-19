@@ -66,11 +66,11 @@ export function crearCola<T extends object>({
     relojes.delete(clave)
 
     // Un envío por clave a la vez. Si el anterior sigue en vuelo, lo que se
-    // acumuló espera a que vuelva en lugar de adelantarlo.
-    if (enVuelo.has(clave)) {
-      relojes.set(clave, setTimeout(() => despachar(clave), retardoMs))
-      return
-    }
+    // acumuló espera a que vuelva en lugar de adelantarlo — pero espera al
+    // envío, no a otro temporizador: al cerrar la pestaña ningún temporizador
+    // llega a dispararse y ese cambio se perdía en silencio. Lo drena el
+    // `finally` de abajo.
+    if (enVuelo.has(clave)) return
 
     const cambios = acumulado.get(clave)
     if (cambios === undefined) return
@@ -93,6 +93,9 @@ export function crearCola<T extends object>({
       })
       .finally(() => {
         enVuelo.delete(clave)
+        // Lo que se acumuló mientras este envío estaba en vuelo sale ahora:
+        // la mano ya se detuvo, no hay por qué esperar otro retardo.
+        if (acumulado.has(clave) && !relojes.has(clave)) despachar(clave)
         avisar()
       })
   }

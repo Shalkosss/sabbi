@@ -208,7 +208,7 @@ interface FilaPropuesta {
   institucional_override: string
   toggle_inm_seccion_propia: boolean
   fx: number
-  colchon_liquidez_pen: number
+  colchon_liquidez_usd: number
   ticket_minimo_etf_usd: number
 }
 
@@ -232,7 +232,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
     .from('proposals')
     .select(
       'id, perfil, institucional_override, toggle_inm_seccion_propia, fx, ' +
-        'colchon_liquidez_pen, ticket_minimo_etf_usd',
+        'colchon_liquidez_usd, ticket_minimo_etf_usd',
     )
     .eq('ficha_id', fichaId)
     .order('created_at', { ascending: false })
@@ -276,7 +276,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
       usPerson: cliente?.us_person ?? false,
       institucional: (propuesta?.institucional_override ?? 'auto') as Parametros['institucional'],
       incluirInmueblesDeRenta: propuesta?.toggle_inm_seccion_propia ?? true,
-      colchonLiquidezUsd: propuesta?.colchon_liquidez_pen ?? 0,
+      colchonLiquidezUsd: propuesta?.colchon_liquidez_usd ?? 0,
       ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? TICKET_ETF_POR_DEFECTO,
       fxPenUsd: propuesta?.fx ?? 3.4,
     },

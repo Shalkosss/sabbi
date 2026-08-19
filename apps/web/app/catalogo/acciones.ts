@@ -70,8 +70,30 @@ export async function guardarProducto(entrada: ProductoEntrada): Promise<Resulta
   if (nombre === '') return { ok: false, error: 'El producto necesita un nombre.' }
 
   const supabase = await clienteServidor()
-  const id = entrada.id !== '' ? entrada.id : identificador(nombre)
+  const esNuevo = entrada.id === ''
+  const id = esNuevo ? identificador(nombre) : entrada.id
   if (id === '') return { ok: false, error: 'Ese nombre no produce un identificador válido.' }
+
+  // Dar de alta no puede pisar un producto que ya existe. El identificador sale
+  // del nombre y se corta a cuarenta caracteres, así que dos nombres distintos
+  // chocan con facilidad — y el alta automática desde la ficha usa la misma
+  // receta. Con `upsert` el producto viejo perdía su clase, su retorno y su
+  // composición sin que nadie se enterara; con `insert` la base lo rechaza y el
+  // asesor ve por qué.
+  if (esNuevo) {
+    const { data: existente } = await supabase
+      .from('products')
+      .select('nombre')
+      .eq('id', id)
+      .maybeSingle<{ nombre: string }>()
+
+    if (existente !== null && existente !== undefined) {
+      return {
+        ok: false,
+        error: `«${existente.nombre}» ya usa ese identificador. Cambiá el nombre para distinguirlos.`,
+      }
+    }
+  }
 
   const dominante = [...entrada.claseActivo].sort((a, b) => b.pct - a.pct)[0]?.nombre
   const clase = dominante === undefined ? null : (CLASE_MOTOR[dominante] ?? null)

@@ -181,7 +181,7 @@ try {
     await cliente.query(
       `update proposals
          set perfil = 'Arriesgado', institucional_override = 'si',
-             toggle_inm_seccion_propia = false, colchon_liquidez_pen = 15000,
+             toggle_inm_seccion_propia = false, colchon_liquidez_usd = 15000,
              fx = 3.75, ticket_minimo_etf_usd = 30000
        where id = $1`,
       [idPropuesta],
@@ -203,7 +203,7 @@ try {
     )
     const { rows: propuestas } = await cliente.query(
       `select perfil, institucional_override, toggle_inm_seccion_propia, fx,
-              colchon_liquidez_pen, ticket_minimo_etf_usd
+              colchon_liquidez_usd, ticket_minimo_etf_usd
          from proposals where ficha_id = $1 order by created_at desc limit 1`,
       [idFicha],
     )
@@ -258,7 +258,7 @@ try {
       propuesta.institucional_override === 'si' &&
       propuesta.toggle_inm_seccion_propia === false &&
       Number(propuesta.fx) === 3.75 &&
-      Number(propuesta.colchon_liquidez_pen) === 15000,
+      Number(propuesta.colchon_liquidez_usd) === 15000,
     JSON.stringify(propuesta),
   )
 

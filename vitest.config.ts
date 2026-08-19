@@ -16,6 +16,7 @@ export default defineConfig({
       '@sabbi/core': fuente('core'),
       '@sabbi/config': fuente('config'),
       '@sabbi/io': fuente('io'),
+      '@sabbi/export': fuente('export'),
     },
   },
   test: {

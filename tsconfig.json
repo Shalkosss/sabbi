@@ -1,4 +1,9 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/core" }, { "path": "./packages/config" }, { "path": "./packages/io" }]
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/config" },
+    { "path": "./packages/io" },
+    { "path": "./packages/export" }
+  ]
 }

@@ -43,7 +43,9 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
     assetClassCatalogo,
   })
 
-  const marco = (contenido: React.ReactNode) => (
+  // `conDeck` solo cuando el motor pudo correr: ofrecer la descarga de algo
+  // que no se puede calcular lleva al asesor a un 409 sin explicacion.
+  const marco = (contenido: React.ReactNode, conDeck = false) => (
     <Marco
       asesor={asesor}
       activo="fichas"
@@ -53,9 +55,17 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         { texto: 'Propuesta' },
       ]}
       acciones={
-        <Link href={`/fichas/${cargada.revision.fichaId}`} className="secundario">
-          Volver a la revisión
-        </Link>
+        <>
+          <Link href={`/fichas/${cargada.revision.fichaId}`} className="secundario">
+            Volver a la revisión
+          </Link>
+          {/* Ancla y no botón: la descarga es una navegación, no una mutación. */}
+          {conDeck && (
+            <a href={`/propuestas/${id}/pptx`} download>
+              Descargar deck
+            </a>
+          )}
+        </>
       }
     >
       {contenido}
@@ -115,5 +125,6 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
       <Objetivo propuesta={propuesta} />
       <Blotter propuesta={propuesta} />
     </div>,
+    true,
   )
 }

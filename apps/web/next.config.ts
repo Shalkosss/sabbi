@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import type { NextConfig } from 'next'
 
 /**
@@ -14,6 +16,11 @@ const config: NextConfig = {
    * funcion serverless se despliega sin el archivo — anda en local y falla
    * en produccion, que es la peor forma de fallar.
    */
+  /**
+   * La raiz del trazado es el monorepo, no `apps/web`: la plantilla vive fuera
+   * de la app y sin esto el archivo empaquetado no puede referirse a ella.
+   */
+  outputFileTracingRoot: path.join(process.cwd(), '..', '..'),
   outputFileTracingIncludes: {
     '/propuestas/[id]/pptx': ['../../packages/export/pptx/replica/template.pptx'],
   },

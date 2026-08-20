@@ -20,17 +20,43 @@ import { asesorActual } from '../../../../lib/supabase/servidor'
  * dice con un 409, no con un archivo a medias.
  */
 
-/** La plantilla vive en el paquete, fuera de la app. `cwd` es `apps/web`. */
-const PLANTILLA = path.join(
-  process.cwd(),
-  '..',
-  '..',
-  'packages',
-  'export',
-  'pptx',
-  'replica',
-  'template.pptx',
-)
+const RUTA_EN_PAQUETE = path.join('packages', 'export', 'pptx', 'replica', 'template.pptx')
+
+/**
+ * La plantilla vive en el paquete, fuera de la app, y se lee del disco.
+ *
+ * Donde queda ese disco depende de como se empaqueto la funcion: en local
+ * `cwd` es `apps/web`, y en una funcion serverless puede ser la raiz del
+ * monorepo segun como se haya trazado la dependencia. En vez de apostar a una
+ * ruta se prueban las dos y se recuerda la que sirvio, porque equivocarse aca
+ * significa que el boton anda en la maquina del que programa y falla en
+ * produccion.
+ */
+const CANDIDATAS = [
+  path.join(process.cwd(), '..', '..', RUTA_EN_PAQUETE),
+  path.join(process.cwd(), RUTA_EN_PAQUETE),
+  path.join(process.cwd(), '..', RUTA_EN_PAQUETE),
+]
+
+let plantillaEnCache: Buffer | null = null
+
+async function leerPlantilla(): Promise<Buffer> {
+  if (plantillaEnCache !== null) return plantillaEnCache
+
+  for (const candidata of CANDIDATAS) {
+    try {
+      plantillaEnCache = await readFile(candidata)
+      return plantillaEnCache
+    } catch {
+      // Sigue con la proxima. Si ninguna existe, el error de abajo lo explica.
+    }
+  }
+
+  throw new Error(
+    `No se encontro la plantilla del deck. Se busco en: ${CANDIDATAS.join(', ')}. ` +
+      'Revisar `outputFileTracingIncludes` en next.config.ts.',
+  )
+}
 
 /** Sin esto un nombre con acentos o comas rompe la cabecera. */
 const nombreDeArchivo = (cliente: string): string =>
@@ -66,7 +92,7 @@ export async function GET(
   }
 
   try {
-    const plantilla = await readFile(PLANTILLA)
+    const plantilla = await leerPlantilla()
     const { archivo } = armarDeck(plantilla, resultado.propuesta, { emitido: new Date() })
 
     return new Response(archivo as BodyInit, {

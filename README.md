@@ -50,6 +50,7 @@ packages/
   export/
     xlsx/              propuesta
     src/pptx/rediseno/ el deck que se genera desde la propuesta
+    src/pptx/replica/  motor de la plantilla y mapa de lo que falta
     pptx/replica/      plantilla tokenizada del deck de referencia
 reference/             archivos de entrada — NO se versiona, ver abajo
 ```
@@ -155,9 +156,17 @@ el blotter y las notas del cálculo. No hay una segunda implementación de ningu
 suma. Se descarga desde la propuesta y se genera en el momento: un deck guardado
 en disco es una copia que envejece sola.
 
-El **réplica** reproduce el deck de referencia lámina por lámina. La plantilla
-tokenizada está versionada; lo que falta para rellenarla está en la cola de
-abajo.
+El **réplica** reproduce el deck de referencia lámina por lámina. Hoy salen 4
+de sus 22: la portada y las tres estáticas. El motor de la plantilla está hecho
+—sustituye tokens, deja láminas fuera y devuelve los que ninguna fuente
+resolvió, en vez de imprimir un `{{token}}` delante de un cliente— y el mapa de
+`packages/export/src/pptx/replica/mapa.ts` dice, lámina por lámina, qué le
+falta a cada una. Un test lo ata a la plantilla real, así que no puede
+envejecer en silencio.
+
+```bash
+npm run revisar-deck    # el inventario, lámina por lámina
+```
 
 ## Estado
 
@@ -169,7 +178,7 @@ abajo.
 | 3 | Motor `generarPlan()` y golden test | hecho |
 | 4 | Vista web de la propuesta | hecho |
 | 5 | Export a Excel | |
-| 6 | PPT réplica | plantilla tokenizada; ver abajo |
+| 6 | PPT réplica | motor hecho, 4 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | 9 | Asistencia opcional de IA | |
@@ -202,23 +211,27 @@ abajo.
   Mercados Privados, pero no se enciende solo: la ficha de Ana Tumi declara un
   flujo de 3,000 soles mensuales y encenderlo cambia el portafolio entero. Que
   esa inferencia sea automática o siga siendo del asesor es decisión del equipo.
-- **El deck réplica pide más de lo que el motor sabe.** La plantilla está
-  tokenizada —382 tokens sobre 22 láminas— pero rellenarla no es sustituir
-  texto. Tres cosas la separan de estar lista, y ninguna es de código:
+- **El deck réplica está dibujado a mano y eso decide todo lo demás.** No trae
+  ni una parte de gráfico ni un libro incrustado: las barras de la lámina 4 son
+  52 formas con su alto escrito en el XML, y los números que se leen encima son
+  etiquetas de texto sueltas. Cambiar la etiqueta escribe otro número y deja la
+  barra donde estaba. Reproducir esa lámina para otro cliente es recalcular
+  geometría, no sustituir texto.
 
-  1. **Las láminas 11 a 16 son una tabla paginada de posiciones.** Cada fila es
-     una posición concreta de un cliente concreto, y los tokens son ranuras
-     fijas (`nombre1`…`nombre14`). Otro cliente tiene otro número de filas y
-     otro número de láminas: hace falta un renderizador que clone y borre
-     filas y láminas, no uno que reemplace cadenas. Lo mismo en la 20 a la 22.
-  2. **Las láminas 3, 5 y 9 traen modelos que no existen.** El arquetipo del
-     cliente ("El Aprendiz Activo"), el puntaje de portafolio sobre 10 con sus
-     dos componentes ponderados, y el titular de "el cambio más importante".
-     Son decisiones de negocio antes que código.
-  3. **Las láminas 6 a 8 son un análisis de costos y tres recomendaciones
-     escritas.** El motor guarda `feePct` por posición pero no calcula
-     sobrecostos, y las recomendaciones llevan cifras derivadas —exceso de
-     liquidez, dependencia de Perú— que hoy nadie computa.
+  `npm run revisar-deck` lista las 22 con su estado. En resumen:
 
-  Mientras tanto el deck rediseñado sí sale entero de lo que el motor ya
-  produce, y es el que la app descarga.
+  | Estado | Láminas | Qué necesita |
+  |---|---|---|
+  | lista | 4 | nada, ya salen |
+  | decisión | 7 | una decisión de la mesa, no un programador |
+  | filas | 9 | clonar y reposicionar filas por cliente |
+  | geometría | 1 | redibujar barras y línea |
+  | parcial | 1 | dos tercios salen; el resto es texto redactado |
+
+  Las siete de "decisión" son las que bloquean de verdad, y las tres preguntas
+  son: qué determina el arquetipo del cliente y quién escribe su párrafo; cómo
+  se calcula el puntaje sobre 10 y sus dos componentes; y qué cuenta como
+  sobrecosto de un producto. Con eso respondido, el resto es trabajo mecánico.
+
+  Mientras tanto el deck rediseñado sale entero de lo que el motor ya produce,
+  y es el que la app descarga.

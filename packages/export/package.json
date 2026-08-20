@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@sabbi/core": "0.1.0",
+    "fflate": "^0.8.2",
     "pptxgenjs": "^3.12.0"
   }
 }

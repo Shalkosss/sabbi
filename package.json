@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "build:paquetes": "tsc --build",
     "migrar": "node --env-file-if-exists=.env.local tools/migrar.mjs",
+    "revisar-deck": "node tools/revisar-deck.mjs",
     "revisar-catalogo": "node tools/revisar-catalogo.mjs \"reference/BD_Productos (1).xlsx\"",
     "importar-catalogo": "node --env-file-if-exists=.env.local tools/importar-catalogo.mjs \"reference/BD_Productos (1).xlsx\""
   },

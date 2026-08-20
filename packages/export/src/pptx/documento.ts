@@ -55,5 +55,74 @@ export function escribirLamina(documento: Documento, n: number, xml: string): Do
   }
 }
 
+const RELACIONES = 'ppt/_rels/presentation.xml.rels'
+const PRESENTACION = 'ppt/presentation.xml'
+const TIPOS = '[Content_Types].xml'
+
+/** El `rId` con el que la presentacion referencia a una lamina. */
+function idDeRelacion(rels: string, n: number): string | null {
+  const patron = new RegExp(
+    `<Relationship[^>]*Id="([^"]+)"[^>]*Target="(?:\\./)?slides/slide${n}\\.xml"`,
+  )
+  const directo = patron.exec(rels)
+  if (directo !== null) return directo[1] as string
+
+  // El orden de los atributos no esta garantizado por el formato.
+  const inverso = new RegExp(
+    `<Relationship[^>]*Target="(?:\\./)?slides/slide${n}\\.xml"[^>]*Id="([^"]+)"`,
+  ).exec(rels)
+  return inverso === null ? null : (inverso[1] as string)
+}
+
+/**
+ * Saca laminas de la presentacion, y del archivo.
+ *
+ * Se borra todo rastro: la entrada en la lista de laminas, la relacion que la
+ * referencia, el XML de la lamina, sus propias relaciones y su declaracion de
+ * tipo. Dejar la parte huerfana seria valido en OPC y PowerPoint la ignoraria,
+ * pero el archivo viajaria con laminas invisibles que traen el layout —y los
+ * tokens sin resolver— de otro cliente. Un deck que se manda por correo no
+ * puede llevar eso adentro.
+ */
+export function eliminarLaminas(
+  documento: Documento,
+  numeros: readonly number[],
+): Documento {
+  if (numeros.length === 0) return documento
+
+  let rels = DECODER.decode(documento.entradas[RELACIONES] as Uint8Array)
+  let presentacion = DECODER.decode(documento.entradas[PRESENTACION] as Uint8Array)
+  let tipos = DECODER.decode(documento.entradas[TIPOS] as Uint8Array)
+
+  const entradas = { ...documento.entradas }
+
+  for (const n of numeros) {
+    const rId = idDeRelacion(rels, n)
+    if (rId === null) continue
+
+    presentacion = presentacion.replace(new RegExp(`<p:sldId[^>]*r:id="${rId}"[^>]*/>`), '')
+    rels = rels.replace(new RegExp(`<Relationship[^>]*Id="${rId}"[^>]*/>`), '')
+    tipos = tipos.replace(
+      new RegExp(`<Override[^>]*PartName="/ppt/slides/slide${n}\\.xml"[^>]*/>`),
+      '',
+    )
+
+    delete entradas[rutaDeLamina(n)]
+    delete entradas[`ppt/slides/_rels/slide${n}.xml.rels`]
+  }
+
+  const quitadas = new Set(numeros)
+
+  return {
+    entradas: {
+      ...entradas,
+      [RELACIONES]: ENCODER.encode(rels),
+      [PRESENTACION]: ENCODER.encode(presentacion),
+      [TIPOS]: ENCODER.encode(tipos),
+    },
+    laminas: documento.laminas.filter((n) => !quitadas.has(n)),
+  }
+}
+
 export const guardar = (documento: Documento): Uint8Array =>
   zipSync(documento.entradas as Record<string, Uint8Array>, { level: 6 })

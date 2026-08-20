@@ -5,8 +5,9 @@
  * vive en `pptx/replica/template.pptx` y la produce `tokenizar.py`; quien la
  * consume decide como leerla del disco.
  */
-export { armarDeck } from './pptx/deck.js'
+export { armarDeck, FILAS_POR_LAMINA } from './pptx/deck.js'
 export type { ResultadoDeck } from './pptx/deck.js'
+export { LAMINAS_ANEXO } from './pptx/anexo.js'
 export type { ContextoDeck } from './pptx/mapa.js'
 export { tokensDePropuesta } from './pptx/mapa.js'
 export { tokensDe } from './pptx/rellenar.js'

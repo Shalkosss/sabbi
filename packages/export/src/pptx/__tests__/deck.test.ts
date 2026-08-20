@@ -44,7 +44,69 @@ function propuestaDePrueba(): Propuesta {
         pctModeloInmobiliario: 0,
         baseRedistribucionUsd: 1_250_000,
       },
-      grupos: [],
+      // Dos grupos con dos lineas cada uno: seis filas, una sola lamina.
+      grupos: [
+        {
+          clase: 'fijo',
+          objetivoUsd: 700_000,
+          share: 0.56,
+          cerrada: false,
+          lineas: [
+            {
+              instrumento: 'ETF global agregado',
+              usd: 450_000,
+              share: 0.36,
+              conservada: false,
+              retornoTotal: { min: 0.042, max: 0.055 },
+              retornoDistributivo: null,
+              distribucionAnualUsd: null,
+              moneda: 'USD',
+              nota: 'Deuda global grado de inversión',
+            },
+            {
+              instrumento: 'Bono corporativo local',
+              usd: 250_000,
+              share: 0.2,
+              conservada: true,
+              retornoTotal: null,
+              retornoDistributivo: null,
+              distribucionAnualUsd: null,
+              moneda: 'PEN',
+              nota: null,
+            },
+          ],
+        },
+        {
+          clase: 'variable',
+          objetivoUsd: 550_000,
+          share: 0.44,
+          cerrada: false,
+          lineas: [
+            {
+              instrumento: 'ETF mundo desarrollado',
+              usd: 400_000,
+              share: 0.32,
+              conservada: false,
+              retornoTotal: { min: 0.07, max: 0.09 },
+              retornoDistributivo: null,
+              distribucionAnualUsd: null,
+              moneda: 'USD',
+              nota: null,
+            },
+            {
+              instrumento: 'ETF mercados emergentes',
+              usd: 150_000,
+              share: 0.12,
+              conservada: false,
+              retornoTotal: null,
+              retornoDistributivo: null,
+              distribucionAnualUsd: null,
+              moneda: 'USD',
+              nota: null,
+            },
+          ],
+        },
+      ],
       comparativo: [],
       totalUsd: 1_250_000,
       cuadreUsd: 0,
@@ -89,7 +151,10 @@ describe('armarDeck', () => {
 
     expect(entradas['[Content_Types].xml']).toBeDefined()
     expect(entradas['ppt/presentation.xml']).toBeDefined()
-    expect(Object.keys(entradas).filter((r) => r.startsWith('ppt/slides/slide'))).toHaveLength(22)
+    // 22 en la plantilla, menos las dos laminas de anexo que no hicieron falta.
+    expect(
+      Object.keys(entradas).filter((r) => /^ppt\/slides\/slide\d+\.xml$/.test(r)),
+    ).toHaveLength(20)
   })
 
   it('no deja ningun token sin resolver en el archivo final', () => {
@@ -130,6 +195,36 @@ describe('armarDeck', () => {
     expect(texto).toContain('63%')
     // La cuarta venta no entra: solo hay tres slots y es la menor.
     expect(texto).not.toContain('Acción individual')
+  })
+
+  it('genera el anexo con una fila por instrumento, agrupado por clase', () => {
+    const texto = textoDeLamina(armar().archivo, 20)
+
+    expect(texto).toContain('Renta Fija')
+    expect(texto).toContain('Renta Variable')
+    expect(texto).toContain('ETF global agregado')
+    expect(texto).toContain('ETF mercados emergentes')
+    expect(texto).toContain('Deuda global grado de inversión')
+    // El retorno estimado sale como rango, con guion largo.
+    expect(texto).toContain('4.2–5.5%')
+    expect(texto).toContain('Retorno est.')
+  })
+
+  it('saca del archivo las laminas de anexo que no se usan', () => {
+    const { archivo, eliminadas, excedente } = armar()
+
+    // Seis filas entran en una sola lamina: sobran la 21 y la 22.
+    expect(eliminadas).toEqual([21, 22])
+    expect(excedente).toBe(0)
+
+    const entradas = unzipSync(archivo)
+    const rels = new TextDecoder().decode(
+      entradas['ppt/_rels/presentation.xml.rels'] as Uint8Array,
+    )
+
+    expect(rels).toContain('slides/slide20.xml')
+    expect(rels).not.toContain('slides/slide21.xml')
+    expect(rels).not.toContain('slides/slide22.xml')
   })
 
   it('informa que tokens quedaron sin dato, en vez de esconderlo', () => {

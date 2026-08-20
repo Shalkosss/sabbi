@@ -1,7 +1,7 @@
 'use client'
 
 import { evaluarRevision } from '@sabbi/core'
-import type { Cta } from '@sabbi/core'
+import type { Bloqueo, Cta } from '@sabbi/core'
 import { useMemo, useReducer, useState, useTransition } from 'react'
 
 import { calcularPlan, guardarCambioParametros, guardarCambioPosicion } from '../app/acciones'
@@ -46,6 +46,7 @@ interface Props {
 export function Revision({ inicial, asesor }: Props) {
   const [estado, despacharCrudo] = useReducer(reducir, inicial)
   const [plan, setPlan] = useState<PlanResumido | null>(null)
+  const [bloqueosDelPlan, setBloqueosDelPlan] = useState<readonly Bloqueo[]>([])
   const [calculando, calcular] = useTransition()
 
   const { estado: guardado, encolar } = useAutoguardado<Cambio>(async (clave, cambios) => {
@@ -72,6 +73,7 @@ export function Revision({ inicial, asesor }: Props) {
     // Cualquier cambio invalida el plan ya calculado: mostrar cifras viejas al
     // lado de posiciones nuevas es la forma más rápida de mandar mal una propuesta.
     setPlan(null)
+    setBloqueosDelPlan([])
     despacharCrudo({ tipo: 'editar', id, cambios })
 
     const siguiente = { ...posicion, ...cambios }
@@ -90,6 +92,7 @@ export function Revision({ inicial, asesor }: Props) {
 
   const cambiarParametros = (cambios: Partial<Parametros>) => {
     setPlan(null)
+    setBloqueosDelPlan([])
     despacharCrudo({ tipo: 'parametros', cambios })
     encolar(CLAVE_PARAMETROS, { ...estado.parametros, ...cambios })
   }
@@ -122,6 +125,9 @@ export function Revision({ inicial, asesor }: Props) {
         ticketMinimoUsd: parametros.ticketMinimoUsd,
       })
       setPlan(resultado.ok ? resultado.plan : null)
+      // Los bloqueos son la respuesta del motor a por que no pudo calcular.
+      // Descartarlos deja al asesor apretando un boton que no hace nada.
+      setBloqueosDelPlan(resultado.ok ? [] : resultado.bloqueos)
     })
   }
 
@@ -173,6 +179,14 @@ export function Revision({ inicial, asesor }: Props) {
             ))}
           </ul>
         </details>
+      )}
+
+      {/* Si el motor no pudo calcular, dice por qué. El botón nunca se aprieta
+          en falso: o sale el plan, o sale el motivo. */}
+      {bloqueosDelPlan.length > 0 && (
+        <div className={estilos.avisos}>
+          <Avisos bloqueos={bloqueosDelPlan} avisos={[]} ignoradas={[]} />
+        </div>
       )}
 
       {plan !== null && (

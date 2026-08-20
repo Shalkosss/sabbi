@@ -57,3 +57,6 @@ dist/
 
 # Coverage
 coverage/
+
+# Deck de muestra: se regenera con `npm run deck-de-muestra`
+Deck de muestra.pptx

@@ -1,6 +1,7 @@
+import { NOMBRE_CLASE, NOMBRE_CLASE_CORTO } from '@sabbi/core'
 import type { Propuesta } from '@sabbi/core'
 
-import { fecha, monto, pct } from './formato.js'
+import { fecha, monto, pct, rangoPct, transicion } from './formato.js'
 
 /**
  * De donde sale el dato de cada lamina del deck replica.
@@ -60,6 +61,126 @@ export interface Lamina {
   readonly falta: string
   /** Los valores de sus tokens. Solo las laminas `listo` la traen. */
   readonly valores?: (propuesta: Propuesta, emitido: Date) => ReadonlyMap<string, string>
+}
+
+/** Cuantas transiciones de clase entran en la lamina de "que cambia". */
+const CAMBIOS_EN_LAMINA = 3
+
+/** Un centavo. Debajo de eso, un cambio es ruido de coma flotante. */
+const EPS = 0.01
+
+/**
+ * "El cambio mas importante": la clase que mas se mueve, y las tres mayores.
+ *
+ * El titular sale de la clase con el mayor salto en puntos porcentuales, que
+ * es lo que el deck de referencia muestra. Es una regla y no una redaccion:
+ * ante el mismo portafolio siempre elige lo mismo, y si la mesa prefiere otro
+ * criterio —la concentracion por pais, por ejemplo— se cambia aca y en un solo
+ * lugar.
+ */
+function lamina9(propuesta: Propuesta): ReadonlyMap<string, string> {
+  const porSalto = [...propuesta.comparativa.filas]
+    .filter((fila) => Math.abs(fila.deltaPp) > EPS)
+    .sort((a, b) => Math.abs(b.deltaPp) - Math.abs(a.deltaPp))
+
+  const valores = new Map<string, string>()
+  const mayor = porSalto[0]
+  if (mayor === undefined) return valores
+
+  valores.set(
+    's09.pct',
+    `El cambio más importante: ${NOMBRE_CLASE[mayor.clase]} de ${pct(mayor.antesShare)} a ${pct(mayor.despuesShare)}`,
+  )
+  valores.set('s09.nombre', `En ${NOMBRE_CLASE_CORTO[mayor.clase]}`)
+  valores.set('s09.pct2', pct(mayor.antesShare))
+  valores.set('s09.pct3', pct(mayor.despuesShare))
+
+  // El titular de beneficio del deck de referencia dice «Portafolio más
+  // diversificado». Se dice con el numero que lo sostiene: cuantas clases de
+  // activo tiene el portafolio antes y despues.
+  const clases = (lado: 'antesUsd' | 'despuesUsd') =>
+    propuesta.comparativa.filas.filter((fila) => fila[lado] > EPS).length
+  const antes = clases('antesUsd')
+  const despues = clases('despuesUsd')
+  valores.set(
+    's09.nombre2',
+    despues > antes
+      ? `Portafolio más diversificado: de ${antes} a ${despues} clases de activo`
+      : `Portafolio en ${despues} ${despues === 1 ? 'clase' : 'clases'} de activo`,
+  )
+
+  // Las tres transiciones de abajo, en el mismo orden de importancia.
+  porSalto.slice(0, CAMBIOS_EN_LAMINA).forEach((fila, i) => {
+    valores.set(`s09.nombre${i + 3}`, NOMBRE_CLASE_CORTO[fila.clase])
+    valores.set(
+      i === 0 ? 's09.delta' : `s09.delta${i + 1}`,
+      transicion(pct(fila.antesShare), pct(fila.despuesShare)),
+    )
+  })
+
+  return valores
+}
+
+/**
+ * "Tu rentabilidad": lo que el plan cambia en plata, no en porcentaje.
+ *
+ * Las dos bandas y las dos rentas anuales salen de la comparativa. El flujo
+ * mensual sale de la distribucion que el catalogo declara para cada linea del
+ * objetivo —cupones, dividendos, rentas— que la propuesta ya suma instrumento
+ * por instrumento. Lo que no tiene distribucion cargada no suma: el flujo es
+ * el que se puede sostener, no el que se querria.
+ */
+function lamina17(propuesta: Propuesta): ReadonlyMap<string, string> {
+  const vista = propuesta.comparativa
+  // Los tokens de esta lamina son fragmentos dentro de una frase que la
+  // plantilla ya trae escrita — «Patrimonio total …», «+…», «a … más al año» —
+  // asi que va solo la cifra. Repetir la palabra la imprime dos veces.
+  const valores = new Map<string, string>([['s17.monto', monto(vista.totalDespuesUsd)]])
+
+  const banda = (r: { readonly rango: { readonly min: number; readonly max: number } } | null) =>
+    r === null ? null : rangoPct(r.rango.min, r.rango.max)
+
+  const hoy = banda(vista.rentabilidadAntes)
+  const objetivo = banda(vista.rentabilidadDespues)
+  if (hoy !== null) valores.set('s17.pct', hoy)
+  if (objetivo !== null) valores.set('s17.pct2', objetivo)
+
+  const enPlata = (r: { readonly min: number; readonly max: number } | null) =>
+    r === null ? null : `${monto(r.min)} – ${monto(r.max)}`
+
+  const anualHoy = enPlata(vista.rentaAnualAntesUsd)
+  const anualObjetivo = enPlata(vista.rentaAnualDespuesUsd)
+  if (anualHoy !== null) valores.set('s17.monto2', anualHoy)
+  if (anualObjetivo !== null) valores.set('s17.monto3', anualObjetivo)
+
+  // La diferencia anual va dos veces en la lamina: el piso de la banda nueva
+  // contra el piso de la vieja, y el techo contra el techo. En el deck de
+  // referencia son 95,812 y 136,153, que es exactamente esa cuenta.
+  const antes = vista.rentaAnualAntesUsd
+  const despues = vista.rentaAnualDespuesUsd
+  if (antes !== null && despues !== null) {
+    const piso = despues.min - antes.min
+    const techo = despues.max - antes.max
+    // El «+» ya esta en la plantilla; un plan que baje el retorno saldria con
+    // el signo contradicho, y es preferible que se vea a que pase de largo.
+    valores.set('s17.monto4', `${piso < 0 ? '−' : ''}${monto(Math.abs(piso))}`)
+    valores.set('s17.monto5', `${techo < 0 ? '−' : ''}${monto(Math.abs(techo))}`)
+  }
+
+  // El flujo distribuible del objetivo: cupones, dividendos y rentas que el
+  // catalogo declara. Lo que no tiene distribucion cargada no suma, asi que
+  // esta es la cifra que se puede sostener y no la que se querria.
+  const distribucionAnual = propuesta.seccion6.grupos
+    .flatMap((grupo) => grupo.lineas)
+    .reduce((acc, linea) => acc + (linea.distribucionAnualUsd?.min ?? 0), 0)
+
+  valores.set('s17.monto6', distribucionAnual > 0 ? monto(distribucionAnual / 12) : '—')
+  valores.set(
+    's17.nombre',
+    distribucionAnual > 0 ? 'por mes, distribuible' : 'sin distribución cargada en el catálogo',
+  )
+
+  return valores
 }
 
 /** Cuantas clases entran en el grafico de barras de la lamina 4. */
@@ -209,11 +330,12 @@ export const MAPA: readonly Lamina[] = [
   {
     numero: 9,
     titulo: 'Qué cambia',
-    estado: 'decision',
-    falta:
-      'El titular dice «el cambio más importante». Es una regla a definir: probablemente el ' +
-      'mayor delta en puntos porcentuales, pero eso lo decide la mesa. Las tres transiciones ' +
-      'de abajo sí salen de la comparativa.',
+    estado: 'listo',
+    falta: '',
+    // El titular es la clase con el mayor salto en puntos porcentuales, y las
+    // tres transiciones de abajo son las tres mayores. Si la mesa prefiere otro
+    // criterio para «el cambio más importante», se cambia en `lamina9`.
+    valores: (propuesta) => lamina9(propuesta),
   },
   {
     numero: 10,
@@ -240,11 +362,12 @@ export const MAPA: readonly Lamina[] = [
   {
     numero: 17,
     titulo: 'Tu rentabilidad',
-    estado: 'parcial',
-    falta:
-      'Seis de los nueve tokens salen de la comparativa — patrimonio, las dos bandas, las dos ' +
-      'rentas anuales y su diferencia. Los otros tres son texto sobre un activo puntual del ' +
-      'cliente de referencia.',
+    estado: 'listo',
+    falta: '',
+    // Patrimonio, las dos bandas, las dos rentas anuales y su diferencia salen
+    // de la comparativa; el flujo mensual, de la distribución que el catálogo
+    // declara para cada línea del objetivo.
+    valores: (propuesta) => lamina17(propuesta),
   },
   { numero: 18, titulo: 'Separador', estado: 'listo', falta: '' },
   { numero: 19, titulo: 'Cierre', estado: 'listo', falta: '' },

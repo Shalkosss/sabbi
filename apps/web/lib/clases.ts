@@ -7,18 +7,7 @@ import type { ClaseModelo } from '@sabbi/core'
  * también nombran clases, y dos diccionarios en paralelo fue como Club Deals
  * se llamó de dos maneras distintas en la misma página.
  */
-export { NOMBRE_CLASE } from '@sabbi/core'
-
-/** Para celdas angostas: chips, selects y columnas de tabla. */
-export const NOMBRE_CLASE_CORTO: Readonly<Record<ClaseModelo, string>> = {
-  inm: 'Inmobiliario',
-  fijo: 'Renta Fija',
-  variable: 'Renta Variable',
-  privados: 'Privados',
-  club: 'Club Deals',
-  otros: 'Otros',
-  cash: 'Cash',
-}
+export { NOMBRE_CLASE, NOMBRE_CLASE_CORTO } from '@sabbi/core'
 
 /** El orden de bloques de la hoja Allocation detallado, que usa el motor. */
 export const ORDEN_CLASES: readonly ClaseModelo[] = [

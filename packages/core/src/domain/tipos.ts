@@ -52,6 +52,23 @@ export const NOMBRE_CLASE: Readonly<Record<ClaseModelo, string>> = {
   cash: 'Cash',
 }
 
+/**
+ * El nombre corto de cada clase, para donde no entra el largo.
+ *
+ * Chips, celdas de tabla y las laminas del deck, que tienen el ancho que el
+ * diseno les dio: «Mercados Públicos — Renta Variable» desborda su caja y se
+ * escribe encima de la linea de abajo.
+ */
+export const NOMBRE_CLASE_CORTO: Readonly<Record<ClaseModelo, string>> = {
+  inm: 'Inmobiliario',
+  fijo: 'Renta Fija',
+  variable: 'Renta Variable',
+  privados: 'Privados',
+  club: 'Club Deals',
+  otros: 'Otros',
+  cash: 'Cash',
+}
+
 /** Decision del asesor sobre una posicion. */
 export const CTAS = ['conservar', 'venta_total', 'venta_parcial', 'sin_marcar'] as const
 export type Cta = (typeof CTAS)[number]

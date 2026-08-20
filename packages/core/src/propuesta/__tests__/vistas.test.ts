@@ -137,11 +137,11 @@ describe('armarComparativa', () => {
   const catalogo: ReadonlyMap<string, DatosProducto> = new Map([
     [
       'ETF Bonos',
-      { retMin: 0.04, retMax: 0.05, distMin: null, distMax: null, distFrecuencia: null, moneda: 'USD' },
+      { retMin: 0.04, retMax: 0.05, distMin: null, distMax: null, distFrecuencia: null, moneda: 'USD', liquidez: null },
     ],
     [
       'iShares Core S&P 500',
-      { retMin: 0.07, retMax: 0.1, distMin: null, distMax: null, distFrecuencia: null, moneda: 'USD' },
+      { retMin: 0.07, retMax: 0.1, distMin: null, distMax: null, distFrecuencia: null, moneda: 'USD', liquidez: null },
     ],
   ])
 

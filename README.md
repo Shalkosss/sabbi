@@ -156,8 +156,8 @@ el blotter y las notas del cálculo. No hay una segunda implementación de ningu
 suma. Se descarga desde la propuesta y se genera en el momento: un deck guardado
 en disco es una copia que envejece sola.
 
-El **réplica** reproduce el deck de referencia lámina por lámina. Hoy salen 4
-de sus 22: la portada y las tres estáticas. La maquinaria está hecha —sustituye
+El **réplica** reproduce el deck de referencia lámina por lámina. Hoy salen 5
+de sus 22: la portada, las tres estáticas y el anexo, que se pagina solo. La maquinaria está hecha —sustituye
 tokens, rehace una tabla con tantas filas como el cliente tenga, reparte las
 filas en varias láminas duplicando la que haga falta, y devuelve los tokens que
 ninguna fuente resolvió en vez de imprimir un `{{token}}` delante de un
@@ -179,7 +179,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 3 | Motor `generarPlan()` y golden test | hecho |
 | 4 | Vista web de la propuesta | hecho |
 | 5 | Export a Excel | |
-| 6 | PPT réplica | motor hecho, 4 de 22 láminas; ver abajo |
+| 6 | PPT réplica | motor hecho, 5 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | 9 | Asistencia opcional de IA | |
@@ -223,19 +223,23 @@ npm run revisar-deck    # el inventario, lámina por lámina
 
   | Estado | Láminas | Qué necesita |
   |---|---|---|
-  | lista | 4 | nada, ya salen |
+  | lista | 5 | nada, ya salen |
   | decisión | 7 | una decisión de la mesa, no un programador |
-  | filas | 9 | ver abajo |
+  | paginada | 2 | nada: son páginas del anexo, que se pagina solo |
+  | filas | 6 | ver abajo |
   | geometría | 1 | redibujar barras y línea |
   | parcial | 1 | dos tercios salen; el resto es texto redactado |
 
-  De las nueve de "filas", las tres del anexo (20 a 22) ya tienen la máquina:
-  `rehacerTabla` reescribe la tabla con las filas que se le pidan conservando
-  el formato, `paginarFilas` las reparte y el renderizador duplica la lámina.
-  Solo les falta de dónde salen tres de sus seis columnas —descripción,
-  propósito y plazo mínimo—, que no están en el catálogo. Las otras seis
-  (11 a 16) no son tablas sino cajas de texto sueltas en una grilla, y ahí hay
-  que duplicar y reposicionar cajas una por una.
+  El anexo ya sale entero: `rehacerTabla` reescribe la tabla con una fila por
+  instrumento conservando el formato, `paginarFilas` las reparte y el
+  renderizador duplica la lámina tantas veces como haga falta. De sus seis
+  columnas, instrumento y monto los pone el motor, retorno y plazo mínimo salen
+  del catálogo, y descripción y propósito los escribe el asesor en la propuesta
+  —son las dos que ningún dato puede llenar—.
+
+  Las seis de "filas" que quedan (11 a 16) no son tablas sino cajas de texto
+  sueltas en una grilla, y ahí hay que duplicar y reposicionar cajas una por
+  una.
 
   Las siete de "decisión" son las que bloquean de verdad, y las tres preguntas
   son: qué determina el arquetipo del cliente y quién escribe su párrafo; cómo

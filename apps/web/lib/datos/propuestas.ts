@@ -1,9 +1,11 @@
 import 'server-only'
 
 
+import type { AnotacionLinea } from '@sabbi/core'
+
 import type { EstadoRevision } from '../estado'
 import type { ProductoCatalogo } from './emparejar'
-import { clienteServidor } from '../supabase/servidor'
+import { asesorActual, clienteServidor } from '../supabase/servidor'
 import { cargarRevision } from './fichas'
 
 /**
@@ -63,6 +65,7 @@ interface FilaProducto {
   dist_max: number | null
   dist_frecuencia: string | null
   moneda: string | null
+  liquidez: string | null
 }
 
 /**
@@ -80,7 +83,7 @@ export async function catalogoDeProductos(): Promise<readonly ProductoCatalogo[]
 
   const { data } = await supabase
     .from('products')
-    .select('nombre, ret_min, ret_max, dist_min, dist_max, dist_frecuencia, moneda')
+    .select('nombre, ret_min, ret_max, dist_min, dist_max, dist_frecuencia, moneda, liquidez')
 
   return ((data ?? []) as FilaProducto[]).map((fila) => ({
     nombre: fila.nombre,
@@ -90,7 +93,72 @@ export async function catalogoDeProductos(): Promise<readonly ProductoCatalogo[]
     distMax: aFraccion(fila.dist_max),
     distFrecuencia: fila.dist_frecuencia,
     moneda: fila.moneda,
+    liquidez: fila.liquidez,
   }))
+}
+
+/**
+ * Lo que el asesor escribió de cada línea del objetivo.
+ *
+ * Se guarda por nombre de instrumento porque es así como el motor las nombra e
+ * imprime: una línea del objetivo puede no ser un producto del catálogo — el
+ * inmobiliario TBD, el cash — y no tiene identificador propio.
+ */
+export async function anotacionesDeLinea(
+  propuestaId: string,
+): Promise<ReadonlyMap<string, AnotacionLinea>> {
+  if (propuestaId === '') return new Map()
+
+  const supabase = await clienteServidor()
+  const { data } = await supabase
+    .from('proposal_line_notes')
+    .select('instrumento, descripcion, proposito')
+    .eq('proposal_id', propuestaId)
+    .returns<{ instrumento: string; descripcion: string; proposito: string }[]>()
+
+  return new Map(
+    (data ?? []).map((fila) => [
+      fila.instrumento,
+      { descripcion: fila.descripcion, proposito: fila.proposito },
+    ]),
+  )
+}
+
+/** Guarda —o borra, cuando queda vacía— la anotación de una línea. */
+export async function guardarAnotacion(
+  propuestaId: string,
+  instrumento: string,
+  anotacion: AnotacionLinea,
+): Promise<{ readonly error?: string }> {
+  if (propuestaId === '') {
+    return { error: 'Esta propuesta no está abierta.' }
+  }
+
+  const supabase = await clienteServidor()
+
+  // Dos campos vacíos no son una anotación: la fila se va en vez de quedar
+  // ocupando la tabla con nada adentro.
+  if (anotacion.descripcion.trim() === '' && anotacion.proposito.trim() === '') {
+    const { error } = await supabase
+      .from('proposal_line_notes')
+      .delete()
+      .eq('proposal_id', propuestaId)
+      .eq('instrumento', instrumento)
+    return error === null ? {} : { error: error.message }
+  }
+
+  const asesor = await asesorActual()
+
+  const { error } = await supabase.from('proposal_line_notes').upsert({
+    proposal_id: propuestaId,
+    instrumento,
+    descripcion: anotacion.descripcion,
+    proposito: anotacion.proposito,
+    created_by: asesor?.id ?? null,
+    updated_at: new Date().toISOString(),
+  })
+
+  return error === null ? {} : { error: error.message }
 }
 
 /** Las asset class conocidas, para poder mostrar también las que van en cero. */

@@ -3,7 +3,12 @@ import 'server-only'
 import type { Propuesta } from '@sabbi/core'
 
 import { construirPropuesta } from './armar-propuesta'
-import { cargarPropuesta, catalogoDeAssetClass, catalogoDeProductos } from './datos/propuestas'
+import {
+  anotacionesDeLinea,
+  cargarPropuesta,
+  catalogoDeAssetClass,
+  catalogoDeProductos,
+} from './datos/propuestas'
 import { asesorActual } from './supabase/servidor'
 
 /**
@@ -29,15 +34,17 @@ export async function prepararDescarga(propuestaId: string): Promise<Preparada> 
   const cargada = await cargarPropuesta(propuestaId)
   if (cargada === null) return { ok: false, respuesta: texto('No existe esa propuesta.', 404) }
 
-  const [catalogo, assetClassCatalogo] = await Promise.all([
+  const [catalogo, assetClassCatalogo, anotaciones] = await Promise.all([
     catalogoDeProductos(),
     catalogoDeAssetClass(),
+    anotacionesDeLinea(propuestaId),
   ])
 
   const resultado = construirPropuesta(cargada.revision, {
     mandato: cargada.mandato,
     catalogo,
     assetClassCatalogo,
+    anotaciones,
   })
 
   // El mismo corte que la pantalla: sin propuesta calculada no hay archivo que

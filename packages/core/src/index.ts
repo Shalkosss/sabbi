@@ -81,6 +81,7 @@ export type {
   VistaHoy,
 } from './propuesta/vistas.js'
 export type {
+  AnotacionLinea,
   CategoriaCta,
   DatosProducto,
   EntradaPropuesta,

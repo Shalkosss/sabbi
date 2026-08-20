@@ -46,7 +46,7 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
   const seccion4 = armarSeccion4(posiciones)
   const seccion5 = armarSeccion5(posiciones)
 
-  const grupos = armarGrupos(plan, pisos, catalogo)
+  const grupos = armarGrupos(plan, pisos, catalogo, entrada.anotaciones ?? new Map())
   const comparativo = armarComparativo(plan, modeloPuro)
 
   // El objetivo se compara contra el patrimonio que el motor reparte, no contra

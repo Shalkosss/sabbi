@@ -13,6 +13,7 @@
 import type { ClaseModelo, Piso } from '../domain/tipos.js'
 import type { Plan } from '../plan.js'
 import type {
+  AnotacionLinea,
   DatosProducto,
   FilaComparativo,
   GrupoObjetivo,
@@ -100,6 +101,7 @@ export function armarGrupos(
   plan: Plan,
   pisos: readonly Piso[],
   catalogo: ReadonlyMap<string, DatosProducto>,
+  anotaciones: ReadonlyMap<string, AnotacionLinea> = new Map(),
 ): readonly GrupoObjetivo[] {
   const total = plan.totalObjetivoUsd
 
@@ -124,6 +126,9 @@ export function armarGrupos(
               : { min: linea.usd * distributivo.min, max: linea.usd * distributivo.max },
           moneda: producto?.moneda ?? null,
           nota: linea.nota ?? null,
+          liquidez: producto?.liquidez ?? null,
+          descripcion: anotaciones.get(linea.instrumento)?.descripcion ?? '',
+          proposito: anotaciones.get(linea.instrumento)?.proposito ?? '',
         }
       })
 

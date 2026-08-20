@@ -8,7 +8,7 @@ import {
   generarPlan,
   posicionesIncompletas,
 } from '@sabbi/core'
-import type { Bloqueo, PosicionPropuesta, Propuesta } from '@sabbi/core'
+import type { AnotacionLinea, Bloqueo, PosicionPropuesta, Propuesta } from '@sabbi/core'
 
 import { FALLBACKS } from './catalogo'
 import { emparejarCatalogo } from './datos/emparejar'
@@ -35,6 +35,8 @@ interface Opciones {
   readonly mandato: string | null
   readonly catalogo: readonly ProductoCatalogo[]
   readonly assetClassCatalogo: readonly string[]
+  /** Lo que el asesor escribió de cada línea del objetivo, por instrumento. */
+  readonly anotaciones?: ReadonlyMap<string, AnotacionLinea>
 }
 
 /** La revisión trae más campos de los que el motor mira; acá se completan. */
@@ -168,6 +170,7 @@ export function construirPropuesta(
     incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
     catalogo,
     assetClassCatalogo: opciones.assetClassCatalogo,
+    anotaciones: opciones.anotaciones ?? new Map(),
   })
 
   return {

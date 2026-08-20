@@ -282,3 +282,48 @@
   font-size: 13px;
   color: var(--tinta-2);
 }
+
+/*
+ * Las dos casillas que el asesor escribe sobre cada linea del objetivo.
+ *
+ * Van debajo del nombre del instrumento y no en columnas propias: la tabla ya
+ * lleva ocho y dos mas la vuelven ilegible. Se ven como lo que son —campos
+ * vacios esperando texto— para que no parezcan un dato que el sistema calculo.
+ */
+.anotacion {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  max-width: 460px;
+}
+
+.campoAnotacion {
+  flex: 1;
+  min-width: 0;
+  background: var(--hundido);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 3px 7px;
+  font-size: 11.5px;
+  color: var(--tinta-2);
+}
+
+.campoAnotacion::placeholder {
+  color: var(--tinta-4);
+}
+
+.campoAnotacion:focus {
+  border-style: solid;
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+  outline: none;
+}
+
+.pieAnotaciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}

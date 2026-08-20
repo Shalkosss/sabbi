@@ -19,6 +19,7 @@ const producto = (nombre: string, retMin = 0.05): ProductoCatalogo => ({
   distMax: null,
   distFrecuencia: null,
   moneda: 'USD',
+  liquidez: null,
 })
 
 const CATALOGO: readonly ProductoCatalogo[] = [

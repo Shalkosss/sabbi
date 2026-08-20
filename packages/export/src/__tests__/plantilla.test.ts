@@ -5,7 +5,7 @@ import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 
 import { armarDeckReplica } from '../pptx/replica/deck.js'
-import { LAMINAS_LISTAS, MAPA, valoresDe } from '../pptx/replica/mapa.js'
+import { LAMINAS_LISTAS, MAPA } from '../pptx/replica/mapa.js'
 import { laminasDe, renderizarReplica, tokensDe } from '../pptx/replica/plantilla.js'
 import { propuestaDeEjemplo } from './propuesta-de-ejemplo.js'
 
@@ -164,16 +164,24 @@ describe('el mapa de la fase 6', () => {
     }
   })
 
-  it('una lamina lista resuelve todos sus tokens', () => {
-    const tokens = tokensDe(PLANTILLA)
-
+  it('una lamina lista sale sin nada pendiente', () => {
+    // Se comprueba sobre el archivo, no sobre el mapa de tokens: la lamina del
+    // anexo no resuelve sus tokens sino que rehace la tabla entera, y las dos
+    // formas de llenar una lamina tienen que dar el mismo resultado — ni un
+    // `{{` impreso ni un token en la lista de pendientes.
     for (const lamina of MAPA) {
       if (lamina.estado !== 'listo') continue
-      const propios = tokens.get(lamina.numero) ?? []
-      const valores = valoresDe(propuesta, FECHA, [lamina.numero])
-      const huerfanos = propios.filter((token) => !valores.has(token))
 
-      expect(huerfanos, `lamina ${lamina.numero}`).toEqual([])
+      const { bytes, sinFuente } = armarDeckReplica(PLANTILLA, propuesta, {
+        fecha: FECHA,
+        laminas: [lamina.numero],
+      })
+
+      expect(sinFuente, `lamina ${lamina.numero}`).toEqual([])
+      for (const [ruta, contenido] of Object.entries(unzipSync(bytes))) {
+        if (!/^ppt\/slides\/slide\d+\.xml$/.test(ruta)) continue
+        expect(strFromU8(contenido), `lamina ${lamina.numero}`).not.toContain('{{')
+      }
     }
   })
 
@@ -181,10 +189,48 @@ describe('el mapa de la fase 6', () => {
     const { bytes, laminas, sinFuente } = armarDeckReplica(PLANTILLA, propuesta, { fecha: FECHA })
 
     expect(sinFuente).toEqual([])
-    expect(laminas).toEqual(LAMINAS_LISTAS)
+    expect([...new Set(laminas)].sort((a, b) => a - b)).toEqual([...LAMINAS_LISTAS])
     expect(strFromU8(unzipSync(bytes)['ppt/slides/slide1.xml'] ?? new Uint8Array())).toContain(
       propuesta.cliente.nombre,
     )
+  })
+
+  describe('el anexo', () => {
+    const { bytes, laminas } = armarDeckReplica(PLANTILLA, propuesta, { fecha: FECHA })
+    const anexos = Object.entries(unzipSync(bytes))
+      .filter(([ruta]) => /^ppt\/slides\/slide\d+\.xml$/.test(ruta))
+      .map(([, contenido]) => strFromU8(contenido))
+      .filter((xml) => xml.includes('<a:tbl>'))
+
+    it('sale tantas veces como paginas necesite la tabla', () => {
+      expect(laminas.filter((n) => n === 20).length).toBe(anexos.length)
+      expect(anexos.length).toBeGreaterThan(0)
+    })
+
+    it('nombra todos los instrumentos del objetivo', () => {
+      // El XML guarda el nombre escapado: un ETF con `&` en el nombre aparece
+      // como `&amp;` y comparar en crudo no lo encuentra.
+      const escapar = (texto: string) => texto.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      const todo = anexos.join(' ')
+
+      for (const linea of propuesta.seccion6.grupos.flatMap((g) => g.lineas)) {
+        expect(todo, linea.instrumento).toContain(escapar(linea.instrumento))
+      }
+    })
+
+    it('escribe una fila por instrumento y una banda por clase, sin repetir', () => {
+      const grupos = propuesta.seccion6.grupos.filter((g) => g.lineas.length > 0)
+      const lineas = grupos.reduce((acc, g) => acc + g.lineas.length, 0)
+      const filas = anexos.reduce((acc, xml) => acc + (xml.match(/<a:tr h="/g) ?? []).length, 0)
+
+      // Cada pagina repite la cabecera; lo demas es una banda por clase y una
+      // fila por instrumento, contadas una sola vez entre todas las paginas.
+      expect(filas).toBe(anexos.length + grupos.length + lineas)
+    })
+
+    it('cada pagina repite la cabecera', () => {
+      for (const xml of anexos) expect(xml).toContain('Plazo m')
+    })
   })
 
   it('forzar una lamina que no esta lista deja sus tokens en blanco y los devuelve', () => {

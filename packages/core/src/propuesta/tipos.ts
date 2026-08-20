@@ -46,6 +46,8 @@ export interface DatosProducto {
   readonly distMax: number | null
   readonly distFrecuencia: string | null
   readonly moneda: string | null
+  /** Plazo minimo de permanencia: «Flexible», «3 años». Del catalogo. */
+  readonly liquidez: string | null
 }
 
 export interface ParametrosPropuesta {
@@ -98,6 +100,13 @@ export interface EntradaPropuesta {
   readonly catalogo?: ReadonlyMap<string, DatosProducto>
   /** Asset classes del catalogo, para poder mostrar tambien las que van en cero. */
   readonly assetClassCatalogo?: readonly string[]
+  /**
+   * Lo que el asesor escribio de cada linea, por nombre de instrumento.
+   *
+   * El motor no lo produce ni lo valida: lo transporta desde la pantalla hasta
+   * el deck, que es el unico lugar donde se lee.
+   */
+  readonly anotaciones?: ReadonlyMap<string, AnotacionLinea>
 }
 
 // --- Seccion 1: foto actual ---
@@ -185,6 +194,23 @@ export interface LineaObjetivo {
   readonly distribucionAnualUsd: Rango | null
   readonly moneda: string | null
   readonly nota: string | null
+  /** Plazo minimo del catalogo. Vacio cuando el producto no lo declara. */
+  readonly liquidez: string | null
+  /**
+   * Lo que el asesor escribe sobre esta linea.
+   *
+   * Que es el instrumento y para que esta en el portafolio. No sale de ningun
+   * dato: son las dos columnas que el deck de referencia lleva escritas a mano
+   * y que solo el asesor puede llenar. Vacias mientras nadie las escriba.
+   */
+  readonly descripcion: string
+  readonly proposito: string
+}
+
+/** Lo que el asesor escribio sobre una linea del objetivo. */
+export interface AnotacionLinea {
+  readonly descripcion: string
+  readonly proposito: string
 }
 
 export interface GrupoObjetivo {

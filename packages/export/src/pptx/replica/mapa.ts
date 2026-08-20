@@ -34,6 +34,8 @@ import type { Propuesta } from '@sabbi/core'
 export type EstadoLamina =
   /** Sale entera: o no tiene tokens, o todos tienen fuente. */
   | 'listo'
+  /** No sale por si sola: es una pagina mas de otra, que ya pagina sola. */
+  | 'paginada'
   /** Falta una decision de negocio antes de poder escribir el mapeo. */
   | 'decision'
   /** El dato existe, pero la lamina hay que redibujarla, no rellenarla. */
@@ -160,15 +162,22 @@ export const MAPA: readonly Lamina[] = [
   },
   { numero: 18, titulo: 'Separador', estado: 'listo', falta: '' },
   { numero: 19, titulo: 'Cierre', estado: 'listo', falta: '' },
-  ...([20, 21, 22] as const).map(
+  {
+    numero: 20,
+    titulo: 'El anexo: cada instrumento en su fila',
+    estado: 'listo',
+    falta: '',
+    // Sus filas no salen de tokens sino de la tabla, que se rehace entera con
+    // tantas filas como instrumentos tenga el objetivo. Ver `anexo.ts`.
+  },
+  ...([21, 22] as const).map(
     (numero): Lamina => ({
       numero,
-      titulo: 'El portafolio propuesto, por instrumento',
-      estado: 'filas',
+      titulo: 'El anexo (página más)',
+      estado: 'paginada',
       falta:
-        'Son tablas de verdad, así que clonar filas es posible, pero de largo fijo. Falta ' +
-        'además de dónde salen las columnas de plazo mínimo y de racional, que no están en ' +
-        'el catálogo.',
+        'Es la lámina 20 otra vez: en la plantilla son tres porque el cliente de referencia ' +
+        'tenía esa cantidad de instrumentos. La 20 se pagina sola, así que estas no salen.',
     }),
   ),
 ]

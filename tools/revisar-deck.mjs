@@ -25,6 +25,7 @@ const PLANTILLA = join(RAIZ, 'packages', 'export', 'pptx', 'replica', 'template.
 
 const ETIQUETA = {
   listo: 'lista',
+  paginada: 'paginada',
   parcial: 'parcial',
   decision: 'decision',
   geometria: 'geometria',
@@ -77,7 +78,7 @@ for (const lamina of MAPA) {
 const cuenta = {}
 for (const lamina of MAPA) cuenta[lamina.estado] = (cuenta[lamina.estado] ?? 0) + 1
 
-const orden = ['listo', 'parcial', 'decision', 'geometria', 'filas']
+const orden = ['listo', 'paginada', 'parcial', 'decision', 'geometria', 'filas']
 console.log('  ' + orden.map((e) => `${cuenta[e] ?? 0} ${ETIQUETA[e]}`).join(' · '))
 console.log(
   `\n  De las ${numeros.length}, ${cuenta.listo ?? 0} se arman hoy. Las que dicen «decision» ` +

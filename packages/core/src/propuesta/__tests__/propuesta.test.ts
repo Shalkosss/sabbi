@@ -134,7 +134,7 @@ function entradaPlan(pisos: readonly Piso[]): EntradaPlan {
 const CATALOGO: ReadonlyMap<string, DatosProducto> = new Map([
   [
     'ETF Fijo A',
-    { retMin: 0.04, retMax: 0.06, distMin: 0.02, distMax: 0.03, distFrecuencia: 'Trimestral', moneda: 'USD' },
+    { retMin: 0.04, retMax: 0.06, distMin: 0.02, distMax: 0.03, distFrecuencia: 'Trimestral', moneda: 'USD', liquidez: null },
   ],
 ])
 

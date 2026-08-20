@@ -1,7 +1,13 @@
-import type { Propuesta } from '@sabbi/core'
+'use client'
 
+import type { AnotacionLinea, Propuesta } from '@sabbi/core'
+import { useState } from 'react'
+
+import { guardarCambioAnotacion } from '../../app/acciones'
+import { useAutoguardado } from '../../lib/autoguardado'
 import { NOMBRE_CLASE } from '../../lib/clases'
 import { pct1, puntos, rangoPct, rangoUsd, usdTabla } from '../../lib/formato'
+import { Guardado } from '../Guardado'
 import { Cuadre, Seccion, Tabla } from './Seccion'
 import estilos from './Propuesta.module.css'
 
@@ -14,9 +20,32 @@ import estilos from './Propuesta.module.css'
  * diferencia tiene un origen concreto: una posición conservada que clavó su
  * clase.
  */
-export function Objetivo({ propuesta }: { readonly propuesta: Propuesta }) {
+interface Props {
+  readonly propuesta: Propuesta
+  /** Sin propuesta abierta no hay donde guardar lo que el asesor escriba. */
+  readonly propuestaId: string
+}
+
+export function Objetivo({ propuesta, propuestaId }: Props) {
   const { seccion6 } = propuesta
   const { parametros } = seccion6
+
+  // Lo que el asesor escribe vive en pantalla mientras teclea y sale solo, por
+  // la misma cola que el resto de la aplicacion. El valor de partida es el que
+  // vino del servidor dentro de cada linea.
+  const [anotaciones, setAnotaciones] = useState<ReadonlyMap<string, AnotacionLinea>>(new Map())
+  const { estado: guardado, encolar } = useAutoguardado<AnotacionLinea>((clave, anotacion) =>
+    guardarCambioAnotacion(propuestaId, clave, anotacion),
+  )
+
+  const anotacionDe = (instrumento: string, base: AnotacionLinea): AnotacionLinea =>
+    anotaciones.get(instrumento) ?? base
+
+  const anotar = (instrumento: string, base: AnotacionLinea, cambio: Partial<AnotacionLinea>) => {
+    const siguiente = { ...anotacionDe(instrumento, base), ...cambio }
+    setAnotaciones((previas) => new Map(previas).set(instrumento, siguiente))
+    encolar(instrumento, siguiente)
+  }
 
   // Una celda vacía en una tabla de retornos se lee como un cero. Se cuentan
   // para poder decir en una línea que es falta de dato y no falta de retorno.
@@ -53,6 +82,7 @@ export function Objetivo({ propuesta }: { readonly propuesta: Propuesta }) {
               Retorno total esp.
             </th>
             <th scope="col">Moneda</th>
+            <th scope="col">Plazo mín.</th>
             <th scope="col" className={estilos.num}>
               Retorno distributivo
             </th>
@@ -78,7 +108,7 @@ export function Objetivo({ propuesta }: { readonly propuesta: Propuesta }) {
                 </td>
                 <td className={estilos.num}>{usdTabla(grupo.objetivoUsd)}</td>
                 <td className={estilos.num}>{pct1(grupo.share)}</td>
-                <td colSpan={4} />
+                <td colSpan={5} />
               </tr>
               {grupo.lineas.map((linea) => (
                 <tr key={`${grupo.clase}-${linea.instrumento}`}>
@@ -90,11 +120,32 @@ export function Objetivo({ propuesta }: { readonly propuesta: Propuesta }) {
                       {linea.conservada ? 'conservada' : 'nueva'}
                     </span>
                     {linea.nota !== null && <div className={estilos.tenue}>{linea.nota}</div>}
+                    <div className={estilos.anotacion}>
+                      <input
+                        className={estilos.campoAnotacion}
+                        value={anotacionDe(linea.instrumento, linea).descripcion}
+                        placeholder="Descripción — qué es"
+                        aria-label={`Descripción de ${linea.instrumento}`}
+                        onChange={(e) =>
+                          anotar(linea.instrumento, linea, { descripcion: e.target.value })
+                        }
+                      />
+                      <input
+                        className={estilos.campoAnotacion}
+                        value={anotacionDe(linea.instrumento, linea).proposito}
+                        placeholder="Propósito — para qué está"
+                        aria-label={`Propósito de ${linea.instrumento}`}
+                        onChange={(e) =>
+                          anotar(linea.instrumento, linea, { proposito: e.target.value })
+                        }
+                      />
+                    </div>
                   </td>
                   <td className={estilos.num}>{usdTabla(linea.usd)}</td>
                   <td className={estilos.num}>{pct1(linea.share)}</td>
                   <td className={estilos.num}>{rangoPct(linea.retornoTotal)}</td>
                   <td>{linea.moneda ?? '—'}</td>
+                  <td>{linea.liquidez ?? '—'}</td>
                   <td className={estilos.num}>{rangoPct(linea.retornoDistributivo)}</td>
                   <td className={estilos.num}>{rangoUsd(linea.distribucionAnualUsd)}</td>
                 </tr>
@@ -107,10 +158,18 @@ export function Objetivo({ propuesta }: { readonly propuesta: Propuesta }) {
             <td>Total portafolio objetivo</td>
             <td className={estilos.num}>{usdTabla(seccion6.totalUsd)}</td>
             <td className={estilos.num}>{pct1(1)}</td>
-            <td colSpan={4} />
+            <td colSpan={5} />
           </tr>
         </tfoot>
       </Tabla>
+
+      <div className={estilos.pieAnotaciones}>
+        <p className={estilos.bajada}>
+          Descripción y propósito los escribe el asesor: son las dos columnas del anexo del
+          deck que ningún dato puede llenar. Se guardan solas.
+        </p>
+        <Guardado estado={guardado} sinGuardar={0} />
+      </div>
 
       <Cuadre
         etiqueta="Objetivo contra patrimonio financiero"

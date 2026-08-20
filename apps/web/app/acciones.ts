@@ -4,6 +4,7 @@ import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import { armarEntradaPlan, generarPlan } from '@sabbi/core'
 import type {
   AjusteClase,
+  AnotacionLinea,
   Bloqueo,
   EstadoInstitucional,
   Perfil,
@@ -18,6 +19,7 @@ import { redirect } from 'next/navigation'
 import { FALLBACKS } from '../lib/catalogo'
 import { guardarActivoAgregado, guardarAjusteDeClase } from '../lib/datos/ajustes'
 import { guardarFichaNueva } from '../lib/datos/fichas'
+import { guardarAnotacion } from '../lib/datos/propuestas'
 import { guardarParametros, guardarPosicion } from '../lib/datos/revision'
 import type { Parametros, PosicionEditada } from '../lib/estado'
 
@@ -99,6 +101,21 @@ export async function guardarCambioAjuste(
   eliminado: boolean,
 ): Promise<{ readonly error?: string }> {
   return guardarAjusteDeClase(propuestaId, ajuste, eliminado)
+}
+
+/**
+ * Autoguardado de lo que el asesor escribe sobre una línea del objetivo.
+ *
+ * Descripción y propósito son las dos columnas del anexo del deck que ningún
+ * dato puede llenar: qué es el instrumento y para qué está en este portafolio.
+ * Dependen del cliente y de la conversación, no del catálogo.
+ */
+export async function guardarCambioAnotacion(
+  propuestaId: string,
+  instrumento: string,
+  anotacion: AnotacionLinea,
+): Promise<{ readonly error?: string }> {
+  return guardarAnotacion(propuestaId, instrumento, anotacion)
 }
 
 /**

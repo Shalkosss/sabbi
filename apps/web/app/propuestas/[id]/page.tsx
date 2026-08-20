@@ -12,6 +12,7 @@ import { Vistas } from '../../../componentes/propuesta/Vistas'
 import { construirPropuesta } from '../../../lib/armar-propuesta'
 import vistas from '../../../componentes/propuesta/Vistas.module.css'
 import {
+  anotacionesDeLinea,
   cargarPropuesta,
   catalogoDeAssetClass,
   catalogoDeProductos,
@@ -35,15 +36,17 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   const cargada = await cargarPropuesta(id)
   if (cargada === null) notFound()
 
-  const [catalogo, assetClassCatalogo] = await Promise.all([
+  const [catalogo, assetClassCatalogo, anotaciones] = await Promise.all([
     catalogoDeProductos(),
     catalogoDeAssetClass(),
+    anotacionesDeLinea(id),
   ])
 
   const resultado = construirPropuesta(cargada.revision, {
     mandato: cargada.mandato,
     catalogo,
     assetClassCatalogo,
+    anotaciones,
   })
 
   const marco = (contenido: React.ReactNode) => (
@@ -151,7 +154,7 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         </summary>
         <FotoActual propuesta={propuesta} />
         <Distribucion propuesta={propuesta} />
-        <Objetivo propuesta={propuesta} />
+        <Objetivo propuesta={propuesta} propuestaId={cargada.propuestaId} />
         <Blotter propuesta={propuesta} />
       </details>
     </div>,

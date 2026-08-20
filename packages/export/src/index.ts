@@ -7,6 +7,7 @@ export {
   tokensDe,
 } from './pptx/replica/plantilla.js'
 export { armarDeckReplica, avanceReplica } from './pptx/replica/deck.js'
+export { CABECERA, MODELO, filasDelAnexo, sinEscribir } from './pptx/replica/anexo.js'
 export { leerPlantillaReplica, rutaDePlantilla } from './pptx/replica/desde-disco.js'
 export type { OpcionesDeckReplica } from './pptx/replica/deck.js'
 export { LAMINAS_LISTAS, MAPA, valoresDe } from './pptx/replica/mapa.js'

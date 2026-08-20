@@ -154,6 +154,7 @@ export function emparejarCatalogo(
       distMax: encontrado.distMax,
       distFrecuencia: encontrado.distFrecuencia,
       moneda: encontrado.moneda,
+      liquidez: encontrado.liquidez,
     })
   }
 

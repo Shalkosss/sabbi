@@ -215,9 +215,84 @@ export function armarVistaHoy(
 // --- Vista 2: el comparativo ---
 
 /**
- * El "despues" sale del plan; su rentabilidad, del catalogo. Un instrumento
- * conservado que el catalogo no conoce hereda el rendimiento estimado de la
- * posicion que lo produjo — es el mismo activo — antes que quedarse vacio.
+ * Como leer la rentabilidad de una linea del plan.
+ *
+ * Manda el catalogo. Un instrumento conservado que el catalogo no conoce hereda
+ * el rendimiento estimado de la posicion que lo produjo — es el mismo activo —
+ * antes que quedarse vacio.
+ */
+function lectorDeRango(
+  posiciones: readonly PosicionPropuesta[],
+  catalogo: ReadonlyMap<string, DatosProducto>,
+): (instrumento: string) => Rango | null {
+  const rendimientoPorNombre = new Map(
+    posiciones
+      .filter((p) => p.rendimientoEst !== null)
+      .map((p) => [p.institucionProducto, p.rendimientoEst]),
+  )
+
+  return (instrumento: string): Rango | null => {
+    const producto = catalogo.get(instrumento)
+    if (producto !== undefined && producto.retMin !== null && producto.retMax !== null) {
+      return { min: producto.retMin, max: producto.retMax }
+    }
+    return rangoDe(rendimientoPorNombre.get(instrumento) ?? null)
+  }
+}
+
+/** Un plan leido como portafolio: cuanto hay en cada clase y en cada linea. */
+interface LadoDelPlan {
+  readonly totalUsd: number
+  readonly rentabilidad: RentabilidadPonderada | null
+  readonly rentaAnualUsd: Rango | null
+  readonly usdDe: (clase: ClaseModelo) => number
+  readonly fijadaEn: (clase: ClaseModelo) => boolean
+  readonly subfilasDe: (clase: ClaseModelo) => readonly SubfilaVista[]
+  readonly rentabilidadDe: (clase: ClaseModelo) => RentabilidadPonderada | null
+}
+
+function leerPlan(
+  plan: Plan,
+  rangoDeLinea: (instrumento: string) => Rango | null,
+  conservadas: ReadonlySet<string>,
+): LadoDelPlan {
+  const totalUsd = plan.totalObjetivoUsd
+  const lineasDe = (clase: ClaseModelo) => plan.lineas.filter((l) => l.clase === clase)
+
+  const rentabilidad = ponderar(
+    plan.lineas.map((l) => ({ usd: l.usd, rango: rangoDeLinea(l.instrumento) })),
+  )
+
+  return {
+    totalUsd,
+    rentabilidad,
+    rentaAnualUsd: rentaAnual(rentabilidad, totalUsd),
+    usdDe: (clase) => plan.reparto.porClase.find((c) => c.clase === clase)?.objetivoUsd ?? 0,
+    fijadaEn: (clase) => plan.reparto.porClase.find((c) => c.clase === clase)?.fijada ?? false,
+    subfilasDe: (clase) =>
+      lineasDe(clase)
+        .map((l): SubfilaVista => {
+          const rango = rangoDeLinea(l.instrumento)
+          return {
+            etiqueta: l.instrumento,
+            usd: l.usd,
+            share: share(l.usd, totalUsd),
+            rentabilidad: rango === null ? null : { rango, cobertura: 1 },
+            conservada: conservadas.has(l.instrumento),
+          }
+        })
+        .sort((a, b) => b.usd - a.usd),
+    rentabilidadDe: (clase) =>
+      ponderar(lineasDe(clase).map((l) => ({ usd: l.usd, rango: rangoDeLinea(l.instrumento) }))),
+  }
+}
+
+/** Las lineas del plan que el cliente ya tiene, por nombre. */
+const lineasConservadas = (posiciones: readonly PosicionPropuesta[]): ReadonlySet<string> =>
+  new Set(posiciones.filter((p) => seConservaUsd(p) > EPS).map((p) => p.institucionProducto))
+
+/**
+ * El "despues" sale del plan; su rentabilidad, del catalogo.
  */
 export function armarComparativa(
   posiciones: readonly PosicionPropuesta[],
@@ -226,51 +301,15 @@ export function armarComparativa(
   incluirInmueblesDeRenta = true,
 ): VistaComparativa {
   const hoy = armarVistaHoy(posiciones, incluirInmueblesDeRenta)
-  const totalDespuesUsd = plan.totalObjetivoUsd
-
-  const rendimientoPorNombre = new Map(
-    posiciones
-      .filter((p) => p.rendimientoEst !== null)
-      .map((p) => [p.institucionProducto, p.rendimientoEst]),
-  )
-
-  const rangoDeLinea = (instrumento: string): Rango | null => {
-    const producto = catalogo.get(instrumento)
-    if (producto !== undefined && producto.retMin !== null && producto.retMax !== null) {
-      return { min: producto.retMin, max: producto.retMax }
-    }
-    return rangoDe(rendimientoPorNombre.get(instrumento) ?? null)
-  }
-
-  const conservadas = new Set(
-    posiciones.filter((p) => seConservaUsd(p) > EPS).map((p) => p.institucionProducto),
-  )
+  const rangoDeLinea = lectorDeRango(posiciones, catalogo)
+  const despues = leerPlan(plan, rangoDeLinea, lineasConservadas(posiciones))
 
   const filas = ORDEN_CLASES.flatMap((clase): FilaComparativa[] => {
     const antes = hoy.filas.find((f) => f.clase === clase)
-    const reparto = plan.reparto.porClase.find((c) => c.clase === clase)
-    const lineas = plan.lineas.filter((l) => l.clase === clase)
 
     const antesUsd = antes?.usd ?? 0
-    const despuesUsd = reparto?.objetivoUsd ?? 0
+    const despuesUsd = despues.usdDe(clase)
     if (antesUsd <= EPS && despuesUsd <= EPS) return []
-
-    const despuesSub = lineas
-      .map((l): SubfilaVista => {
-        const rango = rangoDeLinea(l.instrumento)
-        return {
-          etiqueta: l.instrumento,
-          usd: l.usd,
-          share: share(l.usd, totalDespuesUsd),
-          rentabilidad: rango === null ? null : { rango, cobertura: 1 },
-          conservada: conservadas.has(l.instrumento),
-        }
-      })
-      .sort((a, b) => b.usd - a.usd)
-
-    const rentabilidadDespues = ponderar(
-      lineas.map((l) => ({ usd: l.usd, rango: rangoDeLinea(l.instrumento) })),
-    )
 
     return [
       {
@@ -278,27 +317,144 @@ export function armarComparativa(
         antesUsd,
         antesShare: share(antesUsd, hoy.totalUsd),
         despuesUsd,
-        despuesShare: share(despuesUsd, totalDespuesUsd),
-        deltaPp: (share(despuesUsd, totalDespuesUsd) - share(antesUsd, hoy.totalUsd)) * 100,
+        despuesShare: share(despuesUsd, despues.totalUsd),
+        deltaPp: (share(despuesUsd, despues.totalUsd) - share(antesUsd, hoy.totalUsd)) * 100,
         antesSub: antes?.subfilas ?? [],
-        despuesSub,
+        despuesSub: despues.subfilasDe(clase),
         rentabilidadAntes: antes?.rentabilidad ?? null,
-        rentabilidadDespues,
+        rentabilidadDespues: despues.rentabilidadDe(clase),
       },
     ]
   })
 
-  const rentabilidadDespues = ponderar(
-    plan.lineas.map((l) => ({ usd: l.usd, rango: rangoDeLinea(l.instrumento) })),
-  )
-
   return {
     filas,
     totalAntesUsd: hoy.totalUsd,
-    totalDespuesUsd,
+    totalDespuesUsd: despues.totalUsd,
     rentabilidadAntes: hoy.rentabilidad,
-    rentabilidadDespues,
+    rentabilidadDespues: despues.rentabilidad,
     rentaAnualAntesUsd: hoy.rentaAnualUsd,
-    rentaAnualDespuesUsd: rentaAnual(rentabilidadDespues, totalDespuesUsd),
+    rentaAnualDespuesUsd: despues.rentaAnualUsd,
+  }
+}
+
+// --- Vista 3: los dos portafolios ---
+
+/** Un portafolio entero, para la cabecera de su columna. */
+export interface LadoPortafolio {
+  readonly totalUsd: number
+  readonly rentabilidad: RentabilidadPonderada | null
+  readonly rentaAnualUsd: Rango | null
+}
+
+export interface FilaDosPortafolios {
+  readonly clase: ClaseModelo
+  readonly hoyUsd: number
+  readonly hoyShare: number
+  readonly sistemaUsd: number
+  readonly sistemaShare: number
+  readonly ajustadoUsd: number
+  readonly ajustadoShare: number
+  /** Ajustado menos sistema, en dolares. Lo que movio la mano del asesor. */
+  readonly deltaUsd: number
+  /** Ajustado menos sistema, en puntos porcentuales del portafolio. */
+  readonly deltaPp: number
+  /** La clase quedo en ese monto porque el asesor lo pidio, no el benchmark. */
+  readonly fijada: boolean
+  readonly hoySub: readonly SubfilaVista[]
+  readonly sistemaSub: readonly SubfilaVista[]
+  readonly ajustadoSub: readonly SubfilaVista[]
+  readonly rentabilidadHoy: RentabilidadPonderada | null
+  readonly rentabilidadSistema: RentabilidadPonderada | null
+  readonly rentabilidadAjustado: RentabilidadPonderada | null
+}
+
+/**
+ * Los dos portafolios objetivo, contra la foto de hoy.
+ *
+ * El de la ficha es el punto de partida; el del sistema es lo que el motor
+ * propone solo, con el benchmark del perfil; el ajustado es ese mismo motor
+ * despues de que el asesor clavo montos, agrego activos o saco clases del
+ * calculo. Las tres columnas se leen a la misma altura para que la pregunta
+ * "que cambio por lo que yo toque" tenga una respuesta y no una sospecha.
+ */
+export interface VistaDosPortafolios {
+  readonly filas: readonly FilaDosPortafolios[]
+  readonly hoy: LadoPortafolio
+  readonly sistema: LadoPortafolio
+  readonly ajustado: LadoPortafolio
+  /**
+   * Cuanto dinero cambio de clase entre los dos objetivos.
+   *
+   * Es la mitad de la suma de las diferencias absolutas: cada dolar que sale de
+   * una clase entra en otra, y contarlo dos veces duplicaria el movimiento.
+   */
+  readonly movidoUsd: number
+}
+
+export function armarDosPortafolios(
+  posiciones: readonly PosicionPropuesta[],
+  planSistema: Plan,
+  planAjustado: Plan,
+  catalogo: ReadonlyMap<string, DatosProducto>,
+  incluirInmueblesDeRenta = true,
+): VistaDosPortafolios {
+  const hoy = armarVistaHoy(posiciones, incluirInmueblesDeRenta)
+  const rangoDeLinea = lectorDeRango(posiciones, catalogo)
+  const conservadas = lineasConservadas(posiciones)
+
+  const sistema = leerPlan(planSistema, rangoDeLinea, conservadas)
+  const ajustado = leerPlan(planAjustado, rangoDeLinea, conservadas)
+
+  const filas = ORDEN_CLASES.flatMap((clase): FilaDosPortafolios[] => {
+    const enLaFicha = hoy.filas.find((f) => f.clase === clase)
+    const hoyUsd = enLaFicha?.usd ?? 0
+    const sistemaUsd = sistema.usdDe(clase)
+    const ajustadoUsd = ajustado.usdDe(clase)
+    if (hoyUsd <= EPS && sistemaUsd <= EPS && ajustadoUsd <= EPS) return []
+
+    const sistemaShare = share(sistemaUsd, sistema.totalUsd)
+    const ajustadoShare = share(ajustadoUsd, ajustado.totalUsd)
+
+    return [
+      {
+        clase,
+        hoyUsd,
+        hoyShare: share(hoyUsd, hoy.totalUsd),
+        sistemaUsd,
+        sistemaShare,
+        ajustadoUsd,
+        ajustadoShare,
+        deltaUsd: ajustadoUsd - sistemaUsd,
+        deltaPp: (ajustadoShare - sistemaShare) * 100,
+        fijada: ajustado.fijadaEn(clase),
+        hoySub: enLaFicha?.subfilas ?? [],
+        sistemaSub: sistema.subfilasDe(clase),
+        ajustadoSub: ajustado.subfilasDe(clase),
+        rentabilidadHoy: enLaFicha?.rentabilidad ?? null,
+        rentabilidadSistema: sistema.rentabilidadDe(clase),
+        rentabilidadAjustado: ajustado.rentabilidadDe(clase),
+      },
+    ]
+  })
+
+  const movidoUsd = filas.reduce((acc, fila) => acc + Math.abs(fila.deltaUsd), 0) / 2
+
+  const lado = (plan: LadoDelPlan): LadoPortafolio => ({
+    totalUsd: plan.totalUsd,
+    rentabilidad: plan.rentabilidad,
+    rentaAnualUsd: plan.rentaAnualUsd,
+  })
+
+  return {
+    filas,
+    hoy: {
+      totalUsd: hoy.totalUsd,
+      rentabilidad: hoy.rentabilidad,
+      rentaAnualUsd: hoy.rentaAnualUsd,
+    },
+    sistema: lado(sistema),
+    ajustado: lado(ajustado),
+    movidoUsd,
   }
 }

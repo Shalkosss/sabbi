@@ -71,6 +71,17 @@ export interface EntradaPropuesta {
    * para defender la propuesta.
    */
   readonly modeloPuro: Plan
+  /**
+   * El mismo motor corrido sin los ajustes del asesor.
+   *
+   * Es el portafolio que el sistema propone solo, a partir de la ficha y del
+   * benchmark del perfil. Al lado del ajustado contesta la unica pregunta que
+   * un ajuste deja abierta: que cambio por lo que yo toque.
+   *
+   * `null` cuando no hay ajustes — los dos portafolios serian el mismo — y la
+   * vista de los dos portafolios no se arma.
+   */
+  readonly planSistema?: Plan | null
   readonly pisos: readonly Piso[]
   readonly benchmark: Benchmark
   readonly parametros: ParametrosPropuesta
@@ -219,7 +230,7 @@ export interface LineaCompra {
 
 // --- La propuesta entera ---
 
-import type { VistaComparativa, VistaHoy } from './vistas.js'
+import type { VistaComparativa, VistaDosPortafolios, VistaHoy } from './vistas.js'
 
 export interface Propuesta {
   /** Vista 1: el portafolio de hoy, por clase y subclase, con su rentabilidad. */
@@ -263,6 +274,13 @@ export interface Propuesta {
     /** Compras menos ventas. Si no da cero, la propuesta no se publica. */
     readonly cuadreUsd: number
   }
+  /**
+   * Los dos portafolios objetivo lado a lado, contra la foto de hoy.
+   *
+   * `null` cuando el asesor no ajusto nada: sin ajustes no hay dos portafolios
+   * que comparar, hay uno.
+   */
+  readonly dosPortafolios: VistaDosPortafolios | null
   /** Avisos del motor mas los que nacen de armar la propuesta. */
   readonly avisos: readonly string[]
 }

@@ -13,7 +13,12 @@
  * El escape es el piso: un inmueble que el cliente conserva, o una restriccion
  * del asesor sobre la clase, la clavan y la regla no se aplica. En la macro son
  * la misma cosa — las posiciones conservadas entran como restricciones — y aqui
- * tambien: ambas llegan como piso de la clase.
+ * tambien: ambas llegan como piso de la clase. Un ajuste que fija la clase hace
+ * lo mismo por la puerta de adelante.
+ *
+ * Una clase fijada tampoco recibe: si el asesor clavo Renta Fija en 200,000, el
+ * capital del inmobiliario disuelto no puede empujarla a 240,000. El prorrateo
+ * se reparte entre las que quedan libres.
  */
 
 import type { ClaseModelo, RepartoClase, ResultadoReparto } from '../domain/tipos.js'
@@ -62,12 +67,11 @@ export function prorratearInmobiliario(
 
   const inm = reparto.porClase.find((c) => c.clase === 'inm')
   if (!inm || inm.objetivoUsd <= EPS) return reparto
-  if (inmFijado || inm.pisoUsd > EPS) return reparto
+  if (inmFijado || inm.fijada || inm.pisoUsd > EPS) return reparto
 
-  const base = reparto.porClase.reduce(
-    (acc, c) => (RECEPTORAS.has(c.clase) ? acc + c.objetivoUsd : acc),
-    0,
-  )
+  const recibe = (c: RepartoClase) => RECEPTORAS.has(c.clase) && !c.fijada
+
+  const base = reparto.porClase.reduce((acc, c) => (recibe(c) ? acc + c.objetivoUsd : acc), 0)
   if (base <= EPS) return reparto
 
   const factor = (base + inm.objetivoUsd) / base
@@ -76,7 +80,7 @@ export function prorratearInmobiliario(
     if (c.clase === 'inm') {
       return { ...c, objetivoUsd: 0, dineroNuevoUsd: 0, cerrada: true }
     }
-    if (!RECEPTORAS.has(c.clase)) return c
+    if (!recibe(c)) return c
 
     const objetivoUsd = c.objetivoUsd * factor
     return {

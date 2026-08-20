@@ -7,6 +7,7 @@ import { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from '../inmobiliario.js'
 function repartoDe(
   objetivos: Partial<Record<ClaseModelo, number>>,
   pisos: Partial<Record<ClaseModelo, number>> = {},
+  fijadas: readonly ClaseModelo[] = [],
 ): ResultadoReparto {
   const clases: ClaseModelo[] = ['fijo', 'variable', 'privados', 'inm', 'cash']
   return {
@@ -19,10 +20,12 @@ function repartoDe(
         pisoUsd,
         dineroNuevoUsd: Math.max(0, objetivoUsd - pisoUsd),
         cerrada: pisoUsd > 0 && objetivoUsd <= pisoUsd,
+        fijada: fijadas.includes(clase),
       }
     }),
     baseRedistribucion: 0,
     iteraciones: 1,
+    ajustes: [],
   }
 }
 

@@ -17,6 +17,7 @@
  */
 
 import type {
+  AjusteClase,
   Benchmark,
   ClaseModelo,
   Perfil,
@@ -73,6 +74,8 @@ export interface DecisionesPropuesta {
   /** Efectivo que la propuesta reserva. Clava cash dentro del ticket. */
   readonly colchonLiquidezUsd?: number
   readonly restricciones?: readonly Restriccion[]
+  /** Montos clavados por clase. La unica palanca que empuja hacia abajo. */
+  readonly ajustes?: readonly AjusteClase[]
 }
 
 export type CodigoBloqueo =
@@ -88,6 +91,8 @@ export type CodigoBloqueo =
   | 'datos_incompletos'
   /** El ticket minimo quedo en cero o negativo. */
   | 'ticket_invalido'
+  /** Los montos fijados no dejan un portafolio posible. */
+  | 'ajuste_invalido'
 
 export interface Bloqueo {
   readonly codigo: CodigoBloqueo
@@ -170,6 +175,7 @@ export interface OpcionesRevision {
   readonly incluirInmueblesDeRenta?: boolean
   readonly colchonLiquidezUsd?: number
   readonly restricciones?: readonly Restriccion[]
+  readonly ajustes?: readonly AjusteClase[]
   /**
    * Ticket minimo de la propuesta, solo para validarlo.
    *
@@ -196,6 +202,7 @@ export function evaluarRevision(
     incluirInmueblesDeRenta = true,
     colchonLiquidezUsd = 0,
     restricciones = [],
+    ajustes = [],
     ticketMinimoUsd,
   } = opciones
 
@@ -270,6 +277,21 @@ export function evaluarRevision(
     })
   }
 
+  // Fijar mas dinero del que hay no es un ajuste, es una cuenta imposible. Se
+  // corta aca y no en el solver, que reventaria del otro lado del servidor.
+  const fijadoUsd = ajustes.reduce(
+    (total, ajuste) => (ajuste.modo === 'fijar' ? total + Math.max(0, ajuste.montoUsd) : total),
+    0,
+  )
+  if (fijadoUsd > patrimonioInvertibleUsd + TOL) {
+    bloqueos.push({
+      codigo: 'ajuste_invalido',
+      mensaje:
+        `Los montos fijados suman ${fijadoUsd.toFixed(2)} y superan el patrimonio invertible ` +
+        `de ${patrimonioInvertibleUsd.toFixed(2)}. Bajá alguno o sacale el ajuste.`,
+    })
+  }
+
   if (conservadoUsd + restringidoUsd > patrimonioInvertibleUsd + TOL) {
     bloqueos.push({
       codigo: 'conservado_excede',
@@ -298,6 +320,7 @@ export function armarEntradaPlan(
     incluirInmueblesDeRenta = true,
     colchonLiquidezUsd = 0,
     restricciones = [],
+    ajustes = [],
   } = decisiones
 
   const { resumen, bloqueos, cuentan } = evaluarRevision(posiciones, {
@@ -305,6 +328,7 @@ export function armarEntradaPlan(
     incluirInmueblesDeRenta,
     colchonLiquidezUsd,
     restricciones,
+    ajustes,
     ticketMinimoUsd,
   })
 
@@ -355,20 +379,78 @@ export function armarEntradaPlan(
     )
   }
 
+  const benchmarkEfectivo = incluirInmueblesDeRenta
+    ? benchmark
+    : redistribuirInmobiliario(benchmark)
+
+  // El solver reparte lo que sobra entre las clases que quedaron libres. Si no
+  // queda ninguna con peso, ese dinero no tiene adonde ir y el motor tira. El
+  // corte va aca, donde el mensaje llega a la pantalla.
+  const sobrante = sobranteSinDestino(benchmarkEfectivo, resumen.patrimonioInvertibleUsd, pisos, ajustes)
+  if (sobrante > TOL) {
+    return {
+      ok: false,
+      resumen,
+      bloqueos: [
+        {
+          codigo: 'ajuste_invalido',
+          mensaje:
+            `Fijaste todas las clases del modelo y quedan ${sobrante.toFixed(2)} sin ninguna ` +
+            'donde prorratearlos. Sacale el ajuste a alguna clase o subí uno de los montos.',
+        },
+      ],
+    }
+  }
+
   const entrada: EntradaPlan = {
     perfil,
     patrimonioTotalUsd: resumen.patrimonioInvertibleUsd,
-    benchmark: incluirInmueblesDeRenta ? benchmark : redistribuirInmobiliario(benchmark),
+    benchmark: benchmarkEfectivo,
     pesos,
     pisos,
     ticketMinimoUsd,
     fallbacks,
     necesitaFlujos,
     institucional,
+    ajustes,
     // Una restriccion sobre la clase inmobiliaria la salva del umbral de los
-    // 500,000, que si no la disolveria por ticket bajo.
-    inmFijado: restricciones.some((r) => r.clase === 'inm' && r.montoUsd > EPS),
+    // 500,000, que si no la disolveria por ticket bajo. Fijarla a mano tiene el
+    // mismo efecto: es la misma decision dicha de otra manera.
+    inmFijado:
+      restricciones.some((r) => r.clase === 'inm' && r.montoUsd > EPS) ||
+      ajustes.some((a) => a.clase === 'inm' && a.modo === 'fijar' && a.montoUsd > EPS),
   }
 
   return { ok: true, entrada, resumen, avisos }
+}
+
+/**
+ * Dinero que ninguna clase abierta podria recibir.
+ *
+ * Cada clase ajustada sale del reparto con su monto — nunca por debajo de su
+ * piso — y el resto se prorratea entre las que conservan peso. Cuando no queda
+ * ninguna, el resto no tiene destino: cero significa que el reparto cierra.
+ */
+function sobranteSinDestino(
+  benchmark: Benchmark,
+  patrimonioTotalUsd: number,
+  pisos: readonly Piso[],
+  ajustes: readonly AjusteClase[],
+): number {
+  const pisoDe = (clase: ClaseModelo) =>
+    pisos.reduce((total, piso) => (piso.clase === clase ? total + piso.montoUsd : total), 0)
+
+  const ultimo = new Map<ClaseModelo, AjusteClase>()
+  for (const ajuste of ajustes) ultimo.set(ajuste.clase, ajuste)
+
+  const libres = CLASES.filter((clase) => benchmark[clase] > EPS && !ultimo.has(clase))
+  if (libres.length > 0) return 0
+
+  const cerrado = CLASES.reduce((total, clase) => {
+    const ajuste = ultimo.get(clase)
+    const pedido = ajuste === undefined ? 0 : ajuste.modo === 'excluir' ? 0 : ajuste.montoUsd
+    return total + Math.max(Math.max(0, pedido), pisoDe(clase))
+  }, 0)
+
+  return patrimonioTotalUsd - cerrado
 }

@@ -23,7 +23,12 @@ import {
   armarVentas,
 } from './objetivo.js'
 import type { DatosProducto, EntradaPropuesta, Propuesta } from './tipos.js'
-import { armarComparativa, armarVistaHoy, cuentanEnElCalculo } from './vistas.js'
+import {
+  armarComparativa,
+  armarDosPortafolios,
+  armarVistaHoy,
+  cuentanEnElCalculo,
+} from './vistas.js'
 
 /** Un centavo. Debajo de eso, un cuadre es ruido de coma flotante. */
 export const TOLERANCIA_CUADRE = 0.01
@@ -71,10 +76,24 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
     )
   }
 
+  // Sin ajustes los dos portafolios serian el mismo objeto dos veces: la vista
+  // no se arma y la pantalla no ofrece una pestana vacia.
+  const planSistema = entrada.planSistema ?? null
+
   return {
     cliente,
     vistaHoy: armarVistaHoy(posiciones, incluirInmueblesDeRenta),
     comparativa: armarComparativa(posiciones, plan, catalogo, incluirInmueblesDeRenta),
+    dosPortafolios:
+      planSistema === null
+        ? null
+        : armarDosPortafolios(
+            posiciones,
+            planSistema,
+            plan,
+            catalogo,
+            incluirInmueblesDeRenta,
+          ),
     seccion1,
     seccion2,
     seccion3,
@@ -103,14 +122,18 @@ export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './foto.js'
 export {
   armarVistaHoy,
   armarComparativa,
+  armarDosPortafolios,
   cuentanEnElCalculo,
   SUBCLASE_SIN_DATO,
 } from './vistas.js'
 export type {
   FilaComparativa,
+  FilaDosPortafolios,
   FilaVistaClase,
+  LadoPortafolio,
   RentabilidadPonderada,
   SubfilaVista,
   VistaComparativa,
+  VistaDosPortafolios,
   VistaHoy,
 } from './vistas.js'

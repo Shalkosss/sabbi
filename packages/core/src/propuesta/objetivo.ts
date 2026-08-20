@@ -47,19 +47,37 @@ const rango = (min: number | null, max: number | null): Rango | null =>
   min === null || max === null ? null : { min, max }
 
 /**
- * Una linea del plan es conservada cuando su nombre es el de un piso.
+ * Una linea del plan sale de un piso cuando su nombre es el de un piso.
  *
- * El motor emite las conservadas con la etiqueta del piso que las produjo, asi
- * que la comparacion es exacta y no hace falta volver a emparejar contra el
+ * El motor emite esas lineas con la etiqueta del piso que las produjo, asi que
+ * la comparacion es exacta y no hace falta volver a emparejar contra el
  * catalogo. Mercados Privados es la excepcion: reparte el objetivo entero de
  * la clase y no emite lineas de piso, y por eso el motor ya avisa cuando esa
  * clase trae algo conservado.
+ */
+const saleDeUnPiso = (
+  instrumento: string,
+  clase: ClaseModelo,
+  pisos: readonly Piso[],
+): boolean => pisos.some((piso) => piso.clase === clase && piso.etiqueta === instrumento)
+
+/**
+ * Conservada es solo lo que el cliente ya tiene.
+ *
+ * Los dos origenes de piso se comportan igual para el reparto, pero no
+ * significan lo mismo en la tabla: un activo que el asesor agrego al objetivo
+ * es una compra que todavia hay que ejecutar, y marcarla "conservada" seria
+ * decirle al cliente que ya la tiene.
  */
 const esConservada = (
   instrumento: string,
   clase: ClaseModelo,
   pisos: readonly Piso[],
-): boolean => pisos.some((piso) => piso.clase === clase && piso.etiqueta === instrumento)
+): boolean =>
+  pisos.some(
+    (piso) =>
+      piso.origen === 'conservado' && piso.clase === clase && piso.etiqueta === instrumento,
+  )
 
 // --- Seccion 6 ---
 
@@ -223,7 +241,7 @@ function comprasDeClases(plan: Plan, pisos: readonly Piso[]): LineaCompra[] {
     if (dineroNuevo <= EPS) return []
 
     const candidatas = plan.lineas.filter(
-      (linea) => linea.clase === clase && !esConservada(linea.instrumento, clase, pisos),
+      (linea) => linea.clase === clase && !saleDeUnPiso(linea.instrumento, clase, pisos),
     )
     const bruto = suma(candidatas.map((linea) => linea.usd))
     if (bruto <= EPS) return []

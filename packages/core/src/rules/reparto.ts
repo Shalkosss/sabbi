@@ -1,4 +1,6 @@
 import type {
+  AjusteAplicado,
+  AjusteClase,
   Benchmark,
   ClaseModelo,
   Piso,
@@ -29,14 +31,23 @@ const MAX_ITERACIONES = 50
  * Los pisos vienen de dos fuentes que el motor trata igual: posiciones que el
  * cliente conserva y restricciones que puso el asesor.
  *
+ * Un ajuste es la tercera fuente y la unica que puede empujar hacia abajo:
+ * clava el objetivo de una clase en un monto — o en cero — antes de la primera
+ * vuelta. Esa clase nace cerrada, su monto sale del repartible y el resto se
+ * prorratea entre las demas por el mismo camino que ya existia. Lo que un
+ * ajuste no puede es bajar de lo que el cliente conserva: para eso hay que
+ * vender, y vender se marca en la ficha.
+ *
  * @param benchmark  pesos por clase; se normalizan, no hace falta que sumen 1
  * @param patrimonioTotalUsd  suma de las posiciones invertibles
  * @param pisos  minimos por clase, de cualquier origen
+ * @param ajustes  montos clavados por el asesor, por clase
  */
 export function repartirPorClase(
   benchmark: Benchmark,
   patrimonioTotalUsd: number,
   pisos: readonly Piso[],
+  ajustes: readonly AjusteClase[] = [],
 ): ResultadoReparto {
   if (!Number.isFinite(patrimonioTotalUsd) || patrimonioTotalUsd <= 0) {
     throw new Error(
@@ -53,15 +64,27 @@ export function repartirPorClase(
     )
   }
 
-  const abiertas = new Set<ClaseModelo>(CLASES.filter((c) => (benchmark[c] ?? 0) > 0))
+  const aplicados = aplicarAjustes(ajustes, pisoPorClase)
+  const fijadas = new Map(aplicados.map((a) => [a.clase, a.aplicadoUsd]))
+  const sumaFijados = suma(fijadas.values())
+  if (sumaFijados > patrimonioTotalUsd + TOL) {
+    throw new Error(
+      `Los montos fijados suman ${sumaFijados.toFixed(2)} y superan el patrimonio de ` +
+        `${patrimonioTotalUsd.toFixed(2)}. Baja alguno o sacale el ajuste.`,
+    )
+  }
+
   // Una clase con peso cero pero con piso sigue existiendo: conserva su piso y
-  // nunca recibe dinero nuevo.
-  const cerradas = new Map<ClaseModelo, number>()
+  // nunca recibe dinero nuevo. Una clase fijada nace cerrada por decision del
+  // asesor, tenga el peso que tenga.
+  const abiertas = new Set<ClaseModelo>(
+    CLASES.filter((c) => (benchmark[c] ?? 0) > 0 && !fijadas.has(c)),
+  )
+  const cerradas = new Map<ClaseModelo, number>(fijadas)
   for (const clase of CLASES) {
-    if (!abiertas.has(clase)) {
-      const piso = pisoPorClase.get(clase) ?? 0
-      if (piso > 0) cerradas.set(clase, piso)
-    }
+    if (abiertas.has(clase) || cerradas.has(clase)) continue
+    const piso = pisoPorClase.get(clase) ?? 0
+    if (piso > 0) cerradas.set(clase, piso)
   }
 
   let repartible = patrimonioTotalUsd - suma(cerradas.values())
@@ -74,6 +97,12 @@ export function repartirPorClase(
 
     const sumaPesos = [...abiertas].reduce((acc, c) => acc + benchmark[c], 0)
     if (abiertas.size === 0 || sumaPesos <= 0) {
+      if (repartible > TOL) {
+        throw new Error(
+          `Quedan ${repartible.toFixed(2)} sin ninguna clase abierta donde ponerlos. ` +
+            'Sacale el ajuste a alguna clase para que el resto se pueda prorratear.',
+        )
+      }
       base = 0
       objetivos = new Map()
       break
@@ -105,10 +134,45 @@ export function repartirPorClase(
       pisoUsd: piso,
       dineroNuevoUsd: Math.max(0, objetivo - piso),
       cerrada,
+      fijada: fijadas.has(clase),
     }
   })
 
-  return { porClase, baseRedistribucion: base, iteraciones }
+  return { porClase, baseRedistribucion: base, iteraciones, ajustes: aplicados }
+}
+
+/**
+ * Resuelve cada ajuste contra el piso de su clase.
+ *
+ * Dos ajustes sobre la misma clase serian dos verdades a la vez; manda el
+ * ultimo, que es el que el asesor acaba de escribir. Lo que ningun ajuste puede
+ * es pedir menos que el piso: el resultado queda clavado ahi y el llamador
+ * compara `pedidoUsd` contra `aplicadoUsd` para decirlo en pantalla.
+ */
+function aplicarAjustes(
+  ajustes: readonly AjusteClase[],
+  pisoPorClase: ReadonlyMap<ClaseModelo, number>,
+): AjusteAplicado[] {
+  const ultimo = new Map<ClaseModelo, AjusteClase>()
+  for (const ajuste of ajustes) ultimo.set(ajuste.clase, ajuste)
+
+  return CLASES.flatMap((clase): AjusteAplicado[] => {
+    const ajuste = ultimo.get(clase)
+    if (ajuste === undefined) return []
+
+    const piso = pisoPorClase.get(clase) ?? 0
+    const pedido = ajuste.modo === 'excluir' ? 0 : Math.max(0, ajuste.montoUsd)
+
+    return [
+      {
+        clase,
+        modo: ajuste.modo,
+        pedidoUsd: pedido,
+        aplicadoUsd: Math.max(pedido, piso),
+        pisoUsd: piso,
+      },
+    ]
+  })
 }
 
 function acumularPisos(pisos: readonly Piso[]): Map<ClaseModelo, number> {

@@ -65,15 +65,19 @@ export type { PosicionDecidible } from './decision.js'
 export {
   armarVistaHoy,
   armarComparativa,
+  armarDosPortafolios,
   cuentanEnElCalculo,
   SUBCLASE_SIN_DATO,
 } from './propuesta/vistas.js'
 export type {
   FilaComparativa,
+  FilaDosPortafolios,
   FilaVistaClase,
+  LadoPortafolio,
   RentabilidadPonderada,
   SubfilaVista,
   VistaComparativa,
+  VistaDosPortafolios,
   VistaHoy,
 } from './propuesta/vistas.js'
 export type {

@@ -28,6 +28,8 @@
  */
 
 import type {
+  AjusteAplicado,
+  AjusteClase,
   Benchmark,
   ClaseModelo,
   LineaPlan,
@@ -36,6 +38,7 @@ import type {
   RepartoClase,
   ResultadoReparto,
 } from './domain/tipos.js'
+import { NOMBRE_CLASE } from './domain/tipos.js'
 import { repartirEtfs } from './rules/cascada.js'
 import { repartirClub, MIN_CLUB } from './rules/club.js'
 import { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
@@ -47,6 +50,12 @@ import { prorratearResiduales } from './rules/residuales.js'
 import { repartirVariable } from './rules/variable.js'
 
 const EPS = 1e-6
+
+/** Un ajuste recortado por menos de un centavo es ruido de coma flotante. */
+const TOL_AJUSTE = 0.01
+
+/** Clases que pueden absorber el residuo de Club y Otros, en orden de preferencia. */
+const CANDIDATAS_RESIDUO: readonly ClaseModelo[] = ['privados', 'cash', 'fijo', 'variable']
 
 /** Orden de bloques de la propuesta. Es el de la hoja Allocation detallado. */
 const ORDEN_CLASES: readonly ClaseModelo[] = [
@@ -94,6 +103,13 @@ export interface EntradaPlan {
   readonly institucional?: EstadoInstitucional
   /** Conserva Inmobiliario Directo aunque el ticket no llegue a 500,000. */
   readonly inmFijado?: boolean
+  /**
+   * Montos que el asesor clavo por clase, en las dos direcciones.
+   *
+   * Un piso solo empuja hacia arriba; un ajuste tambien hacia abajo. La clase
+   * ajustada sale del reparto y lo que sobra se prorratea entre las demas.
+   */
+  readonly ajustes?: readonly AjusteClase[]
 }
 
 export interface Plan {
@@ -120,6 +136,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     necesitaFlujos = false,
     institucional = 'auto',
     inmFijado = false,
+    ajustes = [],
   } = entrada
 
   if (ticketMinimoUsd <= 0) {
@@ -128,8 +145,10 @@ export function generarPlan(entrada: EntradaPlan): Plan {
 
   const avisos: string[] = []
 
-  const inicial = repartirPorClase(benchmark, patrimonioTotalUsd, pisos)
+  const inicial = repartirPorClase(benchmark, patrimonioTotalUsd, pisos, ajustes)
   const conInmobiliario = prorratearInmobiliario(inicial, { patrimonioTotalUsd, inmFijado })
+
+  avisos.push(...avisosDeAjustes(inicial.ajustes))
 
   const inmInicial = claseDe(inicial, 'inm')
   if (patrimonioTotalUsd < UMBRAL_INMOBILIARIO && inmInicial.objetivoUsd > EPS) {
@@ -169,20 +188,33 @@ export function generarPlan(entrada: EntradaPlan): Plan {
   const residuoClub = club === null ? claseDe(conInmobiliario, 'club').dineroNuevoUsd : 0
   const residuoOtros = otros === null ? claseDe(conInmobiliario, 'otros').dineroNuevoUsd : 0
 
+  // Su casa natural es el Fondo Oportunidad, que no tiene minimo. Solo cambia
+  // cuando el asesor fijo Mercados Privados y esa clase ya no puede crecer.
+  const destino = destinoDeResiduos(conInmobiliario)
+  const dondeCae =
+    destino.clase === 'privados' ? FONDO_OPORTUNIDAD : NOMBRE_CLASE[destino.clase]
+
   if (residuoClub > EPS) {
     avisos.push(
       `Club Deals: el dinero nuevo (${residuoClub.toFixed(2)}) no llega al minimo de ` +
-        `${MIN_CLUB.toLocaleString('en-US')} y pasa al ${FONDO_OPORTUNIDAD}.`,
+        `${MIN_CLUB.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
     )
   }
   if (residuoOtros > EPS) {
     avisos.push(
       `Otros: el dinero nuevo (${residuoOtros.toFixed(2)}) no llega al minimo de ` +
-        `${MIN_OTROS.toLocaleString('en-US')} y pasa al ${FONDO_OPORTUNIDAD}.`,
+        `${MIN_OTROS.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
+    )
+  }
+  if ((residuoClub > EPS || residuoOtros > EPS) && destino.pisaUnAjuste) {
+    avisos.push(
+      'El residuo de Club Deals y Otros no cabía en ninguna clase libre y fue a ' +
+        `${NOMBRE_CLASE[destino.clase]}, que estaba fijada: ese monto quedó por encima de lo ` +
+        'que pediste.',
     )
   }
 
-  const reparto = derivarResiduos(conInmobiliario, residuoClub, residuoOtros)
+  const reparto = derivarResiduos(conInmobiliario, residuoClub, residuoOtros, destino.clase)
 
   const lineas = ORDEN_CLASES.flatMap((clase) =>
     lineasDeClase(clase, reparto, {
@@ -209,8 +241,58 @@ export function generarPlan(entrada: EntradaPlan): Plan {
   }
 }
 
+/** Dolares redondos para un aviso: los centavos no ayudan a decidir. */
+const redondo = (monto: number): string =>
+  monto.toLocaleString('en-US', { maximumFractionDigits: 0 })
+
 /**
- * Mueve el dinero nuevo de Club y Otros que no abrio hacia Privados.
+ * Los ajustes que el piso no dejo cumplir.
+ *
+ * Fijar una clase por debajo de lo que el cliente ya tiene ahi pediria vender,
+ * y vender se marca en la ficha, no en el panel de ajustes. El motor clava en
+ * el piso y lo escribe: un ajuste aplicado a medias en silencio es una cifra
+ * que despues nadie puede explicar.
+ */
+function avisosDeAjustes(ajustes: readonly AjusteAplicado[]): string[] {
+  return ajustes
+    .filter((ajuste) => ajuste.aplicadoUsd > ajuste.pedidoUsd + TOL_AJUSTE)
+    .map((ajuste) => {
+      const pedido =
+        ajuste.modo === 'excluir'
+          ? 'pediste sacarla del cálculo'
+          : `pediste fijarla en ${redondo(ajuste.pedidoUsd)}`
+      return (
+        `${NOMBRE_CLASE[ajuste.clase]}: ${pedido}, pero el cliente conserva ` +
+        `${redondo(ajuste.pisoUsd)} ahí. Quedó en ${redondo(ajuste.aplicadoUsd)}; para bajarla, ` +
+        'marcá la venta en la ficha.'
+      )
+    })
+}
+
+/**
+ * Adonde va el dinero de Club y Otros que no llego a su minimo.
+ *
+ * Su casa natural es Mercados Privados, que tiene el Fondo Oportunidad y por
+ * eso no tiene minimo. Pero una clase fijada por el asesor no puede recibir
+ * dinero extra sin dejar de estar fijada, asi que el residuo busca la primera
+ * clase libre. Si no hay ninguna vuelve a Privados y el llamador lo avisa: es
+ * preferible un ajuste desbordado y dicho que un portafolio que no cuadra.
+ */
+function destinoDeResiduos(reparto: ResultadoReparto): {
+  readonly clase: ClaseModelo
+  readonly pisaUnAjuste: boolean
+} {
+  const fijada = (clase: ClaseModelo) =>
+    reparto.porClase.find((c) => c.clase === clase)?.fijada ?? false
+
+  const libre = CANDIDATAS_RESIDUO.find((clase) => !fijada(clase))
+  return libre === undefined
+    ? { clase: 'privados', pisaUnAjuste: true }
+    : { clase: libre, pisaUnAjuste: false }
+}
+
+/**
+ * Mueve el dinero nuevo de Club y Otros que no abrio hacia su clase destino.
  *
  * Ajusta el reparto — no solo las lineas — para que el objetivo de cada clase
  * siga siendo la suma de sus lineas. El total no cambia: es el mismo dinero
@@ -220,6 +302,7 @@ function derivarResiduos(
   reparto: ResultadoReparto,
   residuoClub: number,
   residuoOtros: number,
+  destino: ClaseModelo,
 ): ResultadoReparto {
   const residuo = residuoClub + residuoOtros
   if (residuo <= EPS) return reparto
@@ -241,7 +324,7 @@ function derivarResiduos(
         cerrada: true,
       }
     }
-    if (c.clase === 'privados') {
+    if (c.clase === destino) {
       return {
         ...c,
         objetivoUsd: c.objetivoUsd + residuo,

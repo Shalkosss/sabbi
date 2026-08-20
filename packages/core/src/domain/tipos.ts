@@ -35,6 +35,23 @@ export type Segmento = (typeof SEGMENTOS)[number]
 export const CLASES = ['fijo', 'variable', 'privados', 'club', 'otros', 'inm', 'cash'] as const
 export type ClaseModelo = (typeof CLASES)[number]
 
+/**
+ * Como se llama cada clase donde la lee una persona.
+ *
+ * Vive aca y no en la interfaz porque los avisos del motor tambien nombran
+ * clases, y dos diccionarios en paralelo son como Club Deals termino
+ * llamandose de dos maneras en la misma pantalla.
+ */
+export const NOMBRE_CLASE: Readonly<Record<ClaseModelo, string>> = {
+  inm: 'Inmobiliario Directo',
+  fijo: 'Mercados Públicos — Renta Fija',
+  variable: 'Mercados Públicos — Renta Variable',
+  privados: 'Mercados Privados',
+  club: 'Club Deals',
+  otros: 'Otros — Oro y BTC',
+  cash: 'Cash',
+}
+
 /** Decision del asesor sobre una posicion. */
 export const CTAS = ['conservar', 'venta_total', 'venta_parcial', 'sin_marcar'] as const
 export type Cta = (typeof CTAS)[number]
@@ -81,6 +98,38 @@ export interface Restriccion {
   readonly montoUsd: number
   readonly clase: ClaseModelo
   readonly productoId: string | null
+}
+
+/**
+ * Ajuste del asesor sobre una clase del portafolio objetivo.
+ *
+ * Un piso solo empuja hacia arriba: una clase nunca recibe menos de lo que el
+ * cliente ya tiene ahi. Un ajuste manda en las dos direcciones. `fijar` clava
+ * el objetivo de la clase en `montoUsd` aunque el benchmark le diera mas —
+ * Inmobiliario Directo en 60,000 cuando el modelo le daba 70,000 — y `excluir`
+ * la deja en cero. En los dos casos la clase sale del reparto y lo que sobra se
+ * prorratea entre las demas en proporcion a su peso, que es exactamente lo que
+ * el solver ya hace con el dinero de una clase cerrada.
+ *
+ * El unico limite es el piso: fijar por debajo de lo que el cliente conserva
+ * pediria vender, y vender es una decision de la ficha, no de este panel. El
+ * motor clava en el piso y lo dice.
+ */
+export interface AjusteClase {
+  readonly clase: ClaseModelo
+  readonly modo: 'fijar' | 'excluir'
+  /** Monto objetivo de la clase. `excluir` lo ignora: siempre es cero. */
+  readonly montoUsd: number
+}
+
+/** Un ajuste ya pasado por el solver, con lo que realmente pudo aplicar. */
+export interface AjusteAplicado {
+  readonly clase: ClaseModelo
+  readonly modo: 'fijar' | 'excluir'
+  readonly pedidoUsd: number
+  readonly aplicadoUsd: number
+  /** Lo conservado y lo restringido en esa clase: el limite de la bajada. */
+  readonly pisoUsd: number
 }
 
 /**
@@ -134,10 +183,14 @@ export interface RepartoClase {
   readonly dineroNuevoUsd: number
   /** Una clase se cierra cuando su piso supera lo que el benchmark le daria. */
   readonly cerrada: boolean
+  /** La clase quedo en este monto porque el asesor lo pidio, no el benchmark. */
+  readonly fijada: boolean
 }
 
 export interface ResultadoReparto {
   readonly porClase: readonly RepartoClase[]
+  /** Los ajustes del asesor y lo que el piso dejo aplicar de cada uno. */
+  readonly ajustes: readonly AjusteAplicado[]
   /**
    * Monto repartible dividido por la suma de pesos de las clases abiertas.
    * Es la celda E69 del Excel de propuesta y el mejor invariante para detectar

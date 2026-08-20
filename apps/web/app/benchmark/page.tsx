@@ -1,7 +1,7 @@
 import { Benchmark } from '../../componentes/Benchmark'
 import { Marco } from '../../componentes/Marco'
 import { SinAsesor } from '../../componentes/SinAsesor'
-import { matrizDeBenchmark, reglasDeLaUrl } from '../../lib/benchmark'
+import { matrizDeBenchmark, reglasDeLaUrl, vistaDeLaUrl } from '../../lib/benchmark'
 import { asesorActual } from '../../lib/supabase/servidor'
 
 /**
@@ -23,11 +23,13 @@ export default async function Pagina({
 
   // Las reglas viajan en la URL y no en el estado de la pantalla: así una
   // corrida se puede pegar en un mensaje y el otro ve exactamente la misma.
-  const reglas = reglasDeLaUrl(await searchParams)
+  const parametros = await searchParams
 
   return (
     <Marco asesor={asesor} activo="benchmark" migas={[{ texto: 'Benchmark' }]}>
-      <Benchmark matriz={matrizDeBenchmark(reglas)} />
+      <Benchmark
+        matriz={matrizDeBenchmark(reglasDeLaUrl(parametros), vistaDeLaUrl(parametros))}
+      />
     </Marco>
   )
 }

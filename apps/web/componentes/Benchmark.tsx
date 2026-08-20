@@ -30,13 +30,22 @@ export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
         <h1>Los {matriz.portafolios.length} portafolios del modelo</h1>
         <p className={estilos.bajada}>
           El motor corrido en vacío: {plural(matriz.tickets.length, 'ticket', 'tickets')} contra{' '}
-          {matriz.perfiles.length} perfiles, sin ficha y sin nada conservado. Es lo que el modelo
-          propone a un cliente que llega con dinero y nada más.
+          {plural(matriz.perfiles.length, 'perfil', 'perfiles')}, sin ficha y sin nada
+          conservado. Es lo que el modelo propone a un cliente que llega con dinero y nada más.
         </p>
       </header>
 
       <form className={estilos.reglas} method="get">
         <p className={estilos.tituloReglas}>Reglas del portafolio</p>
+
+        <label className={estilos.campo}>
+          <span>Perfiles a mirar</span>
+          <select name="perfiles" defaultValue={matriz.vista}>
+            <option value="5">Los cinco</option>
+            <option value="3">Tres: Conservador, Moderado y Arriesgado</option>
+            <option value="2">Dos: Conservador contra Moderado</option>
+          </select>
+        </label>
 
         <label className={estilos.campo}>
           <span>Inmobiliario disuelto</span>
@@ -48,11 +57,18 @@ export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
 
         <label className={estilos.campo}>
           <span>Umbral inmobiliario</span>
+          {/*
+            `step` libre a propósito. Con un paso de 50,000 el navegador
+            rechazaba cualquier número que no cayera en la grilla y lo decía
+            con un mensaje que no se entiende — «introduce un valor entre
+            150001 y 20001» —, así que la regla no se podía cambiar. Estos
+            umbrales los mueve la mesa y no tienen por qué ser redondos.
+          */}
           <input
             type="number"
             name="umbral"
             min={0}
-            step={50_000}
+            step="any"
             defaultValue={matriz.reglas.umbralInmobiliarioUsd}
             className="mono"
           />
@@ -64,7 +80,7 @@ export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
             type="number"
             name="etf"
             min={1}
-            step={5_000}
+            step="any"
             defaultValue={matriz.reglas.ticketEtfUsd}
             className="mono"
           />

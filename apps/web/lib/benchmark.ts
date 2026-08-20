@@ -58,6 +58,21 @@ export const REGLAS_V8: Reglas = {
   ticketEtfUsd: 20_000,
 }
 
+/**
+ * Cuántos perfiles mirar a la vez.
+ *
+ * Cinco es el universo entero, que es lo que hay que ver para juzgar el
+ * modelo. Tres son los extremos y el medio, donde se lee la forma sin que las
+ * curvas se tapen. Dos es la comparación que la mesa hace más seguido.
+ */
+export const VISTAS = {
+  '5': [...PERFILES],
+  '3': ['Conservador', 'Moderado', 'Arriesgado'] as Perfil[],
+  '2': ['Conservador', 'Moderado'] as Perfil[],
+} as const
+
+export type ClaveDeVista = keyof typeof VISTAS
+
 export interface LineaBenchmark {
   readonly instrumento: string
   readonly clase: ClaseModelo
@@ -83,6 +98,8 @@ export interface Matriz {
   readonly perfiles: readonly Perfil[]
   /** Con qué reglas se corrió esta matriz. */
   readonly reglas: Reglas
+  /** Cuál de las vistas de perfiles está puesta. */
+  readonly vista: ClaveDeVista
   /** `true` cuando son las de la macro v8, que es lo que produce la propuesta. */
   readonly esLaMacroDeLaPropuesta: boolean
 }
@@ -137,20 +154,32 @@ function correr(ticketUsd: number, perfil: Perfil, reglas: Reglas): Portafolio {
   }
 }
 
-/** Los veinte portafolios: cada ticket contra cada perfil, con estas reglas. */
-export function matrizDeBenchmark(reglas: Reglas = REGLAS_V8): Matriz {
+/** La matriz: cada ticket contra cada perfil de la vista, con estas reglas. */
+export function matrizDeBenchmark(reglas: Reglas = REGLAS_V8, vista: ClaveDeVista = '5'): Matriz {
+  const perfiles = VISTAS[vista]
+
   return {
     portafolios: TICKETS.flatMap((ticket) =>
-      PERFILES.map((perfil) => correr(ticket, perfil, reglas)),
+      perfiles.map((perfil) => correr(ticket, perfil, reglas)),
     ),
     tickets: TICKETS,
-    perfiles: [...PERFILES],
+    perfiles: [...perfiles],
     reglas,
+    vista,
     esLaMacroDeLaPropuesta:
       reglas.inmobiliario === REGLAS_V8.inmobiliario &&
       reglas.umbralInmobiliarioUsd === REGLAS_V8.umbralInmobiliarioUsd &&
       reglas.ticketEtfUsd === REGLAS_V8.ticketEtfUsd,
   }
+}
+
+/** Lee la vista de perfiles de la URL. Ante cualquier duda, las cinco. */
+export function vistaDeLaUrl(
+  parametros: Record<string, string | string[] | undefined>,
+): ClaveDeVista {
+  const crudo = parametros['perfiles']
+  const valor = Array.isArray(crudo) ? crudo[0] : crudo
+  return valor === '3' || valor === '2' ? valor : '5'
 }
 
 /** Lee las reglas de la URL, cayendo en las de la v8 ante cualquier duda. */

@@ -1,81 +1,97 @@
 """
-La matriz del benchmark, en un gráfico de columnas apiladas al 100%.
+La matriz del benchmark, en un panel por monto.
 
-    npm run exportar-benchmark      # saca benchmark.csv del motor
-    python tools/benchmark-grafico.py
+    npm run exportar-benchmark                      # macro v8
+    npm run exportar-benchmark -- --regla alternativos
 
-Un panel por perfil, los montos en el eje X y la composición del portafolio en
-el Y. Es la forma de ver de un vistazo lo que la tabla dice fila por fila: cómo
-se mueve la asignación cuando cambia el ticket, y en qué punto una clase
-aparece o desaparece.
+    python tools/benchmark-grafico.py                       # los cinco perfiles
+    python tools/benchmark-grafico.py --perfiles 3          # los tres extremos
+    python tools/benchmark-grafico.py --perfiles 2          # conservador vs moderado
+    python tools/benchmark-grafico.py benchmark-alternativos.csv --perfiles 3
+
+Un panel por ticket, las clases de activo en el eje X y una línea por perfil.
+Leído así, lo que salta es la forma del portafolio: dónde tiene su pico cada
+perfil y cómo se mueve ese pico cuando cambia el monto. Un apilado muestra la
+composición de una barra; esto muestra el perfil de la curva, que es lo que
+hay que comparar cuando se está eligiendo entre dos macros.
 
 Los datos no se simulan. Salen de `benchmark.csv`, que a su vez sale del mismo
 motor que corre la web: dos implementaciones de la misma cuenta son dos
-respuestas distintas esperando a divergir. Si la mesa cambia los pesos, se
-vuelve a exportar y el gráfico cambia solo.
+respuestas distintas esperando a divergir.
 
 Requiere: pandas, matplotlib, seaborn.
 """
 
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from matplotlib.patches import Patch
 import pandas as pd
 import seaborn as sns
 
 RAIZ = Path(__file__).resolve().parent.parent
-ENTRADA = RAIZ / "benchmark.csv"
-SALIDA = RAIZ / "benchmark.png"
 
-# Los tres que pidió la mesa. Poner los cinco es agregarlos a esta lista: el
-# resto del script no sabe cuántos son.
-PERFILES = ["Conservador", "Moderado", "Arriesgado"]
+# Los cinco del modelo, en orden de riesgo.
+TODOS = [
+    "Conservador",
+    "Conservador & Moderado",
+    "Moderado",
+    "Moderado & Arriesgado",
+    "Arriesgado",
+]
 
-# El orden de apilado, de abajo hacia arriba. Es el mismo de la hoja
-# `Allocation detallado`, para que el gráfico y la tabla se lean igual.
-CLASES = ["inm", "fijo", "variable", "privados", "club", "otros", "cash"]
-
-# Los colores de la aplicación, no unos nuevos: el mismo verde de Renta Fija en
-# la web, en el deck y acá. Un color que significa dos cosas distintas según
-# dónde se mire es peor que no tener color.
-COLOR = {
-    "inm": "#3F3585",
-    "fijo": "#41611C",
-    "variable": "#6D9425",
-    "privados": "#584AA0",
-    "club": "#6A5CC0",
-    "otros": "#9A7A2C",
-    "cash": "#7A8770",
+# Cuántas líneas mirar a la vez. Cinco es el universo entero; tres son los
+# extremos y el medio, que es donde se ve la forma sin que las curvas se
+# tapen; dos es la comparación que la mesa hace más seguido.
+VISTAS = {
+    "5": TODOS,
+    "3": ["Conservador", "Moderado", "Arriesgado"],
+    "2": ["Conservador", "Moderado"],
 }
 
-NOMBRE = {
-    "inm": "Inmobiliario Directo",
-    "fijo": "Mercados Públicos — Fijo",
-    "variable": "Mercados Públicos — Variable",
-    "privados": "Mercados Privados",
+# El orden del eje X. Es el de la hoja `Allocation detallado`, para que el
+# gráfico y la tabla de la web se lean igual.
+CLASES = ["inm", "fijo", "variable", "privados", "club", "otros", "cash"]
+
+# Nombres cortos: en un eje X de cinco categorías, «Mercados Públicos — Renta
+# Variable» se pisa con el de al lado.
+CORTO = {
+    "inm": "Inmobiliario",
+    "fijo": "Pub-Fijo",
+    "variable": "Pub-Var",
+    "privados": "Privados",
     "club": "Club Deals",
-    "otros": "Otros (Oro y BTC)",
+    "otros": "Otros",
     "cash": "Cash",
+}
+
+# El verde de la marca, de más oscuro a más claro. Es una escala y no tres
+# colores sueltos porque los perfiles son ordinales: de menos a más riesgo.
+COLOR_PERFIL = {
+    "Conservador": "#223311",
+    "Conservador & Moderado": "#41611C",
+    "Moderado": "#79A82D",
+    "Moderado & Arriesgado": "#A9DA55",
+    "Arriesgado": "#C3ED74",
 }
 
 HUESO = "#F4F4ED"
 TINTA = "#1C2A0E"
 TINTA_TENUE = "#657453"
+REJILLA = "#DDDCCF"
 
 
 # ── Paso 1: los datos ──────────────────────────────────────────────────────
 
 
-def cargar() -> pd.DataFrame:
+def cargar(ruta: Path) -> pd.DataFrame:
     """El CSV del motor, una fila por instrumento."""
-    if not ENTRADA.exists():
+    if not ruta.exists():
         raise SystemExit(
-            f"No encuentro {ENTRADA.name}.\n"
-            "Corré primero:  npm run exportar-benchmark"
+            f"No encuentro {ruta.name}.\nCorré primero:  npm run exportar-benchmark"
         )
-    return pd.read_csv(ENTRADA)
+    return pd.read_csv(ruta)
 
 
 def matriz_por_clase(detalle: pd.DataFrame) -> pd.DataFrame:
@@ -86,20 +102,28 @@ def matriz_por_clase(detalle: pd.DataFrame) -> pd.DataFrame:
     qué ETF entró y cuál no es la mitad de lo que hay que mirar cuando el
     ticket es chico, y un agregado no se puede desagregar después.
     """
-    porcentajes = (
+    pesos = (
         detalle.groupby(["perfil", "ticket_usd", "clase"], as_index=False)["share_total"]
         .sum()
         .pivot(index=["perfil", "ticket_usd"], columns="clase", values="share_total")
         .reindex(columns=CLASES)
         .fillna(0.0)
     )
-    return porcentajes * 100
+    return pesos * 100
 
 
 # ── Paso 2: el gráfico ─────────────────────────────────────────────────────
 
 
-def dibujar(pesos: pd.DataFrame, detalle: pd.DataFrame) -> None:
+def dibujar(
+    pesos: pd.DataFrame, montos: list[int], perfiles: list[str], salida: Path
+) -> None:
+    # Una clase que queda en cero en toda la matriz no merece una columna del
+    # eje: agregaría una categoría para decir que no hay nada.
+    mirados = pesos.loc[perfiles]
+    clases = [c for c in CLASES if mirados[c].max() > 0.05]
+    etiquetas = [CORTO[c] for c in clases]
+
     sns.set_theme(style="white", font_scale=0.95)
     plt.rcParams.update(
         {
@@ -108,147 +132,166 @@ def dibujar(pesos: pd.DataFrame, detalle: pd.DataFrame) -> None:
             "axes.facecolor": HUESO,
             "text.color": TINTA,
             "axes.labelcolor": TINTA_TENUE,
-            "xtick.color": TINTA_TENUE,
+            "xtick.color": TINTA,
             "ytick.color": TINTA_TENUE,
         }
     )
 
-    figura, paneles = plt.subplots(
-        1, len(PERFILES), figsize=(4.6 * len(PERFILES), 6.2), sharey=True
-    )
-    if len(PERFILES) == 1:
-        paneles = [paneles]
+    filas = (len(montos) + 1) // 2
+    figura, rejilla = plt.subplots(filas, 2, figsize=(15.5, 5.4 * filas), sharey=True)
+    paneles = rejilla.flatten() if len(montos) > 1 else [rejilla]
 
-    montos = sorted(detalle["ticket_usd"].unique())
-    etiquetas = [f"{m // 1000}k" for m in montos]
-    presentes: list[str] = []
+    techo = min(100, max(10, (int(mirados[clases].to_numpy().max()) // 10 + 2) * 10))
 
-    for panel, perfil in zip(paneles, PERFILES):
-        base = pd.Series(0.0, index=montos)
+    for panel, monto in zip(paneles, montos):
+        for perfil in perfiles:
+            altura = [pesos.loc[(perfil, monto), clase] for clase in clases]
+            color = COLOR_PERFIL.get(perfil, "#79A82D")
 
-        for clase in CLASES:
-            try:
-                altura = pesos.loc[perfil].reindex(montos)[clase].fillna(0.0)
-            except KeyError:
-                continue
-            if altura.sum() <= 0.05:
-                # Una clase que no abre en ningún monto de este perfil no entra
-                # a la leyenda: ocuparía una línea para decir que no hay nada.
-                continue
-
-            panel.bar(
+            panel.plot(
                 etiquetas,
-                altura.values,
-                bottom=base.values,
-                width=0.62,
-                color=COLOR[clase],
-                edgecolor=HUESO,
-                linewidth=1.2,
-                label="_nolegend_",
+                altura,
+                marker="o",
+                markersize=7,
+                linewidth=2.1,
+                color=color,
+                markeredgecolor=HUESO,
+                markeredgewidth=1.4,
+                label=perfil,
                 zorder=3,
+                clip_on=False,
             )
 
-            # El porcentaje adentro del segmento, cuando hay lugar. Debajo del
-            # 6% el número no entra y estorba más de lo que informa.
-            for x, (alto, desde) in enumerate(zip(altura.values, base.values)):
-                if alto >= 6:
-                    panel.text(
-                        x,
-                        desde + alto / 2,
-                        f"{alto:.0f}%",
-                        ha="center",
-                        va="center",
-                        fontsize=8.5,
-                        color="white",
-                        fontweight="600",
-                        zorder=4,
-                    )
+        etiquetar(panel, clases, perfiles, pesos, monto, techo)
 
-            if clase not in presentes:
-                presentes.append(clase)
-            base = base + altura.fillna(0.0)
-
-        panel.set_title(perfil, fontsize=12.5, fontweight="bold", pad=12, color=TINTA)
-        panel.set_ylim(0, 100)
-        panel.set_xlabel("Ticket de inversión (USD)", fontsize=9.5, labelpad=9)
-        panel.yaxis.set_major_formatter(mticker.PercentFormatter())
-        panel.grid(axis="y", color="#DDDCCF", linewidth=0.8, zorder=0)
+        panel.set_title(f"Monto: {monto // 1000}k", fontsize=13, color=TINTA_TENUE, pad=14)
+        panel.set_ylim(0, techo)
+        panel.yaxis.set_major_locator(mticker.MultipleLocator(10))
+        panel.grid(axis="y", color=REJILLA, linewidth=0.9, linestyle=(0, (4, 4)), zorder=0)
         panel.set_axisbelow(True)
         for lado in ("top", "right", "left"):
             panel.spines[lado].set_visible(False)
-        panel.spines["bottom"].set_color("#CFCDBC")
-        panel.tick_params(length=0)
+        panel.spines["bottom"].set_color("#7A8770")
+        panel.tick_params(axis="x", length=0, pad=8, labelsize=11)
+        panel.tick_params(axis="y", length=0, labelsize=10)
 
-    paneles[0].set_ylabel("Asignación del portafolio", fontsize=9.5, labelpad=10)
+    for sobrante in paneles[len(montos) :]:
+        sobrante.set_visible(False)
 
-    figura.suptitle(
-        "Cómo cambia el portafolio según el ticket y el perfil",
-        fontsize=15.5,
-        fontweight="bold",
-        x=0.055,
-        y=0.975,
-        ha="left",
-        color=TINTA,
-    )
-    figura.text(
-        0.055,
-        0.925,
-        "El modelo Sabbi corrido en vacío: sin ficha, sin posiciones conservadas "
-        "y con un ticket mínimo de ETF de USD 20,000.",
-        fontsize=9.5,
-        ha="left",
-        color=TINTA_TENUE,
-    )
-
-    # La leyenda va afuera y en una sola fila abajo: a la derecha se come el
-    # ancho del tercer panel, que es donde estan las columnas mas divididas.
-    #
-    # Se arma en el orden del apilado y no en el de aparicion: una leyenda que
-    # dice Cash antes que Club Deals obliga a buscar cada color en la barra.
-    parches = [
-        Patch(facecolor=COLOR[clase], label=NOMBRE[clase])
-        for clase in CLASES
-        if clase in presentes
-    ]
-
+    manijas, textos = paneles[0].get_legend_handles_labels()
     figura.legend(
-        handles=parches,
+        manijas,
+        textos,
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.005),
-        ncol=min(len(parches), 5),
+        bbox_to_anchor=(0.5, 0.005),
+        ncol=len(textos),
         frameon=False,
-        fontsize=9.5,
-        handlelength=1.1,
-        handleheight=1.1,
-        columnspacing=1.8,
+        fontsize=11,
+        columnspacing=2.6,
+        handlelength=1.6,
     )
 
-    figura.tight_layout(rect=(0.02, 0.075, 0.98, 0.90))
-    figura.savefig(SALIDA, dpi=200, facecolor=HUESO)
-    print(f"\n{SALIDA}")
+    figura.tight_layout(rect=(0.01, 0.055, 0.99, 0.99))
+    figura.savefig(salida, dpi=200, facecolor=HUESO)
+    print(f"\n{salida}")
 
 
-def resumen(detalle: pd.DataFrame) -> None:
-    """El detalle por instrumento, que el gráfico agrega y conviene poder leer."""
-    print("\nInstrumentos por corrida\n")
-    for perfil in PERFILES:
-        for monto in sorted(detalle["ticket_usd"].unique()):
-            filas = detalle[(detalle["perfil"] == perfil) & (detalle["ticket_usd"] == monto)]
-            print(f"  {perfil} · {monto // 1000}k")
-            for _, fila in filas.sort_values("usd", ascending=False).iterrows():
-                print(
-                    f"      {fila['share_total'] * 100:5.1f}%  "
-                    f"{fila['usd']:>10,.0f}  {fila['instrumento']}"
-                )
-            print()
+def etiquetar(panel, clases, perfiles, pesos, monto, techo: float) -> None:
+    """
+    El número al lado de cada punto.
+
+    Se coloca arriba salvo el más bajo de cada columna, que va abajo porque ahí
+    tiene sitio libre. Con una excepción: un valor pegado al cero va arriba
+    igual, porque debajo está el nombre de la clase y la etiqueta se le
+    escribiría encima.
+
+    Cuando dos perfiles caen casi en el mismo valor, el segundo se levanta para
+    no taparse con el primero. Se prefiere eso a esconder una cifra.
+    """
+    # El alto de una etiqueta, medido en unidades del eje. Se calcula contra el
+    # techo y no en pixeles porque el apilado tiene que separarlas en el mismo
+    # espacio en el que estan los puntos.
+    alto = techo * 0.045
+
+    for x, clase in enumerate(clases):
+        columna = sorted(
+            (pesos.loc[(perfil, monto), clase] for perfil in perfiles), reverse=True
+        )
+
+        # El mas bajo va debajo del punto, si hay lugar entre el y el eje.
+        abajo = columna[-1] if len(columna) > 1 and columna[-1] > alto else None
+        if abajo is not None:
+            panel.annotate(
+                f"{abajo:.1f}%",
+                (x, abajo),
+                textcoords="offset points",
+                xytext=(0, -17),
+                ha="center",
+                fontsize=8.5,
+                color=TINTA_TENUE,
+                zorder=4,
+            )
+
+        # Los demas van arriba, y cada uno se apoya sobre el anterior: dos
+        # perfiles que caen casi en el mismo valor tendrian su etiqueta en el
+        # mismo lugar, y una taparia a la otra.
+        piso = float("-inf")
+        for valor in reversed([v for v in columna if v != abajo]):
+            y = max(valor + alto * 0.55, piso + alto)
+            piso = y
+            panel.annotate(
+                f"{valor:.1f}%",
+                (x, y),
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                color=TINTA_TENUE,
+                zorder=4,
+            )
+
+
+def perfiles_pedidos(argumentos: list[str]) -> list[str]:
+    """`--perfiles 5 | 3 | 2`, o una lista de nombres separados por coma."""
+    if "--perfiles" not in argumentos:
+        return TODOS
+
+    elegido = argumentos[argumentos.index("--perfiles") + 1]
+    if elegido in VISTAS:
+        return VISTAS[elegido]
+
+    nombres = [n.strip() for n in elegido.split(",") if n.strip()]
+    desconocido = next((n for n in nombres if n not in TODOS), None)
+    if desconocido is not None:
+        raise SystemExit(
+            f"No conozco el perfil {desconocido!r}.\n"
+            f"Los del modelo son: {', '.join(TODOS)}"
+        )
+    # Se devuelven en orden de riesgo y no en el que se los escribió: la
+    # leyenda tiene que leerse de menos a más.
+    return [n for n in TODOS if n in nombres]
+
+
+def csv_pedido(argumentos: list[str]) -> Path:
+    """El primer argumento suelto, salvo que sea el valor de `--perfiles`."""
+    valor = (
+        argumentos[argumentos.index("--perfiles") + 1]
+        if "--perfiles" in argumentos
+        else None
+    )
+    sueltos = [a for a in argumentos if not a.startswith("--") and a != valor]
+    return Path(sueltos[0]) if sueltos else RAIZ / "benchmark.csv"
 
 
 if __name__ == "__main__":
-    detalle = cargar()
+    argumentos = sys.argv[1:]
+    ruta = csv_pedido(argumentos)
+    perfiles = perfiles_pedidos(argumentos)
+
+    detalle = cargar(ruta)
     pesos = matriz_por_clase(detalle)
+    montos = sorted(detalle["ticket_usd"].unique())
 
-    print("\nPesos por clase (%)\n")
-    print(pesos.round(1).to_string())
+    print(f"\nPesos por clase (%) — {len(perfiles)} perfiles\n")
+    print(pesos.loc[perfiles].round(1).to_string())
 
-    dibujar(pesos, detalle)
-    resumen(detalle)
+    dibujar(pesos, montos, perfiles, ruta.with_suffix(".png"))

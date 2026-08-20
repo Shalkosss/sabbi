@@ -1,5 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 
+import { escapar } from './xml.js'
+
 /**
  * El motor de la plantilla del deck replica.
  *
@@ -60,12 +62,27 @@ export interface ResultadoReplica {
 
 export interface OpcionesReplica {
   /**
-   * Que laminas conservar, en numeracion de la plantilla.
+   * Que laminas salen, en numeracion de la plantilla y en el orden en que se
+   * las pida.
    *
-   * Sin esto van todas. El orden no se puede cambiar: la plantilla es un
-   * documento de diseno y reordenarlo es rehacerlo.
+   * Sin esto van todas, en el orden de la plantilla. Repetir un numero saca esa
+   * lamina tantas veces: es asi como una tabla que no entra en una se reparte
+   * en tres, y cada copia se distingue por el `ocurrencia` que recibe
+   * `transformar`.
    */
   readonly laminas?: readonly number[]
+  /**
+   * Retoque del XML de una lamina antes de sustituir sus tokens.
+   *
+   * Es por donde entra el clonado de filas: la lamina llega entera, se le
+   * rehace la tabla con tantas filas como el cliente tenga, y lo que quede de
+   * la plantilla —titulos, pies— lo resuelve la sustitucion despues. Devolver
+   * el XML tal como llego es no hacer nada.
+   *
+   * `ocurrencia` cuenta desde cero cual copia de esa lamina es, para cuando la
+   * tabla no entra en una y se pide la misma lamina varias veces.
+   */
+  readonly transformar?: (numero: number, xml: string, ocurrencia: number) => string
 }
 
 /**
@@ -114,30 +131,62 @@ export function renderizarReplica(
     )
   }
 
-  const conservadas = orden.filter((numero) => pedidas.includes(numero))
+  // Una lamina pedida dos veces sale dos veces: es asi como una tabla que no
+  // entra en una se reparte en tres. La copia es una parte nueva del paquete,
+  // con su propio archivo de relaciones.
+  let siguienteParte = Math.max(0, ...orden) + 1
+  const vistas = new Set<number>()
+  const salida = pedidas.map((numero, indice) => {
+    const ocurrencia = pedidas.slice(0, indice).filter((otra) => otra === numero).length
+    if (!vistas.has(numero)) {
+      vistas.add(numero)
+      return { numero, ocurrencia, parte: numero }
+    }
+    const copia = siguienteParte
+    siguienteParte += 1
+    partes[rutaDeLamina(copia)] = partes[rutaDeLamina(numero)] ?? new Uint8Array()
+    const relsDeLamina = partes[rutaDeRels(numero)]
+    if (relsDeLamina !== undefined) {
+      partes[rutaDeRels(copia)] = strToU8(sinNotas(strFromU8(relsDeLamina)))
+    }
+    return { numero, ocurrencia, parte: copia }
+  })
+
   const sinFuente = new Set<string>()
 
-  for (const numero of conservadas) {
-    const ruta = rutaDeLamina(numero)
-    partes[ruta] = strToU8(sustituir(leer(partes, ruta), valores, sinFuente))
+  for (const { numero, ocurrencia, parte } of salida) {
+    const ruta = rutaDeLamina(parte)
+    const original = leer(partes, ruta)
+    const retocada = opciones.transformar?.(numero, original, ocurrencia) ?? original
+    partes[ruta] = strToU8(sustituir(retocada, valores, sinFuente))
   }
 
+  const usadas = new Set(salida.map((l) => l.parte))
   for (const numero of orden) {
-    if (conservadas.includes(numero)) continue
+    if (usadas.has(numero)) continue
     delete partes[rutaDeLamina(numero)]
     delete partes[rutaDeRels(numero)]
   }
 
-  const fuera = orden.filter((numero) => !conservadas.includes(numero))
-  if (fuera.length > 0) {
-    partes[RUTA_PRESENTACION] = strToU8(quitarDeLaLista(presentacion, rels, fuera))
-    partes[RUTA_RELS] = strToU8(quitarRelaciones(rels, fuera))
-    partes[RUTA_TIPOS] = strToU8(quitarTipos(leer(partes, RUTA_TIPOS), fuera))
-  }
+  partes[RUTA_PRESENTACION] = strToU8(
+    rehacerLista(
+      presentacion,
+      salida.map((l) => l.parte),
+    ),
+  )
+  partes[RUTA_RELS] = strToU8(
+    rehacerRelaciones(
+      rels,
+      salida.map((l) => l.parte),
+    ),
+  )
+  partes[RUTA_TIPOS] = strToU8(
+    rehacerTipos(leer(partes, RUTA_TIPOS), [...usadas]),
+  )
 
   return {
     bytes: zipSync(partes, { mtime: EPOCA_ZIP }),
-    laminas: conservadas,
+    laminas: salida.map((l) => l.numero),
     sinFuente: [...sinFuente].sort(),
   }
 }
@@ -185,45 +234,86 @@ function sustituir(
   })
 }
 
-const escapar = (texto: string): string =>
-  texto
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 
-/** Saca las laminas de `sldIdLst`, que es lo que decide que ve el que abre. */
-function quitarDeLaLista(
-  presentacion: string,
-  rels: string,
-  fuera: readonly number[],
-): string {
-  const relDe = new Map(
-    [...rels.matchAll(/<Relationship Id="([^"]+)"[^>]*Target="slides\/slide(\d+)\.xml"/g)].map(
-      (m) => [Number(m[2]), m[1] ?? ''],
-    ),
-  )
-  const rIds = new Set(fuera.flatMap((numero) => [relDe.get(numero) ?? '']))
-
-  return presentacion.replace(/<p:sldId [^>]*r:id="([^"]+)"\s*\/>/g, (completo, rId: string) =>
-    rIds.has(rId) ? '' : completo,
+/**
+ * Le saca a una copia su hoja de notas.
+ *
+ * Una hoja de notas pertenece a una sola lamina y apunta de vuelta a ella. Dos
+ * laminas reclamando la misma dejan el paquete invalido, y PowerPoint no avisa
+ * cual es el problema: se niega a abrir el archivo. Las notas de orador no son
+ * parte de la propuesta, asi que la copia va sin ellas.
+ */
+function sinNotas(rels: string): string {
+  return rels.replace(/<Relationship [^>]*\/>/g, (completo) =>
+    /relationships\/notesSlide"/.test(completo) ? '' : completo,
   )
 }
 
-function quitarRelaciones(rels: string, fuera: readonly number[]): string {
-  const rutas = new Set(fuera.map((numero) => `slides/slide${numero}.xml`))
+/** El identificador de relacion que cada lamina de la salida va a llevar. */
+const relDeSalida = (indice: number) => `rIdSabbi${indice + 1}`
 
-  return rels.replace(/<Relationship [^>]*\/>/g, (completo) => {
-    const destino = /Target="([^"]+)"/.exec(completo)?.[1]
-    return destino !== undefined && rutas.has(destino) ? '' : completo
-  })
+/**
+ * Rehace `sldIdLst`, que es lo que decide que laminas se ven y en que orden.
+ *
+ * Se escribe entera en vez de ir borrando entradas: con laminas repetidas la
+ * lista de salida ya no es un subconjunto de la de entrada, y editarla a
+ * parches deja identificadores duplicados que PowerPoint no perdona.
+ */
+function rehacerLista(presentacion: string, partesEnOrden: readonly number[]): string {
+  const entradas = partesEnOrden
+    .map((_parte, indice) => `<p:sldId id="${256 + indice}" r:id="${relDeSalida(indice)}"/>`)
+    .join('')
+
+  return presentacion.replace(
+    /<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/,
+    `<p:sldIdLst>${entradas}</p:sldIdLst>`,
+  )
 }
 
-function quitarTipos(tipos: string, fuera: readonly number[]): string {
-  const partes = new Set(fuera.map((numero) => `/ppt/slides/slide${numero}.xml`))
+/**
+ * Rehace las relaciones de la presentacion con sus laminas.
+ *
+ * Las que no son laminas —el master, el tema, el tamano de la nota— se dejan
+ * intactas: son las que sostienen el diseno.
+ */
+function rehacerRelaciones(rels: string, partesEnOrden: readonly number[]): string {
+  const TIPO = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 
-  return tipos.replace(/<Override [^>]*\/>/g, (completo) => {
-    const nombre = /PartName="([^"]+)"/.exec(completo)?.[1]
-    return nombre !== undefined && partes.has(nombre) ? '' : completo
-  })
+  const sinLaminas = rels.replace(/<Relationship [^>]*\/>/g, (completo) =>
+    /Target="slides\/slide\d+\.xml"/.test(completo) ? '' : completo,
+  )
+
+  const nuevas = partesEnOrden
+    .map(
+      (parte, indice) =>
+        `<Relationship Id="${relDeSalida(indice)}" Type="${TIPO}" Target="slides/slide${parte}.xml"/>`,
+    )
+    .join('')
+
+  return sinLaminas.replace('</Relationships>', `${nuevas}</Relationships>`)
+}
+
+/**
+ * Deja un `Override` por cada lamina que quedo en el paquete.
+ *
+ * Sin el, PowerPoint no sabe que tipo de parte es y se niega a abrir el
+ * archivo; con uno de mas, apuntando a una parte que ya no existe, tampoco.
+ */
+function rehacerTipos(tipos: string, usadas: readonly number[]): string {
+  const TIPO =
+    'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+
+  const sinLaminas = tipos.replace(/<Override [^>]*\/>/g, (completo) =>
+    /PartName="\/ppt\/slides\/slide\d+\.xml"/.test(completo) ? '' : completo,
+  )
+
+  const nuevos = [...usadas]
+    .sort((a, b) => a - b)
+    .map(
+      (parte) =>
+        `<Override PartName="/ppt/slides/slide${parte}.xml" ContentType="${TIPO}"/>`,
+    )
+    .join('')
+
+  return sinLaminas.replace('</Types>', `${nuevos}</Types>`)
 }

@@ -20,8 +20,10 @@ import type { Propuesta } from '@sabbi/core'
  * **Las laminas de posiciones son cajas de texto en una grilla.** Las 11 a la
  * 16 no tienen tabla: son `nombre1` a `nombre14` y `monto1` a `monto15`,
  * ranuras fijas de un cliente que tenia esa cantidad de posiciones. Las 20 a la
- * 22 si son tablas de verdad — ahi clonar una fila es posible — pero tambien
- * de largo fijo.
+ * 22 si son tablas de verdad, y para esas el clonado ya esta hecho: `tabla.ts`
+ * rehace la tabla con las filas que se le pidan, `paginarFilas` las reparte en
+ * varias laminas y el renderizador duplica la lamina tantas veces como haga
+ * falta. Lo que les falta es de donde sale el texto de tres de sus columnas.
  *
  * **Tres laminas piden modelos que el motor no tiene.** El arquetipo del
  * cliente, el puntaje sobre 10 con sus dos componentes ponderados, y el

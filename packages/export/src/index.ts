@@ -7,7 +7,17 @@ export {
   tokensDe,
 } from './pptx/replica/plantilla.js'
 export { armarDeckReplica, avanceReplica } from './pptx/replica/deck.js'
+export { leerPlantillaReplica, rutaDePlantilla } from './pptx/replica/desde-disco.js'
 export type { OpcionesDeckReplica } from './pptx/replica/deck.js'
 export { LAMINAS_LISTAS, MAPA, valoresDe } from './pptx/replica/mapa.js'
+export {
+  ajustarMarco,
+  altoDelMarco,
+  altosDe,
+  filasDe,
+  paginarFilas,
+  rehacerTabla,
+} from './pptx/replica/tabla.js'
+export type { FilaNueva, OpcionesPaginado, ResultadoTabla } from './pptx/replica/tabla.js'
 export type { EstadoLamina, Lamina } from './pptx/replica/mapa.js'
 export type { OpcionesReplica, ResultadoReplica } from './pptx/replica/plantilla.js'

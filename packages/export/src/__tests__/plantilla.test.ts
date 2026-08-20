@@ -197,3 +197,65 @@ describe('el mapa de la fase 6', () => {
     expect(sinFuente.every((token) => token.startsWith('s05.'))).toBe(true)
   })
 })
+
+describe('la misma lamina, varias veces', () => {
+  /**
+   * Pedir una lamina dos veces la saca dos veces. Es como una tabla que no
+   * entra en una se reparte en tres, y es tambien donde un .pptx se corrompe
+   * sin avisar: PowerPoint no dice que parte esta mal, se niega a abrir el
+   * archivo entero.
+   */
+  const { bytes, laminas } = renderizarReplica(PLANTILLA, new Map(), {
+    laminas: [1, 20, 20, 20],
+    transformar: (_numero, xml, ocurrencia) => xml.replace('Anexo', `Anexo ${ocurrencia + 1}`),
+  })
+  const partes = partesDe(bytes)
+
+  it('devuelve la lamina de origen tantas veces como se pidio', () => {
+    expect(laminas).toEqual([1, 20, 20, 20])
+  })
+
+  it('cada copia es una parte propia del paquete', () => {
+    const deLaminas = Object.keys(partes).filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
+    expect(deLaminas).toHaveLength(4)
+  })
+
+  it('la lista de la presentacion las nombra a todas, sin repetir identificador', () => {
+    const pres = strFromU8(partes['ppt/presentation.xml'] ?? new Uint8Array())
+    const ids = [...pres.matchAll(/<p:sldId id="(\d+)" r:id="([^"]+)"\/>/g)]
+
+    expect(ids).toHaveLength(4)
+    expect(new Set(ids.map((m) => m[1])).size).toBe(4)
+    expect(new Set(ids.map((m) => m[2])).size).toBe(4)
+  })
+
+  it('cada lamina tiene su tipo de contenido declarado', () => {
+    const tipos = strFromU8(partes['[Content_Types].xml'] ?? new Uint8Array())
+    const declarados = [...tipos.matchAll(/PartName="\/ppt\/slides\/(slide\d+\.xml)"/g)].map(
+      (m) => m[1],
+    )
+    const existentes = Object.keys(partes)
+      .filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
+      .map((p) => p.split('/').pop())
+
+    expect([...declarados].sort()).toEqual([...existentes].sort())
+  })
+
+  it('las copias no se pelean por la hoja de notas del original', () => {
+    // Dos laminas reclamando la misma hoja de notas dejan el paquete invalido.
+    const conNotas = Object.entries(partes)
+      .filter(([ruta]) => /^ppt\/slides\/_rels\//.test(ruta))
+      .filter(([, contenido]) => strFromU8(contenido).includes('relationships/notesSlide'))
+
+    expect(conNotas.length).toBeLessThanOrEqual(1)
+  })
+
+  it('cada copia recibe su numero de ocurrencia', () => {
+    const textos = Object.entries(partes)
+      .filter(([ruta]) => /^ppt\/slides\/slide\d+\.xml$/.test(ruta))
+      .map(([, contenido]) => strFromU8(contenido))
+      .join('')
+
+    for (const n of [1, 2, 3]) expect(textos).toContain(`Anexo ${n}`)
+  })
+})

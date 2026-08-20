@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "tsc --build --force ../../tsconfig.json",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"

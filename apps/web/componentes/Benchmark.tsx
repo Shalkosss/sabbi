@@ -35,19 +35,60 @@ export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
         </p>
       </header>
 
-      <div className={estilos.reglas}>
-        <span>
-          Ticket mínimo de ETF <b className="mono">{usdTabla(matriz.ticketEtf)}</b>
-        </span>
-        <span>
-          Umbral inmobiliario <b className="mono">{usdTabla(matriz.umbralInmobiliario)}</b>
-        </span>
-        <span className={estilos.nota}>
-          Los {matriz.tickets.length} tickets están por debajo del umbral, así que en las{' '}
-          {matriz.portafolios.length} corridas Inmobiliario Directo se disuelve y su capital se
-          prorratea. Es la regla que más mueve esta matriz.
-        </span>
-      </div>
+      <form className={estilos.reglas} method="get">
+        <p className={estilos.tituloReglas}>Reglas del portafolio</p>
+
+        <label className={estilos.campo}>
+          <span>Inmobiliario disuelto</span>
+          <select name="inm" defaultValue={matriz.reglas.inmobiliario}>
+            <option value="prorratear">Se prorratea entre las cinco clases</option>
+            <option value="alternativos">Pasa entero a Privados, Club y Otros</option>
+          </select>
+        </label>
+
+        <label className={estilos.campo}>
+          <span>Umbral inmobiliario</span>
+          <input
+            type="number"
+            name="umbral"
+            min={0}
+            step={50_000}
+            defaultValue={matriz.reglas.umbralInmobiliarioUsd}
+            className="mono"
+          />
+        </label>
+
+        <label className={estilos.campo}>
+          <span>Ticket mínimo de ETF</span>
+          <input
+            type="number"
+            name="etf"
+            min={1}
+            step={5_000}
+            defaultValue={matriz.reglas.ticketEtfUsd}
+            className="mono"
+          />
+        </label>
+
+        <button type="submit" className="secundario">
+          Volver a correr
+        </button>
+
+        {!matriz.esLaMacroDeLaPropuesta && (
+          <p className={estilos.desviada}>
+            Estas no son las reglas de la macro v8. Lo que ves acá no es lo que la propuesta le
+            entrega hoy a un cliente.{' '}
+            <a href="/benchmark">Volver a las de la propuesta</a>
+          </p>
+        )}
+      </form>
+
+      <p className={estilos.nota}>
+        La diferencia entre las dos reglas es la que separa las dos hojas con las que la mesa
+        venía trabajando. Sobre un perfil Moderado, prorratear le da{' '}
+        <b>{pct1(0.2585)}</b> a Renta Fija; mandarlo al bloque alternativo le deja{' '}
+        <b>{pct1(0.1899)}</b>. Casi siete puntos, con el mismo benchmark y el mismo ticket.
+      </p>
 
       <table className={estilos.tabla}>
         <thead>

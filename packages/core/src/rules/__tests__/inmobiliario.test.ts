@@ -105,3 +105,49 @@ describe('prorratearInmobiliario', () => {
     })
   })
 })
+
+describe('las dos maneras de repartir el inmobiliario disuelto', () => {
+  /**
+   * La mesa venia trabajando con dos hojas que no coinciden, y difieren en
+   * esto: el capital de la clase disuelta se prorratea entre las cinco
+   * receptoras —la macro v8— o pasa entero al bloque de Privados, Club y
+   * Otros. Las dos reparten el mismo dinero y las dos dejan al cash afuera.
+   */
+  const BASE = { inm: 100_000, fijo: 100_000, variable: 50_000, privados: 50_000, cash: 40_000 }
+  const bajo = { patrimonioTotalUsd: 340_000 }
+
+  const prorrateado = prorratearInmobiliario(repartoDe(BASE), { ...bajo, regla: 'prorratear' })
+  const alBloque = prorratearInmobiliario(repartoDe(BASE), { ...bajo, regla: 'alternativos' })
+
+  it('las dos disuelven la clase', () => {
+    expect(objetivo(prorrateado, 'inm')).toBe(0)
+    expect(objetivo(alBloque, 'inm')).toBe(0)
+  })
+
+  it('prorratear reparte entre todas las receptoras', () => {
+    expect(objetivo(prorrateado, 'fijo')).toBeCloseTo(150_000, 2)
+    expect(objetivo(prorrateado, 'variable')).toBeCloseTo(75_000, 2)
+    expect(objetivo(prorrateado, 'privados')).toBeCloseTo(75_000, 2)
+  })
+
+  it('al bloque alternativo deja Fijo y Variable donde estaban', () => {
+    expect(objetivo(alBloque, 'fijo')).toBeCloseTo(100_000, 2)
+    expect(objetivo(alBloque, 'variable')).toBeCloseTo(50_000, 2)
+    expect(objetivo(alBloque, 'privados')).toBeCloseTo(150_000, 2)
+  })
+
+  it('las dos dejan el cash afuera y cuadran contra el mismo total', () => {
+    for (const r of [prorrateado, alBloque]) {
+      expect(objetivo(r, 'cash')).toBeCloseTo(40_000, 2)
+      expect(r.porClase.reduce((acc, c) => acc + c.objetivoUsd, 0)).toBeCloseTo(340_000, 2)
+    }
+  })
+
+  it('el umbral se puede mover: sobre el, la clase no se disuelve', () => {
+    const conUmbralBajo = prorratearInmobiliario(repartoDe(BASE), {
+      ...bajo,
+      umbralUsd: 300_000,
+    })
+    expect(objetivo(conUmbralBajo, 'inm')).toBeCloseTo(100_000, 2)
+  })
+})

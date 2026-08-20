@@ -1,8 +1,8 @@
 import 'server-only'
 
 import { benchmarkDe, pesosDeClase } from '@sabbi/config'
-import { generarPlan, PERFILES, UMBRAL_INMOBILIARIO } from '@sabbi/core'
-import type { ClaseModelo, Perfil } from '@sabbi/core'
+import { generarPlan, PERFILES } from '@sabbi/core'
+import type { ClaseModelo, Perfil, ReglaInmobiliario } from '@sabbi/core'
 
 import { FALLBACKS } from './catalogo'
 
@@ -28,8 +28,35 @@ import { FALLBACKS } from './catalogo'
 /** Los tickets que la mesa quiere mirar, en dólares. */
 export const TICKETS: readonly number[] = [25_000, 50_000, 75_000, 100_000]
 
-/** El ticket mínimo de ETF con el que se corre la matriz. El default del motor. */
-export const TICKET_ETF = 20_000
+/**
+ * Las reglas del portafolio que se pueden cambiar y mirar.
+ *
+ * No son «la macro» entera: son los tres puntos en los que las dos hojas con
+ * las que la mesa venía trabajando no coinciden. Ponerlos acá y no como
+ * constantes es lo que permite ver la misma matriz bajo una regla y bajo la
+ * otra sin tocar código.
+ */
+export interface Reglas {
+  /** A dónde va el capital de Inmobiliario cuando la clase se disuelve. */
+  readonly inmobiliario: ReglaInmobiliario
+  /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
+  readonly umbralInmobiliarioUsd: number
+  /** Monto mínimo para que una línea de ETF sea ejecutable. */
+  readonly ticketEtfUsd: number
+}
+
+/**
+ * La macro v8: la que el motor reproduce y la que fija el golden test.
+ *
+ * Es el punto de partida de la vista. Cambiar cualquiera de los tres valores
+ * la aleja de lo que la propuesta produce de verdad, y por eso la pantalla lo
+ * dice cuando pasa.
+ */
+export const REGLAS_V8: Reglas = {
+  inmobiliario: 'prorratear',
+  umbralInmobiliarioUsd: 500_000,
+  ticketEtfUsd: 20_000,
+}
 
 export interface LineaBenchmark {
   readonly instrumento: string
@@ -54,15 +81,10 @@ export interface Matriz {
   readonly portafolios: readonly Portafolio[]
   readonly tickets: readonly number[]
   readonly perfiles: readonly Perfil[]
-  /**
-   * El umbral bajo el cual Inmobiliario Directo se disuelve.
-   *
-   * Los cuatro tickets están por debajo, así que en las veinte corridas la
-   * clase se disuelve y su capital se prorratea. Es la regla que más mueve las
-   * cifras de esta matriz y conviene que esté dicha, no deducida.
-   */
-  readonly umbralInmobiliario: number
-  readonly ticketEtf: number
+  /** Con qué reglas se corrió esta matriz. */
+  readonly reglas: Reglas
+  /** `true` cuando son las de la macro v8, que es lo que produce la propuesta. */
+  readonly esLaMacroDeLaPropuesta: boolean
 }
 
 const CLASES_VACIAS: Readonly<Record<ClaseModelo, number>> = {
@@ -76,7 +98,7 @@ const CLASES_VACIAS: Readonly<Record<ClaseModelo, number>> = {
 }
 
 /** Un portafolio del universo: un ticket, un perfil, el motor en vacío. */
-function correr(ticketUsd: number, perfil: Perfil): Portafolio {
+function correr(ticketUsd: number, perfil: Perfil, reglas: Reglas): Portafolio {
   const plan = generarPlan({
     perfil,
     patrimonioTotalUsd: ticketUsd,
@@ -89,8 +111,10 @@ function correr(ticketUsd: number, perfil: Perfil): Portafolio {
     // Sin pisos: es un cliente que llega con dinero y nada mas. Esa es la
     // condicion que deja ver el modelo sin nada encima.
     pisos: [],
-    ticketMinimoUsd: TICKET_ETF,
+    ticketMinimoUsd: reglas.ticketEtfUsd,
     fallbacks: FALLBACKS,
+    reglaInmobiliario: reglas.inmobiliario,
+    umbralInmobiliarioUsd: reglas.umbralInmobiliarioUsd,
   })
 
   const porClase = { ...CLASES_VACIAS }
@@ -113,13 +137,33 @@ function correr(ticketUsd: number, perfil: Perfil): Portafolio {
   }
 }
 
-/** Los veinte portafolios: cada ticket contra cada perfil. */
-export function matrizDeBenchmark(): Matriz {
+/** Los veinte portafolios: cada ticket contra cada perfil, con estas reglas. */
+export function matrizDeBenchmark(reglas: Reglas = REGLAS_V8): Matriz {
   return {
-    portafolios: TICKETS.flatMap((ticket) => PERFILES.map((perfil) => correr(ticket, perfil))),
+    portafolios: TICKETS.flatMap((ticket) =>
+      PERFILES.map((perfil) => correr(ticket, perfil, reglas)),
+    ),
     tickets: TICKETS,
     perfiles: [...PERFILES],
-    umbralInmobiliario: UMBRAL_INMOBILIARIO,
-    ticketEtf: TICKET_ETF,
+    reglas,
+    esLaMacroDeLaPropuesta:
+      reglas.inmobiliario === REGLAS_V8.inmobiliario &&
+      reglas.umbralInmobiliarioUsd === REGLAS_V8.umbralInmobiliarioUsd &&
+      reglas.ticketEtfUsd === REGLAS_V8.ticketEtfUsd,
+  }
+}
+
+/** Lee las reglas de la URL, cayendo en las de la v8 ante cualquier duda. */
+export function reglasDeLaUrl(parametros: Record<string, string | string[] | undefined>): Reglas {
+  const numero = (clave: string, porDefecto: number) => {
+    const crudo = parametros[clave]
+    const valor = Number(Array.isArray(crudo) ? crudo[0] : crudo)
+    return Number.isFinite(valor) && valor > 0 ? valor : porDefecto
+  }
+
+  return {
+    inmobiliario: parametros['inm'] === 'alternativos' ? 'alternativos' : 'prorratear',
+    umbralInmobiliarioUsd: numero('umbral', REGLAS_V8.umbralInmobiliarioUsd),
+    ticketEtfUsd: numero('etf', REGLAS_V8.ticketEtfUsd),
   }
 }

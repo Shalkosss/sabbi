@@ -2,6 +2,7 @@
  * Saca la matriz del benchmark a un CSV, para analizarla fuera de la web.
  *
  *   npm run exportar-benchmark
+ *   npm run exportar-benchmark -- --regla alternativos
  *
  * Son los mismos veinte portafolios que muestra la pantalla de Benchmark, y
  * salen del mismo motor: no hay una segunda implementacion de ninguna cuenta.
@@ -22,7 +23,21 @@ import { benchmarkDe, pesosDeClase } from '../packages/config/dist/src/index.js'
 import { generarPlan, NOMBRE_CLASE, PERFILES } from '../packages/core/dist/index.js'
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const SALIDA = path.join(RAIZ, 'benchmark.csv')
+
+/**
+ * Con que regla se reparte el inmobiliario disuelto.
+ *
+ * `prorratear` es la macro v8, la que reproduce el motor y la que fija el
+ * golden test. `alternativos` es la de la hoja con la que la mesa venia
+ * trabajando: manda ese capital entero al bloque de Privados, Club y Otros.
+ * Cada una sale a su propio archivo para poder mirarlas una al lado de la otra.
+ */
+const bandera = process.argv.indexOf('--regla')
+const REGLA = bandera !== -1 && process.argv[bandera + 1] === 'alternativos'
+  ? 'alternativos'
+  : 'prorratear'
+
+const SALIDA = path.join(RAIZ, REGLA === 'prorratear' ? 'benchmark.csv' : 'benchmark-alternativos.csv')
 
 /** Los mismos que la pantalla. Cambiarlos aca no cambia la web. */
 const TICKETS = [25_000, 50_000, 75_000, 100_000]
@@ -63,6 +78,7 @@ for (const ticket of TICKETS) {
       pisos: [],
       ticketMinimoUsd: TICKET_ETF,
       fallbacks: FALLBACKS,
+      reglaInmobiliario: REGLA,
     })
 
     const totalDe = (clase) =>
@@ -89,6 +105,7 @@ writeFileSync(SALIDA, filas.map((f) => f.map(celda).join(',')).join('\n') + '\n'
 const corridas = TICKETS.length * PERFILES.length
 console.log(`\n${SALIDA}`)
 console.log(`  ${corridas} portafolios · ${filas.length - 1} lineas de instrumento`)
+console.log(`  regla del inmobiliario disuelto: ${REGLA}`)
 console.log(`  tickets: ${TICKETS.map((t) => `${t / 1000}k`).join(', ')}`)
 console.log(`  perfiles: ${PERFILES.join(', ')}`)
 console.log(`\n  python tools/benchmark-grafico.py\n`)

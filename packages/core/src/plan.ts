@@ -42,6 +42,7 @@ import { NOMBRE_CLASE } from './domain/tipos.js'
 import { repartirEtfs } from './rules/cascada.js'
 import { repartirClub, MIN_CLUB } from './rules/club.js'
 import { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
+import type { ReglaInmobiliario } from './rules/inmobiliario.js'
 import type { EstadoInstitucional } from './rules/institucional.js'
 import { repartirOtros, MIN_OTROS } from './rules/otros.js'
 import { repartirPrivados, FONDO_OPORTUNIDAD } from './rules/privados.js'
@@ -110,6 +111,15 @@ export interface EntradaPlan {
    * ajustada sale del reparto y lo que sobra se prorratea entre las demas.
    */
   readonly ajustes?: readonly AjusteClase[]
+  /**
+   * A donde va el capital de Inmobiliario Directo cuando la clase se disuelve.
+   *
+   * Es la regla en la que difieren las dos macros con las que la mesa venia
+   * trabajando. Por defecto la de la v8, que es la que fija el golden test.
+   */
+  readonly reglaInmobiliario?: ReglaInmobiliario
+  /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
+  readonly umbralInmobiliarioUsd?: number
 }
 
 export interface Plan {
@@ -137,6 +147,8 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     institucional = 'auto',
     inmFijado = false,
     ajustes = [],
+    reglaInmobiliario = 'prorratear',
+    umbralInmobiliarioUsd = UMBRAL_INMOBILIARIO,
   } = entrada
 
   if (ticketMinimoUsd <= 0) {
@@ -146,16 +158,27 @@ export function generarPlan(entrada: EntradaPlan): Plan {
   const avisos: string[] = []
 
   const inicial = repartirPorClase(benchmark, patrimonioTotalUsd, pisos, ajustes)
-  const conInmobiliario = prorratearInmobiliario(inicial, { patrimonioTotalUsd, inmFijado })
+  const conInmobiliario = prorratearInmobiliario(inicial, {
+    patrimonioTotalUsd,
+    inmFijado,
+    regla: reglaInmobiliario,
+    umbralUsd: umbralInmobiliarioUsd,
+  })
 
   avisos.push(...avisosDeAjustes(inicial.ajustes))
 
   const inmInicial = claseDe(inicial, 'inm')
-  if (patrimonioTotalUsd < UMBRAL_INMOBILIARIO && inmInicial.objetivoUsd > EPS) {
+  if (patrimonioTotalUsd < umbralInmobiliarioUsd && inmInicial.objetivoUsd > EPS) {
+    const umbral = umbralInmobiliarioUsd.toLocaleString('en-US')
+    const adonde =
+      reglaInmobiliario === 'alternativos'
+        ? 'su capital paso entero al bloque de Privados, Club y Otros'
+        : 'su capital se prorrateo entre las clases invertibles'
+
     avisos.push(
       claseDe(conInmobiliario, 'inm').objetivoUsd > EPS
-        ? `Inmobiliario Directo: ticket bajo ${UMBRAL_INMOBILIARIO.toLocaleString('en-US')} pero conservado por restriccion.`
-        : `Inmobiliario Directo: ticket bajo ${UMBRAL_INMOBILIARIO.toLocaleString('en-US')}; su capital se prorrateo a las clases invertibles.`,
+        ? `Inmobiliario Directo: ticket bajo ${umbral} pero conservado por restriccion.`
+        : `Inmobiliario Directo: ticket bajo ${umbral}; ${adonde}.`,
     )
   }
 

@@ -62,5 +62,5 @@ coverage/
 Deck de muestra*.pptx
 
 # La matriz del benchmark: se regenera con `npm run exportar-benchmark`
-benchmark.csv
-benchmark.png
+benchmark*.csv
+benchmark*.png

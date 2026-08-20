@@ -44,11 +44,33 @@ const RECEPTORAS: ReadonlySet<ClaseModelo> = new Set([
 const EPS = 1e-6
 const TOL = 0.01
 
+/**
+ * A donde va el capital del inmobiliario cuando la clase se disuelve.
+ *
+ * `prorratear` lo reparte entre las cinco receptoras en proporcion a lo que ya
+ * tenian, que es lo que hace la macro v8 y lo que fija el golden test de Ana
+ * Tumi. `alternativos` lo manda entero al bloque de Privados, Club y Otros,
+ * que es lo que hace la hoja con la que la mesa venia trabajando.
+ *
+ * Las dos reparten el mismo dinero y las dos dejan al cash afuera; lo que
+ * cambia es quien lo recibe, y sobre un perfil Moderado la diferencia es de
+ * casi siete puntos en Renta Fija. Por eso es una opcion y no una constante:
+ * cual de las dos es la buena lo decide la mesa mirando la matriz.
+ */
+export type ReglaInmobiliario = 'prorratear' | 'alternativos'
+
+/** Las clases del bloque alternativo, que es quien recibe con `alternativos`. */
+const ALTERNATIVAS: ReadonlySet<ClaseModelo> = new Set(['privados', 'club', 'otros'])
+
 export interface OpcionesInmobiliario {
   /** Ticket de la propuesta: el patrimonio invertible total. */
   readonly patrimonioTotalUsd: number
   /** Fuerza la conservacion de la clase aunque el ticket no llegue al umbral. */
   readonly inmFijado?: boolean
+  /** A donde va el capital disuelto. Por defecto, el reparto de la macro v8. */
+  readonly regla?: ReglaInmobiliario
+  /** Debajo de este ticket la clase se disuelve. Por defecto, 500,000. */
+  readonly umbralUsd?: number
 }
 
 /**
@@ -61,15 +83,21 @@ export function prorratearInmobiliario(
   reparto: ResultadoReparto,
   opciones: OpcionesInmobiliario,
 ): ResultadoReparto {
-  const { patrimonioTotalUsd, inmFijado = false } = opciones
+  const {
+    patrimonioTotalUsd,
+    inmFijado = false,
+    regla = 'prorratear',
+    umbralUsd = UMBRAL_INMOBILIARIO,
+  } = opciones
 
-  if (patrimonioTotalUsd >= UMBRAL_INMOBILIARIO) return reparto
+  if (patrimonioTotalUsd >= umbralUsd) return reparto
 
   const inm = reparto.porClase.find((c) => c.clase === 'inm')
   if (!inm || inm.objetivoUsd <= EPS) return reparto
   if (inmFijado || inm.fijada || inm.pisoUsd > EPS) return reparto
 
-  const recibe = (c: RepartoClase) => RECEPTORAS.has(c.clase) && !c.fijada
+  const receptoras = regla === 'alternativos' ? ALTERNATIVAS : RECEPTORAS
+  const recibe = (c: RepartoClase) => receptoras.has(c.clase) && !c.fijada
 
   const base = reparto.porClase.reduce((acc, c) => (recibe(c) ? acc + c.objetivoUsd : acc), 0)
   if (base <= EPS) return reparto

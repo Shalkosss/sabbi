@@ -4,7 +4,7 @@ export { repartirEtfs } from './rules/cascada.js'
 export type { AsignacionEtf, OpcionesCascada } from './rules/cascada.js'
 export { repartirVariable } from './rules/variable.js'
 export { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
-export type { OpcionesInmobiliario } from './rules/inmobiliario.js'
+export type { OpcionesInmobiliario, ReglaInmobiliario } from './rules/inmobiliario.js'
 export { prorratearResiduales } from './rules/residuales.js'
 export {
   aperturaFm,

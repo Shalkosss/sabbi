@@ -326,3 +326,57 @@ describe('generarPlan — residuos de Club y Otros', () => {
     expect(objetivo(plan, 'otros')).toBeCloseTo(25_000, 2)
   })
 })
+
+describe('generarPlan — el reparto sigue a las lineas', () => {
+  /**
+   * El barrido de residuales cruza clases: una linea de Fijo que no llega al
+   * ticket desaparece y su monto engorda a las de Variable. Eso esta bien y es
+   * lo que hace la macro; lo que no puede quedar es un reparto que diga que
+   * Fijo tiene un objetivo que sus propias lineas ya no suman.
+   *
+   * No es cosmetico. La seccion 6 imprimia una clase cuyo total no era la suma
+   * de sus filas, y el blotter calculaba las compras de cada clase sobre las
+   * lineas que le quedaban: la que se quedaba sin ninguna aportaba cero, las
+   * compras no cuadraban contra las ventas y la propuesta se marcaba como no
+   * publicable sin que nadie hubiera hecho nada mal.
+   */
+  const conResiduoQueCruza: EntradaPlan = {
+    ...ENTRADA,
+    // Casi todo conservado en Fijo: a la clase le queda un dinero nuevo tan
+    // chico que ninguna de sus lineas llega al ticket y todas se barren.
+    pisos: [
+      { clase: 'inm', montoUsd: 555_000, origen: 'conservado', etiqueta: 'Inmuebles' },
+      { clase: 'fijo', montoUsd: 226_000, origen: 'conservado', etiqueta: 'DPF' },
+    ],
+  }
+
+  const plan = generarPlan(conResiduoQueCruza)
+
+  it('cada clase vale exactamente lo que suman sus lineas', () => {
+    for (const clase of plan.reparto.porClase) {
+      expect(sumaClase(plan.lineas, clase.clase)).toBeCloseTo(clase.objetivoUsd, 2)
+    }
+  })
+
+  it('el total sigue siendo el patrimonio: el barrido no crea ni pierde dinero', () => {
+    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
+  })
+
+  it('el caso Ana Tumi no se mueve: ahi ningun residual cruza de clase', () => {
+    const original = generarPlan(ENTRADA)
+    for (const clase of original.reparto.porClase) {
+      expect(sumaClase(original.lineas, clase.clase)).toBeCloseTo(clase.objetivoUsd, 2)
+    }
+  })
+
+  it('una clase fijada no cede ni recibe en el barrido', () => {
+    const fijada = generarPlan({
+      ...conResiduoQueCruza,
+      ajustes: [{ clase: 'variable', modo: 'fijar', montoUsd: 150_000 }],
+    })
+
+    expect(objetivo(fijada, 'variable')).toBeCloseTo(150_000, 2)
+    expect(sumaClase(fijada.lineas, 'variable')).toBeCloseTo(150_000, 2)
+    expect(fijada.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
+  })
+})

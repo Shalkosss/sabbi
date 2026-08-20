@@ -51,8 +51,8 @@ import { repartirVariable } from './rules/variable.js'
 
 const EPS = 1e-6
 
-/** Un ajuste recortado por menos de un centavo es ruido de coma flotante. */
-const TOL_AJUSTE = 0.01
+/** Un centavo. Por debajo, una diferencia es ruido de coma flotante. */
+const TOL = 0.01
 
 /** Clases que pueden absorber el residuo de Club y Otros, en orden de preferencia. */
 const CANDIDATAS_RESIDUO: readonly ClaseModelo[] = ['privados', 'cash', 'fijo', 'variable']
@@ -227,18 +227,54 @@ export function generarPlan(entrada: EntradaPlan): Plan {
       institucional,
       club,
       otros,
+      fijadas: new Set(reparto.porClase.filter((c) => c.fijada).map((c) => c.clase)),
     }),
   )
 
   const finales = ordenar(prorratearResiduales(lineas, ticketMinimoUsd))
 
   return {
-    reparto,
+    reparto: realinearConLasLineas(reparto, finales),
     lineas: finales,
     totalObjetivoUsd: finales.reduce((acc, l) => acc + l.usd, 0),
     dineroNuevoUsd: reparto.porClase.reduce((acc, c) => acc + c.dineroNuevoUsd, 0),
     avisos,
   }
+}
+
+/**
+ * Devuelve el reparto a lo que dicen las lineas.
+ *
+ * El prorrateo de residuales barre entre clases: una linea de Fijo que no llega
+ * al ticket desaparece y su monto engorda a las de Variable, que si lo superan.
+ * Es lo que hace la macro y esta bien — lo que no puede quedar es el reparto
+ * diciendo que Fijo tiene 228,123 cuando sus lineas suman 214,492.
+ *
+ * Esa diferencia no era cosmetica. La seccion 6 imprimia una clase cuyo total
+ * no era la suma de sus filas, y el blotter calculaba las compras de cada clase
+ * sobre las lineas que le quedaban: la clase que se quedo sin ninguna aportaba
+ * cero, las compras no cuadraban contra las ventas y la propuesta se marcaba
+ * como no publicable.
+ *
+ * El total no se mueve — el barrido conserva el dinero — solo la reparticion.
+ */
+function realinearConLasLineas(
+  reparto: ResultadoReparto,
+  lineas: readonly LineaPlan[],
+): ResultadoReparto {
+  const porClase: RepartoClase[] = reparto.porClase.map((clase) => {
+    const suma = lineas.reduce((acc, l) => (l.clase === clase.clase ? acc + l.usd : acc), 0)
+    if (Math.abs(suma - clase.objetivoUsd) <= TOL) return clase
+
+    return {
+      ...clase,
+      objetivoUsd: suma,
+      dineroNuevoUsd: Math.max(0, suma - clase.pisoUsd),
+      cerrada: suma <= clase.pisoUsd + TOL,
+    }
+  })
+
+  return { ...reparto, porClase }
 }
 
 /** Dolares redondos para un aviso: los centavos no ayudan a decidir. */
@@ -255,7 +291,7 @@ const redondo = (monto: number): string =>
  */
 function avisosDeAjustes(ajustes: readonly AjusteAplicado[]): string[] {
   return ajustes
-    .filter((ajuste) => ajuste.aplicadoUsd > ajuste.pedidoUsd + TOL_AJUSTE)
+    .filter((ajuste) => ajuste.aplicadoUsd > ajuste.pedidoUsd + TOL)
     .map((ajuste) => {
       const pedido =
         ajuste.modo === 'excluir'
@@ -349,6 +385,14 @@ interface ContextoClase {
   readonly club: ReturnType<typeof repartirClub>
   /** Resultado de `repartirOtros`, ya evaluado para derivar residuos. */
   readonly otros: ReturnType<typeof repartirOtros>
+  /**
+   * Clases que el asesor clavo.
+   *
+   * Sus lineas quedan fuera del barrido de residuales en las dos direcciones:
+   * una clase fijada que cede o recibe deja de estar fijada, y el monto que el
+   * asesor escribio dejaria de ser el que sale impreso.
+   */
+  readonly fijadas: ReadonlySet<ClaseModelo>
 }
 
 function lineasDeClase(
@@ -404,10 +448,18 @@ function lineasDeClase(
 
   if (clase === 'fijo' || clase === 'variable') {
     const repartir = clase === 'fijo' ? repartirEtfs : repartirVariable
+    const exenta = ctx.fijadas.has(clase)
     const nuevas = repartir(ctx.pesos[clase], dineroNuevoUsd, {
       ticketMinimo: ctx.ticketMinimoUsd,
       fallback: ctx.fallbacks[clase],
-    }).map((a) => ({ instrumento: a.nombre, clase, usd: a.usd }))
+    }).map(
+      (a): LineaPlan => ({
+        instrumento: a.nombre,
+        clase,
+        usd: a.usd,
+        ...(exenta ? { residuales: 'exenta' as const } : {}),
+      }),
+    )
     return [...conservadas, ...nuevas]
   }
 

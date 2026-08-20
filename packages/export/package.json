@@ -1,0 +1,22 @@
+{
+  "name": "@sabbi/export",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Salidas de la propuesta: el deck redisenado y, mas adelante, el replica.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@sabbi/core": "0.1.0",
+    "pptxgenjs": "^3.12.0"
+  }
+}

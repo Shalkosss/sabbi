@@ -14,6 +14,7 @@
   "dependencies": {
     "@sabbi/config": "0.1.0",
     "@sabbi/core": "0.1.0",
+    "@sabbi/export": "0.1.0",
     "@sabbi/io": "0.1.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",

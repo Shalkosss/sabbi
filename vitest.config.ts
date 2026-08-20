@@ -16,6 +16,7 @@ export default defineConfig({
       '@sabbi/core': fuente('core'),
       '@sabbi/config': fuente('config'),
       '@sabbi/io': fuente('io'),
+      '@sabbi/export': fuente('export'),
     },
   },
   test: {
@@ -27,6 +28,7 @@ export default defineConfig({
         'packages/core/src/**/*.ts',
         'packages/config/src/**/*.ts',
         'packages/io/src/**/*.ts',
+        'packages/export/src/**/*.ts',
       ],
       exclude: ['**/__tests__/**'],
       thresholds: {

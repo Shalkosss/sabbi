@@ -55,9 +55,20 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         { texto: 'Propuesta' },
       ]}
       acciones={
-        <Link href={`/fichas/${cargada.revision.fichaId}`} className="secundario">
-          Volver a la revisión
-        </Link>
+        <>
+          {/*
+            El deck se arma en el momento, del mismo objeto que pinta esta
+            pantalla. Es un enlace y no un botón con estado: la descarga la
+            resuelve el navegador, y una propuesta sin calcular devuelve el
+            motivo en texto en vez de un archivo vacío.
+          */}
+          <a href={`/propuestas/${cargada.propuestaId}/deck`} className="secundario" download>
+            Descargar el deck
+          </a>
+          <Link href={`/fichas/${cargada.revision.fichaId}`} className="secundario">
+            Volver a la revisión
+          </Link>
+        </>
       }
     >
       {contenido}

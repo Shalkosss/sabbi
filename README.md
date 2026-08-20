@@ -49,8 +49,8 @@ packages/
   io/                  parsers de ficha
   export/
     xlsx/              propuesta
-    pptx/replica/      plantilla real versionada más tokens
-    pptx/rediseno/     generación con pptxgenjs
+    src/pptx/rediseno/ el deck que se genera desde la propuesta
+    pptx/replica/      plantilla tokenizada del deck de referencia
 reference/             archivos de entrada — NO se versiona, ver abajo
 ```
 
@@ -146,6 +146,19 @@ a precisión completa. El JSON de configuración trae esos mismos pesos redondea
 a cuatro decimales, y ese redondeo desplaza la base de redistribución en 6,502.88
 USD sobre el caso Ana Tumi.
 
+## Los dos decks
+
+El **rediseñado** se arma desde el objeto `Propuesta` y solo desde ahí: portada,
+el portafolio de hoy, el antes contra el después, la rentabilidad, el objetivo
+instrumento por instrumento —paginado—, los dos portafolios cuando hay ajustes,
+el blotter y las notas del cálculo. No hay una segunda implementación de ninguna
+suma. Se descarga desde la propuesta y se genera en el momento: un deck guardado
+en disco es una copia que envejece sola.
+
+El **réplica** reproduce el deck de referencia lámina por lámina. La plantilla
+tokenizada está versionada; lo que falta para rellenarla está en la cola de
+abajo.
+
 ## Estado
 
 | Fase | Alcance | Estado |
@@ -156,8 +169,8 @@ USD sobre el caso Ana Tumi.
 | 3 | Motor `generarPlan()` y golden test | hecho |
 | 4 | Vista web de la propuesta | hecho |
 | 5 | Export a Excel | |
-| 6 | PPT réplica | plantilla tokenizada |
-| 7 | PPT rediseñado | |
+| 6 | PPT réplica | plantilla tokenizada; ver abajo |
+| 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | 9 | Asistencia opcional de IA | |
 
@@ -182,11 +195,30 @@ USD sobre el caso Ana Tumi.
   (103.1%). Se guardan igual y quedan en `productos_descuadrados`.
 - **56 productos con algún dato faltante.** `productos_incompletos` es la cola
   de trabajo; cada uno es una celda vacía en alguna propuesta.
-- **Tipografía.** La marca pide Avenir Next Pro. Sin confirmar la licencia, la
-  plantilla usa una genérica; cambiar `TIPOGRAFIA` en `tokenizar.py` y volver a
-  correrlo es toda la migración.
+- **Tipografía.** La marca pide Avenir Next Pro. Sin confirmar la licencia, los
+  dos decks usan una genérica; cambiar `TIPOGRAFIA` en `tokenizar.py` y en
+  `packages/export/src/pptx/rediseno/marca.ts` es toda la migración.
 - **Regla de flujos.** El toggle está implementado y saca a los fondos mutuos de
   Mercados Privados, pero no se enciende solo: la ficha de Ana Tumi declara un
   flujo de 3,000 soles mensuales y encenderlo cambia el portafolio entero. Que
   esa inferencia sea automática o siga siendo del asesor es decisión del equipo.
-- **Láminas 1 a 8 del deck réplica.** Definir cuáles llevan dato. En stand by.
+- **El deck réplica pide más de lo que el motor sabe.** La plantilla está
+  tokenizada —382 tokens sobre 22 láminas— pero rellenarla no es sustituir
+  texto. Tres cosas la separan de estar lista, y ninguna es de código:
+
+  1. **Las láminas 11 a 16 son una tabla paginada de posiciones.** Cada fila es
+     una posición concreta de un cliente concreto, y los tokens son ranuras
+     fijas (`nombre1`…`nombre14`). Otro cliente tiene otro número de filas y
+     otro número de láminas: hace falta un renderizador que clone y borre
+     filas y láminas, no uno que reemplace cadenas. Lo mismo en la 20 a la 22.
+  2. **Las láminas 3, 5 y 9 traen modelos que no existen.** El arquetipo del
+     cliente ("El Aprendiz Activo"), el puntaje de portafolio sobre 10 con sus
+     dos componentes ponderados, y el titular de "el cambio más importante".
+     Son decisiones de negocio antes que código.
+  3. **Las láminas 6 a 8 son un análisis de costos y tres recomendaciones
+     escritas.** El motor guarda `feePct` por posición pero no calcula
+     sobrecostos, y las recomendaciones llevan cifras derivadas —exceso de
+     liquidez, dependencia de Perú— que hoy nadie computa.
+
+  Mientras tanto el deck rediseñado sí sale entero de lo que el motor ya
+  produce, y es el que la app descarga.

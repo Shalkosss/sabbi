@@ -6,6 +6,7 @@ import type { FichaParseada } from '@sabbi/io'
 
 import type { EstadoRevision, Parametros } from '../estado'
 import { asesorActual, clienteServidor } from '../supabase/servidor'
+import { cargarAjustesObjetivo } from './ajustes'
 import { altaProductosDeFicha } from './alta-productos'
 import { filaDeDeuda, filaDePosicion, posicionDeFila } from './mapeo'
 import type { FilaPosicion } from './mapeo'
@@ -245,6 +246,10 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
     .eq('ficha_id', fichaId)
     .order('orden', { ascending: true })
 
+  // Lo que el asesor le hizo al portafolio objetivo cuelga de la propuesta, no
+  // de la ficha: sin propuesta abierta no hay ajustes que traer.
+  const { agregados, ajustes } = await cargarAjustesObjetivo(propuesta?.id ?? '')
+
   const posiciones = ((filas ?? []) as FilaPosicion[])
     // Las deudas viven en la misma tabla pero no se revisan ni entran al motor.
     .filter((fila) => fila.origen !== 'deuda')
@@ -270,6 +275,8 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
     ignoradas: (ficha.ignoradas ?? []) as EstadoRevision['ignoradas'],
     modelo: (ficha.modelo ?? null) as EstadoRevision['modelo'],
     posiciones,
+    agregados,
+    ajustes,
     parametros: {
       perfil: (propuesta?.perfil ?? 'Moderado') as Parametros['perfil'],
       necesitaFlujos: cliente?.necesita_flujos ?? false,

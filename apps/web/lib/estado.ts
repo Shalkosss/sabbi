@@ -1,4 +1,12 @@
-import type { Cta, EstadoInstitucional, Perfil, PosicionRevisada } from '@sabbi/core'
+import type {
+  AjusteClase,
+  ClaseModelo,
+  Cta,
+  EstadoInstitucional,
+  Perfil,
+  PosicionRevisada,
+  Restriccion,
+} from '@sabbi/core'
 import type { Aviso, DatosCliente, FilaIgnorada, PortafolioModelo, PosicionFicha } from '@sabbi/io'
 
 /**
@@ -32,13 +40,29 @@ export interface Parametros {
 }
 
 /**
+ * Lo que el asesor le hace al portafolio objetivo, no a la ficha.
+ *
+ * Son dos palancas distintas y conviene no confundirlas. Un activo agregado
+ * suma una línea al objetivo — «Acciones MSFT, 30,000, Renta Variable» — y
+ * clava esa parte del ticket. Un ajuste manda sobre una clase entera: la fija
+ * en un monto o la saca del cálculo, y el resto se prorratea entre las demás.
+ *
+ * Ninguna de las dos inventa dinero: el patrimonio sigue siendo el de la
+ * ficha, lo que cambia es cómo se reparte.
+ */
+export interface AjustesObjetivo {
+  readonly agregados: readonly Restriccion[]
+  readonly ajustes: readonly AjusteClase[]
+}
+
+/**
  * Una revisión completa, tal como sale de la base.
  *
  * Los tres identificadores viajan con ella porque cada cambio va a una tabla
  * distinta: las celdas a `ficha_positions`, el perfil regulatorio al cliente y
  * el resto de parámetros a la propuesta.
  */
-export interface EstadoRevision {
+export interface EstadoRevision extends AjustesObjetivo {
   readonly fichaId: string
   readonly propuestaId: string
   readonly clienteId: string
@@ -56,6 +80,10 @@ export type Accion =
   | { readonly tipo: 'editar'; readonly id: string; readonly cambios: Partial<PosicionEditada> }
   | { readonly tipo: 'cta'; readonly id: string; readonly cta: Cta }
   | { readonly tipo: 'parametros'; readonly cambios: Partial<Parametros> }
+  | { readonly tipo: 'activo'; readonly activo: Restriccion }
+  | { readonly tipo: 'quitar-activo'; readonly id: string }
+  /** `ajuste` en `null` saca el ajuste y devuelve la clase al benchmark. */
+  | { readonly tipo: 'ajuste'; readonly clase: ClaseModelo; readonly ajuste: AjusteClase | null }
 
 /** Campos que el asesor puede corregir. El resto es derivado o de sistema. */
 export const EDITABLES: ReadonlySet<string> = new Set([
@@ -71,6 +99,10 @@ export const EDITABLES: ReadonlySet<string> = new Set([
   'cta',
   'montoVentaParcial',
   'nota',
+  // Sacar una posicion del calculo es una decision, no un dato de la ficha: el
+  // inmueble de uso propio llega marcado, pero el asesor tiene que poder sacar
+  // —o volver a meter— cualquier otra.
+  'esInvertible',
 ])
 
 /**
@@ -130,6 +162,27 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
 
     case 'parametros':
       return { ...estado, parametros: { ...estado.parametros, ...accion.cambios } }
+
+    case 'activo': {
+      const existe = estado.agregados.some((a) => a.id === accion.activo.id)
+      return {
+        ...estado,
+        agregados: existe
+          ? estado.agregados.map((a) => (a.id === accion.activo.id ? accion.activo : a))
+          : [...estado.agregados, accion.activo],
+      }
+    }
+
+    case 'quitar-activo':
+      return { ...estado, agregados: estado.agregados.filter((a) => a.id !== accion.id) }
+
+    case 'ajuste': {
+      const resto = estado.ajustes.filter((a) => a.clase !== accion.clase)
+      return {
+        ...estado,
+        ajustes: accion.ajuste === null ? resto : [...resto, accion.ajuste],
+      }
+    }
   }
 }
 

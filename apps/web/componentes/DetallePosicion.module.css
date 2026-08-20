@@ -96,3 +96,38 @@
   background: var(--acento);
   pointer-events: none;
 }
+
+/*
+ * Sacar una posicion del calculo.
+ *
+ * Va abajo y con su consecuencia escrita al lado: no es una casilla de
+ * preferencia, es la unica que cambia el denominador de todos los pesos.
+ */
+.fuera {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borde-suave);
+  cursor: pointer;
+}
+
+.fuera input {
+  margin-top: 2px;
+  accent-color: var(--atencion);
+  width: 15px;
+  height: 15px;
+}
+
+.fuera span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+}
+
+.fuera b {
+  color: var(--tinta);
+  font-weight: 600;
+}

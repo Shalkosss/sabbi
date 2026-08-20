@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import { Revision } from '../../../componentes/Revision'
 import { SinAsesor } from '../../../componentes/SinAsesor'
+import { productosOfrecibles } from '../../../lib/datos/ajustes'
 import { cargarRevision } from '../../../lib/datos/fichas'
 import { asesorActual } from '../../../lib/supabase/servidor'
 
@@ -19,8 +20,8 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   if (asesor === null) return <SinAsesor />
 
   const { id } = await params
-  const revision = await cargarRevision(id)
+  const [revision, productos] = await Promise.all([cargarRevision(id), productosOfrecibles()])
   if (revision === null) notFound()
 
-  return <Revision inicial={revision} asesor={asesor} />
+  return <Revision inicial={revision} asesor={asesor} productos={productos} />
 }

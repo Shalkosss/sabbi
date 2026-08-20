@@ -110,6 +110,37 @@ Los pisos vienen de dos fuentes que el motor trata igual: posiciones que el
 cliente conserva y restricciones que pone el asesor. Por eso "el cliente quiere
 quedarse con esta casa aunque el modelo pida menos" no necesita código aparte.
 
+### Los ajustes del asesor
+
+Un piso solo empuja hacia arriba. La mesa pide también lo contrario —
+"Inmobiliario Directo va en 60,000 aunque el modelo diga 70,000, y el resto lo
+repartes" — y eso es un ajuste: clava el objetivo de una clase, o la saca del
+cálculo, y la clase sale del reparto para que el solver prorratee lo que sobra
+entre las que quedan libres. Es el mismo camino que el motor ya usaba con el
+dinero de una clase cerrada.
+
+Tres palancas, todas sobre el portafolio objetivo y ninguna sobre la ficha:
+
+| Palanca | Qué hace | Dónde vive |
+|---|---|---|
+| Agregar un activo | suma una línea al objetivo y clava esa parte del ticket | `proposal_restrictions` |
+| Fijar una clase | la clase recibe exactamente ese monto | `proposal_class_adjustments` |
+| Sacar una clase | la clase recibe cero y su peso se reparte | `proposal_class_adjustments` |
+
+Ninguna inventa dinero: el patrimonio sigue siendo el de la ficha y el objetivo
+sigue cuadrando contra él. El único límite es el piso — fijar por debajo de lo
+que el cliente ya tiene en esa clase pediría vender, y vender se marca en la
+ficha. El motor clava en el piso y lo escribe en un aviso con las dos cifras.
+
+Sacar una **posición** del cálculo es otra cosa y vive en la ficha: el toggle
+"fuera del cálculo" de cada fila, que es el mismo `es_invertible` con el que
+llega un inmueble de uso propio.
+
+Cuando hay ajustes, la propuesta calcula **dos portafolios** con el mismo motor
+— el que sale del modelo y el que sale de los ajustes — y los muestra contra la
+foto de la ficha en una tercera mirada. Sin esa columna un ajuste no se puede
+explicar, solo creer.
+
 Los pesos de benchmark salen de la hoja `Data` del archivo Portfolio Modificado,
 a precisión completa. El JSON de configuración trae esos mismos pesos redondeados
 a cuatro decimales, y ese redondeo desplaza la base de redistribución en 6,502.88

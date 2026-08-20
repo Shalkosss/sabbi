@@ -91,7 +91,7 @@ export function construirPropuesta(
     }
   }
 
-  const derivacion = armarEntradaPlan(posiciones, {
+  const comunes = {
     perfil: parametros.perfil,
     benchmark,
     pesos: {
@@ -106,15 +106,37 @@ export function construirPropuesta(
     institucional: parametros.institucional,
     incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
     colchonLiquidezUsd: parametros.colchonLiquidezUsd,
+  }
+
+  const derivacion = armarEntradaPlan(posiciones, {
+    ...comunes,
+    restricciones: revision.agregados,
+    ajustes: revision.ajustes,
   })
 
   if (!derivacion.ok) return { ok: false, bloqueos: derivacion.bloqueos }
 
-  // El catalogo se empareja contra los nombres que el motor acaba de imprimir,
-  // no contra los del benchmark: son dos espacios de nombres distintos.
   const plan = generarPlan(derivacion.entrada)
+
+  // El segundo portafolio: el mismo motor sin nada de lo que el asesor tocó.
+  // Es lo que el sistema propone solo, y sin él un ajuste no se puede explicar
+  // — solo se puede creer. Sin ajustes no se calcula: serían dos veces el
+  // mismo plan y una pestaña que no dice nada.
+  const hayAjustes = revision.agregados.length > 0 || revision.ajustes.length > 0
+  const derivacionSistema = hayAjustes ? armarEntradaPlan(posiciones, comunes) : null
+  const planSistema =
+    derivacionSistema !== null && derivacionSistema.ok
+      ? generarPlan(derivacionSistema.entrada)
+      : null
+
+  // El catalogo se empareja contra los nombres que el motor acaba de imprimir,
+  // no contra los del benchmark: son dos espacios de nombres distintos. Los dos
+  // portafolios se leen en la misma tabla, así que entran los nombres de ambos.
   const catalogo = emparejarCatalogo(
-    plan.lineas.map((linea) => linea.instrumento),
+    [
+      ...plan.lineas.map((linea) => linea.instrumento),
+      ...(planSistema?.lineas ?? []).map((linea) => linea.instrumento),
+    ],
     opciones.catalogo,
   )
 
@@ -126,7 +148,16 @@ export function construirPropuesta(
     },
     posiciones,
     plan,
-    modeloPuro: generarPlan({ ...derivacion.entrada, pisos: [] }),
+    planSistema,
+    // El modelo puro ignora tanto lo que el cliente ya tiene como lo que el
+    // asesor clavó: es el benchmark aplicado al patrimonio entero, y con eso se
+    // explica por qué el plan se desvía.
+    modeloPuro: generarPlan({
+      ...derivacion.entrada,
+      pisos: [],
+      ajustes: [],
+      inmFijado: false,
+    }),
     pisos: derivacion.entrada.pisos,
     benchmark: derivacion.entrada.benchmark,
     parametros: {

@@ -1,0 +1,285 @@
+/*
+ * El bloque de ajustes del objetivo.
+ *
+ * Comparte el lenguaje de la barra de parametros —una linea siempre visible,
+ * el detalle plegado— porque las dos son lo mismo desde la mano del asesor:
+ * decisiones que se toman una vez y despues hay que poder recordar sin abrir
+ * nada.
+ */
+
+.bloque {
+  flex: none;
+  border-bottom: 1px solid var(--borde);
+  background: var(--hundido);
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 26px;
+}
+
+.titulo {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.valores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.limpio {
+  font-size: 12.5px;
+  color: var(--tinta-3);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--acento-texto);
+  background: var(--acento-suave);
+  border: 1px solid var(--acento-borde);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.ajustar {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tinta-2);
+  background: transparent;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 5px 11px;
+}
+
+.ajustar:hover {
+  border-color: var(--acento);
+  color: var(--tinta);
+}
+
+.giro {
+  transform: rotate(180deg);
+}
+
+/* ── El panel ──────────────────────────────────────────────────────────── */
+
+.panel {
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  padding: 18px 26px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 26px 40px;
+  align-items: start;
+}
+
+.seccion {
+  min-width: 0;
+}
+
+.subtitulo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  margin: 0 0 6px;
+}
+
+.ayuda {
+  font-size: 11.5px;
+  color: var(--tinta-3);
+  line-height: 1.5;
+  max-width: 52ch;
+  margin: 0 0 12px;
+}
+
+.pie {
+  font-size: 11.5px;
+  color: var(--tinta-3);
+  margin: 12px 0 0;
+}
+
+.pie b {
+  color: var(--tinta-2);
+}
+
+/* ── Activos agregados ─────────────────────────────────────────────────── */
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tabla th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tinta-4);
+  text-align: left;
+  padding: 0 8px 5px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla td {
+  padding: 5px 8px 5px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tabla td:last-child,
+.tabla th:last-child {
+  width: 28px;
+  padding-right: 0;
+}
+
+.derecha {
+  text-align: right;
+}
+
+.texto,
+.numero,
+.modo,
+.chipClase {
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 5px 8px;
+  font-size: 13px;
+  color: var(--tinta);
+  width: 100%;
+}
+
+.numero {
+  text-align: right;
+  max-width: 120px;
+}
+
+.texto:focus,
+.numero:focus,
+.modo:focus,
+.chipClase:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+  outline: none;
+}
+
+.quitar {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radio-control);
+  color: var(--tinta-4);
+  font-size: 16px;
+  line-height: 1;
+  padding: 3px 7px;
+}
+
+.quitar:hover {
+  color: var(--alerta-texto);
+  border-color: var(--alerta);
+  background: var(--alerta-suave);
+}
+
+.agregar {
+  margin-top: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--acento-texto);
+  background: var(--acento-suave);
+  border: 1px solid var(--acento-borde);
+  border-radius: var(--radio-control);
+  padding: 6px 12px;
+}
+
+.agregar:hover {
+  border-color: var(--acento);
+}
+
+/* El chip de clase se pinta con el color de su clase, igual que en la tabla
+   de posiciones: es el mismo vocabulario y no puede tener dos aspectos. */
+.clase_fijo {
+  background: var(--clase-fijo-fondo);
+  color: var(--clase-fijo-tinta);
+}
+
+.clase_variable {
+  background: var(--clase-variable-fondo);
+  color: var(--clase-variable-tinta);
+}
+
+.clase_privados {
+  background: var(--clase-privados-fondo);
+  color: var(--clase-privados-tinta);
+}
+
+.clase_club {
+  background: var(--clase-club-fondo);
+  color: var(--clase-club-tinta);
+}
+
+.clase_otros {
+  background: var(--clase-otros-fondo);
+  color: var(--clase-otros-tinta);
+}
+
+.clase_inm {
+  background: var(--clase-inm-fondo);
+  color: var(--clase-inm-tinta);
+}
+
+.clase_cash {
+  background: var(--clase-cash-fondo);
+  color: var(--clase-cash-tinta);
+}
+
+/* ── Montos por clase ──────────────────────────────────────────────────── */
+
+.clases {
+  display: flex;
+  flex-direction: column;
+}
+
+.filaClase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 148px 120px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.filaClase:last-child {
+  border-bottom: none;
+}
+
+.nombreClase {
+  font-size: 13px;
+  color: var(--tinta-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sinMonto {
+  text-align: right;
+  font-size: 13px;
+  color: var(--tinta-4);
+  padding-right: 9px;
+}

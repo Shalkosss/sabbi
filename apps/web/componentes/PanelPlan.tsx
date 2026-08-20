@@ -58,10 +58,20 @@ export function PanelPlan({ plan, propuestaId }: Props) {
               <tr key={clase.clase}>
                 <td>
                   {(NOMBRE_CLASE as Readonly<Record<string, string>>)[clase.clase] ?? clase.clase}
-                  {clase.cerrada && clase.objetivoUsd > 0 && (
-                    <span className={estilos.marca} title="Cubierta por lo que el cliente conserva">
-                      cerrada
+                  {clase.fijada ? (
+                    <span className={estilos.marca} title="El asesor clavó el monto de esta clase">
+                      fijada
                     </span>
+                  ) : (
+                    clase.cerrada &&
+                    clase.objetivoUsd > 0 && (
+                      <span
+                        className={estilos.marca}
+                        title="Cubierta por lo que el cliente conserva"
+                      >
+                        cerrada
+                      </span>
+                    )
                   )}
                 </td>
                 <td className={`${estilos.num} mono`}>{usd(clase.objetivoUsd)}</td>

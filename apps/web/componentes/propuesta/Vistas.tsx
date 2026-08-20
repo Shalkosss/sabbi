@@ -4,11 +4,13 @@ import { useState } from 'react'
 
 import type {
   FilaComparativa,
+  FilaDosPortafolios,
   FilaVistaClase,
   Propuesta,
   RentabilidadPonderada,
   SubfilaVista,
   VistaComparativa,
+  VistaDosPortafolios,
   VistaHoy,
 } from '@sabbi/core'
 
@@ -17,45 +19,47 @@ import { pct1, rangoPct, rangoUsd, usdTabla } from '../../lib/formato'
 import estilos from './Vistas.module.css'
 
 /**
- * Las dos miradas de la propuesta, una a la vez.
+ * Las miradas de la propuesta, una a la vez.
  *
  * La primera es el portafolio de hoy: qué tiene el cliente y qué rentabilidad
  * ya genera. La segunda es el antes y el después con el portafolio Sabbi —
  * la historia completa sin decirle a nadie qué mover a dónde. El detalle por
  * subclase se abre por fila, para que la primera lectura sea de siete líneas
  * y no de setenta.
+ *
+ * La tercera solo existe cuando el asesor ajustó algo, y es para él: los dos
+ * portafolios objetivo lado a lado — el que sale del modelo y el que sale de
+ * sus ajustes — contra la foto de la ficha. Sin ella un ajuste no se puede
+ * explicar, solo creer. No es la que se abre primero: la historia del cliente
+ * sigue siendo el antes contra el después.
  */
 export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
-  const [mirada, setMirada] = useState<'hoy' | 'comparativo'>('comparativo')
+  const [mirada, setMirada] = useState<'hoy' | 'comparativo' | 'ajuste'>('comparativo')
+  const dos = propuesta.dosPortafolios
+
+  const pestana = (valor: typeof mirada, texto: string) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={mirada === valor}
+      className={`${estilos.pestana} ${mirada === valor ? estilos.pestanaActiva : ''}`}
+      onClick={() => setMirada(valor)}
+    >
+      {texto}
+    </button>
+  )
 
   return (
-    <section aria-label="Las dos miradas del portafolio">
+    <section aria-label="Las miradas del portafolio">
       <div className={estilos.selector} role="tablist" aria-label="Elegir mirada">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mirada === 'hoy'}
-          className={`${estilos.pestana} ${mirada === 'hoy' ? estilos.pestanaActiva : ''}`}
-          onClick={() => setMirada('hoy')}
-        >
-          Tu portafolio hoy
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mirada === 'comparativo'}
-          className={`${estilos.pestana} ${mirada === 'comparativo' ? estilos.pestanaActiva : ''}`}
-          onClick={() => setMirada('comparativo')}
-        >
-          Hoy contra Sabbi
-        </button>
+        {pestana('hoy', 'Tu portafolio hoy')}
+        {pestana('comparativo', 'Hoy contra Sabbi')}
+        {dos !== null && pestana('ajuste', 'Los dos portafolios')}
       </div>
 
-      {mirada === 'hoy' ? (
-        <PanelHoy vista={propuesta.vistaHoy} />
-      ) : (
-        <PanelComparativo vista={propuesta.comparativa} />
-      )}
+      {mirada === 'hoy' && <PanelHoy vista={propuesta.vistaHoy} />}
+      {mirada === 'comparativo' && <PanelComparativo vista={propuesta.comparativa} />}
+      {mirada === 'ajuste' && dos !== null && <PanelDosPortafolios vista={dos} />}
     </section>
   )
 }
@@ -261,6 +265,165 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
               <Subfilas subfilas={fila.despuesSub} />
             ) : (
               <p className={estilos.vacio}>El modelo no asigna nada acá.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </details>
+  )
+}
+
+// ── Mirada 3: los dos portafolios ─────────────────────────────────────────
+
+/**
+ * El portafolio que salió del modelo y el que salió de los ajustes.
+ *
+ * Tres columnas a la misma altura: la ficha, el sistema y el ajustado. La
+ * pregunta que contesta es una sola —qué cambió por lo que el asesor tocó— y
+ * por eso el chip de cada fila lleva dólares y no puntos porcentuales: un
+ * ajuste se pide en dinero y se tiene que poder leer en dinero.
+ */
+function PanelDosPortafolios({ vista }: { readonly vista: VistaDosPortafolios }) {
+  const notas = [
+    notaCobertura(vista.sistema.rentabilidad, 'el portafolio del modelo'),
+    notaCobertura(vista.ajustado.rentabilidad, 'el portafolio ajustado'),
+  ].filter((n): n is string => n !== null)
+
+  return (
+    <div role="tabpanel" aria-label="Los dos portafolios">
+      <div className={estilos.cifras}>
+        <div className={`${estilos.cifra} ${estilos.cifraAcento}`}>
+          <span>Rentabilidad estimada</span>
+          <div className={estilos.transicion}>
+            <span className={`mono ${estilos.antes}`}>{rent(vista.hoy.rentabilidad)}</span>
+            <span className={estilos.flecha} aria-hidden="true">
+              →
+            </span>
+            <span className={`mono ${estilos.antes}`}>{rent(vista.sistema.rentabilidad)}</span>
+            <span className={estilos.flecha} aria-hidden="true">
+              →
+            </span>
+            <b>{rent(vista.ajustado.rentabilidad)}</b>
+          </div>
+          <span className={estilos.cifraNota}>ficha → modelo → ajustado</span>
+        </div>
+        <div className={estilos.cifra}>
+          <span>Renta anual estimada</span>
+          <div className={estilos.transicion}>
+            <span className={`mono ${estilos.antes}`}>{rangoUsd(vista.sistema.rentaAnualUsd)}</span>
+            <span className={estilos.flecha} aria-hidden="true">
+              →
+            </span>
+            <b>{rangoUsd(vista.ajustado.rentaAnualUsd)}</b>
+          </div>
+          <span className={estilos.cifraNota}>modelo → ajustado</span>
+        </div>
+        <div className={estilos.cifra}>
+          <span>Movido por los ajustes</span>
+          <b className="mono">{usdTabla(vista.movidoUsd)}</b>
+          <span className={estilos.cifraNota}>
+            {vista.movidoUsd < 1
+              ? 'los ajustes no cambiaron el reparto'
+              : `${pct1(vista.movidoUsd / (vista.ajustado.totalUsd || 1))} del portafolio cambió de clase`}
+          </span>
+        </div>
+      </div>
+
+      <div className={estilos.leyendaPista}>
+        <span>Ficha</span>
+        <span>Modelo</span>
+        <span>Ajustado</span>
+      </div>
+
+      <div className={estilos.lista}>
+        {vista.filas.map((fila) => (
+          <FilaDosPlanes key={fila.clase} fila={fila} />
+        ))}
+      </div>
+
+      {notas.map((nota) => (
+        <p key={nota} className={estilos.notaCobertura}>
+          {nota}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function FilaDosPlanes({ fila }: { readonly fila: FilaDosPortafolios }) {
+  // Un dólar de diferencia sobre cientos de miles es coma flotante, no una
+  // decisión: por debajo del dólar la fila dice que quedó igual.
+  const sinCambio = Math.abs(fila.deltaUsd) < 1
+  const textoDelta = sinCambio
+    ? 'igual'
+    : `${fila.deltaUsd > 0 ? '↑' : '↓'} ${usdTabla(Math.abs(fila.deltaUsd))}`
+
+  return (
+    <details className={estilos.fila}>
+      <summary>
+        <div className={estilos.encabezado}>
+          <span className={`${estilos.punto} ${estilos[`punto_${fila.clase}`] ?? ''}`} />
+          <span className={estilos.nombreClase}>
+            {NOMBRE_CLASE_CORTO[fila.clase]}
+            {fila.fijada && (
+              <span className={estilos.marcaFijada} title="El asesor clavó esta clase">
+                fijada
+              </span>
+            )}
+          </span>
+          <span className={estilos.montoClase} title="Modelo → ajustado">
+            {pct1(fila.sistemaShare)} → <b>{pct1(fila.ajustadoShare)}</b>
+          </span>
+          <span
+            className={`${estilos.delta} ${sinCambio ? estilos.deltaIgual : ''}`}
+            title={`${fila.deltaPp > 0 ? '+' : ''}${fila.deltaPp.toFixed(1)} pp sobre el portafolio`}
+          >
+            {textoDelta}
+          </span>
+          <span className={estilos.rentClase} title="Rentabilidad estimada del ajustado">
+            {rent(fila.rentabilidadAjustado)}
+          </span>
+          <Chevron />
+        </div>
+        <div className={estilos.pistaTriple}>
+          <div className={estilos.pista} title={`Ficha: ${pct1(fila.hoyShare)}`}>
+            <div className={estilos.barraAntes} style={{ width: `${fila.hoyShare * 100}%` }} />
+          </div>
+          <div className={estilos.pista} title={`Modelo: ${pct1(fila.sistemaShare)}`}>
+            <div className={estilos.barraSistema} style={{ width: `${fila.sistemaShare * 100}%` }} />
+          </div>
+          <div className={estilos.pista} title={`Ajustado: ${pct1(fila.ajustadoShare)}`}>
+            <div
+              className={`${estilos.barra} ${estilos[`barra_${fila.clase}`] ?? ''}`}
+              style={{ width: `${fila.ajustadoShare * 100}%` }}
+            />
+          </div>
+        </div>
+      </summary>
+      <div className={estilos.detalle}>
+        <div className={estilos.lados3}>
+          <div className={estilos.lado}>
+            <span>En la ficha · {usdTabla(fila.hoyUsd)}</span>
+            {fila.hoySub.length > 0 ? (
+              <Subfilas subfilas={fila.hoySub} />
+            ) : (
+              <p className={estilos.vacio}>Hoy no hay nada en esta clase.</p>
+            )}
+          </div>
+          <div className={estilos.lado}>
+            <span>Modelo · {usdTabla(fila.sistemaUsd)}</span>
+            {fila.sistemaSub.length > 0 ? (
+              <Subfilas subfilas={fila.sistemaSub} />
+            ) : (
+              <p className={estilos.vacio}>El modelo no asigna nada acá.</p>
+            )}
+          </div>
+          <div className={estilos.lado}>
+            <span>Ajustado · {usdTabla(fila.ajustadoUsd)}</span>
+            {fila.ajustadoSub.length > 0 ? (
+              <Subfilas subfilas={fila.ajustadoSub} />
+            ) : (
+              <p className={estilos.vacio}>Con los ajustes, esta clase queda en cero.</p>
             )}
           </div>
         </div>

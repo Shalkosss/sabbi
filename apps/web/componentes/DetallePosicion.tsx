@@ -114,6 +114,22 @@ export function DetallePosicion({ posicion, editar }: Props) {
         )}
       </div>
 
+      <label className={`${estilos.fuera} ${editado('esInvertible')}`}>
+        <input
+          type="checkbox"
+          checked={!posicion.esInvertible}
+          onChange={(e) => editar({ esInvertible: !e.target.checked })}
+        />
+        <span>
+          <b>Fuera del cálculo</b>
+          <span className={estilos.aclaracion}>
+            {posicion.esInvertible
+              ? 'la saca del patrimonio invertible: no se reparte ni cuenta en el denominador de los pesos'
+              : `${usd(posicion.valorUsd)} que no entran al patrimonio invertible ni al denominador de los pesos`}
+          </span>
+        </span>
+      </label>
+
       <label className={`${estilos.campo} ${estilos.ancho} ${editado('nota')}`}>
         <span className={estilos.etiqueta}>Nota para la propuesta</span>
         <input

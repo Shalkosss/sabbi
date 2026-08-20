@@ -4,8 +4,9 @@
  *   DBPASS='...' node tools/probar-revision.mjs
  *
  * Repite exactamente los escritos que hace la app — guardar la ficha, corregir
- * una celda, mover un parametro — y despues lee como lee la pantalla, para
- * comprobar que lo que vuelve es lo que se guardo. Comprueba tambien que las
+ * una celda, mover un parametro, agregar un activo al objetivo y clavar una
+ * clase — y despues lee como lee la pantalla, para comprobar que lo que vuelve
+ * es lo que se guardo. Comprueba tambien que las
  * dos restricciones que la app tiene que respetar siguen rechazando lo
  * imposible: un monto a vender mayor que la posicion y un FX en cero.
  *
@@ -277,7 +278,124 @@ try {
     JSON.stringify(bitacora),
   )
 
+  // ── ajustar el objetivo, como guardarActivoAgregado y guardarAjusteDeClase ──
+  const idActivo = randomUUID()
+
+  await comoUsuario(userAna, async () => {
+    // Nace en cero, como cuando el asesor todavia esta escribiendo el nombre.
+    await cliente.query(
+      `insert into proposal_restrictions (id, proposal_id, nombre, monto_usd, clase, created_by)
+       values ($1, $2, '', 0, 'variable', $3)`,
+      [idActivo, idPropuesta, idAna],
+    )
+    // Y el mismo camino lo corrige: la pantalla hace upsert por id.
+    await cliente.query(
+      `insert into proposal_restrictions (id, proposal_id, nombre, monto_usd, clase, created_by)
+       values ($1, $2, 'Acciones MSFT', 30000, 'variable', $3)
+       on conflict (id) do update
+         set nombre = excluded.nombre, monto_usd = excluded.monto_usd, clase = excluded.clase`,
+      [idActivo, idPropuesta, idAna],
+    )
+
+    await cliente.query(
+      `insert into proposal_class_adjustments (proposal_id, clase, modo, monto_usd, created_by)
+       values ($1, 'inm', 'fijar', 60000, $2)`,
+      [idPropuesta, idAna],
+    )
+    // Dos ajustes sobre la misma clase son uno: la PK los funde.
+    await cliente.query(
+      `insert into proposal_class_adjustments (proposal_id, clase, modo, monto_usd, created_by)
+       values ($1, 'inm', 'fijar', 65000, $2)
+       on conflict (proposal_id, clase) do update
+         set modo = excluded.modo, monto_usd = excluded.monto_usd, updated_at = now()`,
+      [idPropuesta, idAna],
+    )
+    await cliente.query(
+      `insert into proposal_class_adjustments (proposal_id, clase, modo, monto_usd, created_by)
+       values ($1, 'cash', 'excluir', 0, $2)`,
+      [idPropuesta, idAna],
+    )
+  })
+
+  const objetivo = await comoUsuario(userAna, async () => {
+    const { rows: agregados } = await cliente.query(
+      `select id, nombre, monto_usd, clase, producto_id
+         from proposal_restrictions where proposal_id = $1 order by orden`,
+      [idPropuesta],
+    )
+    const { rows: ajustes } = await cliente.query(
+      `select clase, modo, monto_usd
+         from proposal_class_adjustments where proposal_id = $1 order by clase`,
+      [idPropuesta],
+    )
+    return { agregados, ajustes }
+  })
+
+  comprobar(
+    'Un activo agregado nace en cero y se corrige por el mismo camino',
+    objetivo.agregados.length === 1 &&
+      objetivo.agregados[0].nombre === 'Acciones MSFT' &&
+      Number(objetivo.agregados[0].monto_usd) === 30000 &&
+      objetivo.agregados[0].clase === 'variable' &&
+      objetivo.agregados[0].producto_id === null,
+    JSON.stringify(objetivo.agregados),
+  )
+
+  comprobar(
+    'Los ajustes por clase vuelven como los dejo el asesor, uno por clase',
+    objetivo.ajustes.length === 2 &&
+      iguales(
+        objetivo.ajustes.map((a) => [a.clase, a.modo, Number(a.monto_usd)]),
+        [
+          ['cash', 'excluir', 0],
+          ['inm', 'fijar', 65000],
+        ],
+      ),
+    JSON.stringify(objetivo.ajustes),
+  )
+
+  const borrados = await comoUsuario(userAna, async () => {
+    const activo = await cliente.query('delete from proposal_restrictions where id = $1', [idActivo])
+    const ajuste = await cliente.query(
+      `delete from proposal_class_adjustments where proposal_id = $1 and clase = 'cash'`,
+      [idPropuesta],
+    )
+    return { activo: activo.rowCount, ajuste: ajuste.rowCount }
+  })
+  comprobar(
+    'Quitar un activo o sacar un ajuste borra su fila',
+    borrados.activo === 1 && borrados.ajuste === 1,
+    JSON.stringify(borrados),
+  )
+
   // ── lo que la base tiene que seguir rechazando ──────────────────────────
+
+  const ajusteAjeno = await rechaza(randomUUID(), () =>
+    cliente.query(
+      `insert into proposal_class_adjustments (proposal_id, clase, modo, monto_usd)
+       values ($1, 'fijo', 'fijar', 1000)`,
+      [idPropuesta],
+    ),
+  )
+  comprobar(
+    'Un ajuste sobre la propuesta de otro asesor sigue rebotando por RLS',
+    ajusteAjeno !== null && /row-level security/.test(ajusteAjeno),
+    ajusteAjeno ?? 'lo acepto',
+  )
+
+  const modoInventado = await rechaza(userAna, () =>
+    cliente.query(
+      `insert into proposal_class_adjustments (proposal_id, clase, modo, monto_usd)
+       values ($1, 'fijo', 'triplicar', 1000)`,
+      [idPropuesta],
+    ),
+  )
+  comprobar(
+    'Un modo que el motor no conoce sigue rebotando',
+    modoInventado !== null && /proposal_class_adjustments_modo_check/.test(modoInventado),
+    modoInventado ?? 'lo acepto',
+  )
+
   const parcialImposible = await rechaza(userAna, () =>
     cliente.query(
       `update ficha_positions set cta = 'venta_parcial', monto_venta_parcial = 999999 where id = $1`,

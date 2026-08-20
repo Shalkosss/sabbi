@@ -174,5 +174,6 @@ export const COLUMNA_DE_CAMPO: Readonly<Record<string, string>> = {
   cta: 'cta',
   montoVentaParcial: 'monto_venta_parcial',
   nota: 'nota',
+  esInvertible: 'es_invertible',
   camposEditados: 'campos_editados',
 }

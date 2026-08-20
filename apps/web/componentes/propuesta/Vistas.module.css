@@ -428,3 +428,52 @@
   text-transform: uppercase;
   color: var(--acento-texto);
 }
+
+/* ── Mirada 3: los dos portafolios ─────────────────────────────────────── */
+
+/* Tres pistas apiladas: ficha, modelo y ajustado. Las tres valen el 100% del
+   portafolio, igual que las dos del comparativo: la proporcion se lee contra
+   el total y nunca contra la vecina. */
+.pistaTriple {
+  margin-top: 9px;
+  display: grid;
+  gap: 3px;
+}
+
+.pistaTriple .pista {
+  margin-top: 0;
+}
+
+/* El modelo va en un tono intermedio: mas presente que la ficha, que es el
+   pasado, y mas callado que el ajustado, que es lo que se propone. */
+.barraSistema {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--tinta-4);
+  opacity: 0.55;
+}
+
+.lados3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 22px;
+}
+
+@media (max-width: 1040px) {
+  .lados3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.marcaFijada {
+  margin-left: 7px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--atencion-texto);
+  background: var(--atencion-suave);
+  border-radius: 999px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}

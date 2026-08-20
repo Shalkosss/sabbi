@@ -45,6 +45,8 @@ const revision = (posiciones: readonly PosicionEditada[]): EstadoRevision => ({
   ignoradas: [],
   modelo: null,
   posiciones,
+  agregados: [],
+  ajustes: [],
   parametros: {
     perfil: 'Moderado',
     necesitaFlujos: false,
@@ -67,8 +69,12 @@ describe('camposTrasEditar', () => {
     expect(camposTrasEditar(previa, { valorUsd: 100_000 })).toBe(previa.camposEditados)
   })
 
+  it('anota sacar la posicion del calculo, que ahora es una decision del asesor', () => {
+    expect(camposTrasEditar(posicion(), { esInvertible: false })).toEqual(['esInvertible'])
+  })
+
   it('no marca campos que el asesor no edita', () => {
-    expect(camposTrasEditar(posicion(), { esInvertible: false })).toEqual([])
+    expect(camposTrasEditar(posicion(), { fila: 99 })).toEqual([])
   })
 
   it('acumula sin repetir', () => {

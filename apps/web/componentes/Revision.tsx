@@ -1,12 +1,19 @@
 'use client'
 
 import { evaluarRevision, posicionesIncompletas } from '@sabbi/core'
-import type { Bloqueo, Cta } from '@sabbi/core'
+import type { AjusteClase, Bloqueo, ClaseModelo, Cta, Restriccion } from '@sabbi/core'
 import { useMemo, useReducer, useState, useTransition } from 'react'
 
-import { calcularPlan, guardarCambioParametros, guardarCambioPosicion } from '../app/acciones'
+import {
+  calcularPlan,
+  guardarCambioActivo,
+  guardarCambioAjuste,
+  guardarCambioParametros,
+  guardarCambioPosicion,
+} from '../app/acciones'
 import type { PlanResumido } from '../app/acciones'
 import { useAutoguardado } from '../lib/autoguardado'
+import type { ProductoOfrecible } from '../lib/catalogo'
 import {
   aRevisadas,
   cambiosDeCta,
@@ -16,6 +23,7 @@ import {
 } from '../lib/estado'
 import type { EstadoRevision, Parametros, PosicionEditada } from '../lib/estado'
 import { plural } from '../lib/formato'
+import { AjustesObjetivo } from './AjustesObjetivo'
 import { Avisos } from './Avisos'
 import { BarraAccion } from './BarraAccion'
 import { BarraParametros } from './BarraParametros'
@@ -26,14 +34,29 @@ import { PanelPlan } from './PanelPlan'
 import { TablaPosiciones } from './TablaPosiciones'
 import estilos from './Revision.module.css'
 
-/** Clave de la cola para el bloque de parámetros. Ninguna posición usa este id. */
+/**
+ * Claves de la cola de autoguardado.
+ *
+ * Las posiciones se encolan por su uuid, así que un prefijo con dos puntos no
+ * puede chocar con ninguna. Borrar viaja por la misma cola que guardar —con la
+ * bandera `eliminado`— y no por una acción aparte: la cola garantiza que no
+ * haya dos envíos de la misma clave en vuelo, y sin esa garantía un borrado
+ * podría llegar antes que el guardado que lo precede.
+ */
 const CLAVE_PARAMETROS = 'parametros'
+const PREFIJO_ACTIVO = 'activo:'
+const PREFIJO_AJUSTE = 'ajuste:'
 
-type Cambio = Partial<PosicionEditada> | Parametros
+type ActivoEnCola = Restriccion & { readonly eliminado: boolean }
+type AjusteEnCola = AjusteClase & { readonly eliminado: boolean }
+
+type Cambio = Partial<PosicionEditada> | Parametros | ActivoEnCola | AjusteEnCola
 
 interface Props {
   readonly inicial: EstadoRevision
   readonly asesor: { readonly nombre: string; readonly rol: string }
+  /** El menú ofrecible, para el desplegable de activos agregados. */
+  readonly productos: readonly ProductoOfrecible[]
 }
 
 /**
@@ -43,7 +66,7 @@ interface Props {
  * de guardar porque nadie lo apretaría. Lo que sí hay es un botón de calcular,
  * porque calcular es una decisión.
  */
-export function Revision({ inicial, asesor }: Props) {
+export function Revision({ inicial, asesor, productos }: Props) {
   const [estado, despacharCrudo] = useReducer(reducir, inicial)
   const [plan, setPlan] = useState<PlanResumido | null>(null)
   // Lo que el servidor rechazó y el gate del navegador no había previsto. Sin
@@ -52,6 +75,14 @@ export function Revision({ inicial, asesor }: Props) {
   const [calculando, calcular] = useTransition()
 
   const { estado: guardado, encolar } = useAutoguardado<Cambio>(async (clave, cambios) => {
+    if (clave.startsWith(PREFIJO_ACTIVO)) {
+      const { eliminado, ...activo } = cambios as ActivoEnCola
+      return guardarCambioActivo(estado.propuestaId, activo, eliminado)
+    }
+    if (clave.startsWith(PREFIJO_AJUSTE)) {
+      const { eliminado, ...ajuste } = cambios as AjusteEnCola
+      return guardarCambioAjuste(estado.propuestaId, ajuste, eliminado)
+    }
     if (clave !== CLAVE_PARAMETROS) {
       return guardarCambioPosicion(clave, cambios as Partial<PosicionEditada>)
     }
@@ -99,7 +130,35 @@ export function Revision({ inicial, asesor }: Props) {
     encolar(CLAVE_PARAMETROS, { ...estado.parametros, ...cambios })
   }
 
-  const { cliente, posiciones, parametros } = estado
+  const cambiarActivo = (activo: Restriccion) => {
+    setPlan(null)
+    setRechazo([])
+    despacharCrudo({ tipo: 'activo', activo })
+    encolar(`${PREFIJO_ACTIVO}${activo.id}`, { ...activo, eliminado: false })
+  }
+
+  const quitarActivo = (id: string) => {
+    const activo = estado.agregados.find((candidato) => candidato.id === id)
+    if (activo === undefined) return
+    setPlan(null)
+    setRechazo([])
+    despacharCrudo({ tipo: 'quitar-activo', id })
+    encolar(`${PREFIJO_ACTIVO}${id}`, { ...activo, eliminado: true })
+  }
+
+  const cambiarAjuste = (clase: ClaseModelo, ajuste: AjusteClase | null) => {
+    setPlan(null)
+    setRechazo([])
+    despacharCrudo({ tipo: 'ajuste', clase, ajuste })
+    encolar(
+      `${PREFIJO_AJUSTE}${clase}`,
+      ajuste === null
+        ? { clase, modo: 'fijar' as const, montoUsd: 0, eliminado: true }
+        : { ...ajuste, eliminado: false },
+    )
+  }
+
+  const { cliente, posiciones, parametros, agregados, ajustes } = estado
 
   const revision = useMemo(
     () =>
@@ -108,8 +167,10 @@ export function Revision({ inicial, asesor }: Props) {
         incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
         colchonLiquidezUsd: parametros.colchonLiquidezUsd,
         ticketMinimoUsd: parametros.ticketMinimoUsd,
+        restricciones: agregados,
+        ajustes,
       }),
-    [posiciones, parametros],
+    [posiciones, parametros, agregados, ajustes],
   )
 
   // La regla de producto: ningún dato vacío pasa en silencio. Es la misma
@@ -144,6 +205,8 @@ export function Revision({ inicial, asesor }: Props) {
         incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
         colchonLiquidezUsd: parametros.colchonLiquidezUsd,
         ticketMinimoUsd: parametros.ticketMinimoUsd,
+        restricciones: agregados,
+        ajustes,
       })
       setPlan(resultado.ok ? resultado.plan : null)
       setRechazo(resultado.ok ? [] : resultado.bloqueos)
@@ -179,6 +242,16 @@ export function Revision({ inicial, asesor }: Props) {
         patrimonioUsd={revision.resumen.patrimonioInvertibleUsd}
         inmueblesRentaUsd={revision.resumen.inmueblesRentaUsd}
         flujoDeclarado={cliente.flujoActual}
+      />
+
+      <AjustesObjetivo
+        agregados={agregados}
+        ajustes={ajustes}
+        productos={productos}
+        patrimonioUsd={revision.resumen.patrimonioInvertibleUsd}
+        cambiarActivo={cambiarActivo}
+        quitarActivo={quitarActivo}
+        cambiarAjuste={cambiarAjuste}
       />
 
       {hayAvisos && (

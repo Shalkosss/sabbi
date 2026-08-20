@@ -1,3 +1,5 @@
+import type { ClaseModelo } from '@sabbi/core'
+
 /**
  * Instrumentos de consolidación.
  *
@@ -10,3 +12,15 @@ export const FALLBACKS = {
   fijo: 'Flip - Panda Zen',
   variable: 'Flip - Cobra achorada',
 } as const
+
+/**
+ * Un producto del menu ofrecible, para el desplegable de "agregar activo".
+ *
+ * Vive de este lado — no en `lib/datos`, que es `server-only` — porque el tipo
+ * lo consume un componente de cliente y arrastrar el modulo de datos hasta el
+ * navegador enveneraria el bundle.
+ */
+export interface ProductoOfrecible {
+  readonly nombre: string
+  readonly clase: ClaseModelo | null
+}

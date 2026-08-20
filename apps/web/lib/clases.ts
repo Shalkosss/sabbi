@@ -3,18 +3,11 @@ import type { ClaseModelo } from '@sabbi/core'
 /**
  * Nombres de las siete clases del motor, para toda la interfaz.
  *
- * Una sola tabla: tres componentes con su propio diccionario fue como Club
- * Deals se llamó de dos maneras distintas en la misma página.
+ * La tabla vive en el motor y se reexporta desde acá: los avisos del motor
+ * también nombran clases, y dos diccionarios en paralelo fue como Club Deals
+ * se llamó de dos maneras distintas en la misma página.
  */
-export const NOMBRE_CLASE: Readonly<Record<ClaseModelo, string>> = {
-  inm: 'Inmobiliario Directo',
-  fijo: 'Mercados Públicos — Renta Fija',
-  variable: 'Mercados Públicos — Renta Variable',
-  privados: 'Mercados Privados',
-  club: 'Club Deals',
-  otros: 'Otros — Oro y BTC',
-  cash: 'Cash',
-}
+export { NOMBRE_CLASE } from '@sabbi/core'
 
 /** Para celdas angostas: chips, selects y columnas de tabla. */
 export const NOMBRE_CLASE_CORTO: Readonly<Record<ClaseModelo, string>> = {

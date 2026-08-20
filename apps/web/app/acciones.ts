@@ -2,13 +2,21 @@
 
 import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import { armarEntradaPlan, generarPlan } from '@sabbi/core'
-import type { Bloqueo, EstadoInstitucional, Perfil, PosicionRevisada } from '@sabbi/core'
+import type {
+  AjusteClase,
+  Bloqueo,
+  EstadoInstitucional,
+  Perfil,
+  PosicionRevisada,
+  Restriccion,
+} from '@sabbi/core'
 import { parsearFicha } from '@sabbi/io'
 import type { FichaParseada } from '@sabbi/io'
 
 import { redirect } from 'next/navigation'
 
 import { FALLBACKS } from '../lib/catalogo'
+import { guardarActivoAgregado, guardarAjusteDeClase } from '../lib/datos/ajustes'
 import { guardarFichaNueva } from '../lib/datos/fichas'
 import { guardarParametros, guardarPosicion } from '../lib/datos/revision'
 import type { Parametros, PosicionEditada } from '../lib/estado'
@@ -75,6 +83,24 @@ export async function guardarCambioParametros(
   return guardarParametros(propuestaId, clienteId, parametros)
 }
 
+/** Autoguardado de un activo agregado al portafolio objetivo. */
+export async function guardarCambioActivo(
+  propuestaId: string,
+  activo: Restriccion,
+  eliminado: boolean,
+): Promise<{ readonly error?: string }> {
+  return guardarActivoAgregado(propuestaId, activo, eliminado)
+}
+
+/** Autoguardado del monto que el asesor clavó en una clase. */
+export async function guardarCambioAjuste(
+  propuestaId: string,
+  ajuste: AjusteClase,
+  eliminado: boolean,
+): Promise<{ readonly error?: string }> {
+  return guardarAjusteDeClase(propuestaId, ajuste, eliminado)
+}
+
 /**
  * Cálculo del plan.
  *
@@ -93,6 +119,7 @@ export interface PlanResumido {
     readonly pisoUsd: number
     readonly dineroNuevoUsd: number
     readonly cerrada: boolean
+    readonly fijada: boolean
   }[]
   readonly lineas: readonly { readonly instrumento: string; readonly clase: string; readonly usd: number }[]
   readonly totalObjetivoUsd: number
@@ -109,6 +136,10 @@ export interface ParametrosCalculo {
   readonly incluirInmueblesDeRenta: boolean
   readonly colchonLiquidezUsd: number
   readonly ticketMinimoUsd: number
+  /** Activos que el asesor sumó al objetivo. Clavan su parte del ticket. */
+  readonly restricciones?: readonly Restriccion[]
+  /** Montos clavados por clase. La única palanca que empuja hacia abajo. */
+  readonly ajustes?: readonly AjusteClase[]
 }
 
 export async function calcularPlan(
@@ -130,6 +161,8 @@ export async function calcularPlan(
     institucional: parametros.institucional,
     incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
     colchonLiquidezUsd: parametros.colchonLiquidezUsd,
+    restricciones: parametros.restricciones ?? [],
+    ajustes: parametros.ajustes ?? [],
   })
 
   if (!derivacion.ok) return { ok: false, bloqueos: derivacion.bloqueos }
@@ -145,6 +178,7 @@ export async function calcularPlan(
         pisoUsd: clase.pisoUsd,
         dineroNuevoUsd: clase.dineroNuevoUsd,
         cerrada: clase.cerrada,
+        fijada: clase.fijada,
       })),
       lineas: plan.lineas.map((linea) => ({
         instrumento: linea.instrumento,

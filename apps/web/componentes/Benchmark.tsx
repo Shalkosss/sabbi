@@ -5,6 +5,7 @@ import { useState } from 'react'
 import type { Matriz, Portafolio } from '../lib/benchmark'
 import { NOMBRE_CLASE, NOMBRE_CLASE_CORTO, ORDEN_CLASES } from '../lib/clases'
 import { pct1, plural, usdCorto, usdTabla } from '../lib/formato'
+import { GraficoBenchmark } from './GraficoBenchmark'
 import estilos from './Benchmark.module.css'
 
 /**
@@ -105,6 +106,8 @@ export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
         <b>{pct1(0.2585)}</b> a Renta Fija; mandarlo al bloque alternativo le deja{' '}
         <b>{pct1(0.1899)}</b>. Casi siete puntos, con el mismo benchmark y el mismo ticket.
       </p>
+
+      <GraficoBenchmark matriz={matriz} />
 
       <table className={estilos.tabla}>
         <thead>

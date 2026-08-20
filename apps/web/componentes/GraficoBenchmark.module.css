@@ -1,0 +1,90 @@
+/*
+ * Los cuatro paneles del benchmark.
+ *
+ * Van arriba de la tabla y no adentro: la tabla es para leer una cifra, el
+ * grafico es para ver la forma, y mezclarlos hace que ninguno de los dos se
+ * lea bien.
+ */
+
+.bloque {
+  margin-bottom: 24px;
+}
+
+.paneles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 10px 20px;
+}
+
+.panel {
+  margin: 0;
+  min-width: 0;
+}
+
+.panel figcaption {
+  font-size: 11.5px;
+  color: var(--tinta-3);
+  text-align: center;
+  padding-bottom: 2px;
+}
+
+.lienzo {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.rejilla {
+  stroke: var(--borde);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.marcaY {
+  fill: var(--tinta-4);
+  font-size: 9px;
+  text-anchor: end;
+}
+
+.marcaX {
+  fill: var(--tinta-2);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+/* El punto se agranda al pasar por encima: es lo que dice que tiene algo que
+   contar, porque el valor esta en su `title`. */
+.punto {
+  stroke: var(--fondo);
+  stroke-width: 1.4;
+  transition: r 100ms ease;
+}
+
+.punto:hover {
+  r: 5.4;
+}
+
+.leyenda {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 20px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--tinta-2);
+}
+
+.leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.muestra {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}

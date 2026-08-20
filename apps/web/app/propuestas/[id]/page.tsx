@@ -1,3 +1,4 @@
+import { LAMINAS_LISTAS } from '@sabbi/export'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -57,13 +58,25 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
       acciones={
         <>
           {/*
-            El deck se arma en el momento, del mismo objeto que pinta esta
-            pantalla. Es un enlace y no un botón con estado: la descarga la
+            Los dos decks se arman en el momento, del mismo objeto que pinta
+            esta pantalla. Son enlaces y no botones con estado: la descarga la
             resuelve el navegador, y una propuesta sin calcular devuelve el
             motivo en texto en vez de un archivo vacío.
+
+            El réplica sale corto —solo las láminas de la plantilla que ya
+            tienen de dónde sacar su dato— y el título del enlace lo dice, para
+            que nadie lo abra esperando las veintidós.
           */}
           <a href={`/propuestas/${cargada.propuestaId}/deck`} className="secundario" download>
             Descargar el deck
+          </a>
+          <a
+            href={`/propuestas/${cargada.propuestaId}/replica`}
+            className="secundario"
+            title={`Formato réplica — por ahora ${LAMINAS_LISTAS.length} de 22 láminas`}
+            download
+          >
+            Deck réplica ({LAMINAS_LISTAS.length}/22)
           </a>
           <Link href={`/fichas/${cargada.revision.fichaId}`} className="secundario">
             Volver a la revisión

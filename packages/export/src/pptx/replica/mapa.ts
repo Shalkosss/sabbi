@@ -348,15 +348,22 @@ export const MAPA: readonly Lamina[] = [
       'excedente pero cuelga de la etiqueta «Liquidez por ingresar».',
     valores: (propuesta) => lamina10(propuesta),
   },
-  ...([11, 12, 13, 14, 15, 16] as const).map(
+  {
+    numero: 11,
+    titulo: 'Patrimonio total, antes y después',
+    estado: 'listo',
+    falta: '',
+    // No se rellena con tokens: se rehace entera clonando las cajas que el
+    // diseño dejó nombradas, una tarjeta por clase. Ver `tarjetas.ts`.
+  },
+  ...([12, 13, 14, 15, 16] as const).map(
     (numero): Lamina => ({
       numero,
-      titulo: `Patrimonio antes y después (${numero - 10} de 6)`,
-      estado: 'filas',
+      titulo: 'Antes y después (página más)',
+      estado: 'paginada',
       falta:
-        'Cada fila es una caja de texto suelta, no una tabla, y hay tantas ranuras como ' +
-        'posiciones tenía el cliente de referencia. Necesita clonar y reposicionar filas, y ' +
-        'la cantidad de láminas depende del cliente.',
+        'Es la lámina 11 otra vez: en la plantilla son seis porque el cliente de referencia ' +
+        'tenía esa cantidad de posiciones. La 11 se pagina sola, así que estas no salen.',
     }),
   ),
   {

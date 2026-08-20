@@ -2,7 +2,9 @@ import { NOMBRE_CLASE } from '@sabbi/core'
 import type { Propuesta } from '@sabbi/core'
 
 import { rangoPct, usd } from '../rediseno/formato.js'
+import { monto, transicion } from './formato.js'
 import type { FilaNueva } from './tabla.js'
+import type { Tarjeta } from './tarjetas.js'
 
 /**
  * El anexo del deck replica: cada instrumento del objetivo, en su fila.
@@ -69,4 +71,30 @@ export function sinEscribir(propuesta: Propuesta): number {
         acc + (linea.descripcion.trim() === '' ? 1 : 0) + (linea.proposito.trim() === '' ? 1 : 0),
       0,
     )
+}
+
+// ── Las tarjetas de "antes y despues" ───────────────────────────────────────
+
+/**
+ * Cada clase del portafolio como una tarjeta de dos columnas.
+ *
+ * La izquierda son las posiciones del cliente con su nombre; la derecha, las
+ * lineas del plan. Lo que se conserva lleva la marca «(se mantiene)», que es
+ * como el deck de referencia lo dice: el cliente tiene que poder encontrar lo
+ * suyo en las dos columnas sin buscar.
+ */
+export function tarjetasDelPortafolio(propuesta: Propuesta): readonly Tarjeta[] {
+  return propuesta.antesYDespues.map(
+    (clase): Tarjeta => ({
+      clase: NOMBRE_CLASE[clase.clase],
+      cambio: transicion(monto(clase.antesUsd), monto(clase.despuesUsd)),
+      antes: clase.antes.map((fila) => ({ nombre: fila.etiqueta, monto: monto(fila.usd) })),
+      despues: clase.despues.map((fila) => ({
+        nombre: fila.conservada ? `${fila.etiqueta} (se mantiene)` : fila.etiqueta,
+        monto: monto(fila.usd),
+      })),
+      subtotalAntes: monto(clase.antesUsd),
+      subtotalDespues: monto(clase.despuesUsd),
+    }),
+  )
 }

@@ -159,8 +159,10 @@ en disco es una copia que envejece sola.
 El **réplica** reproduce el deck de referencia lámina por lámina. Salen todas,
 y las que todavía no tienen de dónde sacar su dato salen con las celdas en
 blanco: un hueco se llena a mano antes de una reunión, una lámina ausente no se
-ve. Hoy hay cinco completas —la portada, las tres estáticas y el anexo, que se
-pagina solo— y el resto espera lo que dice el mapa.
+ve. Hoy hay ocho completas: la portada, las tres estáticas, el anexo, el antes y
+después producto por producto, qué cambia y la rentabilidad. Las tres últimas
+se paginan solas — tantas láminas como el cliente necesite. El resto espera lo
+que dice el mapa, y son las que el flujo de n8n ya arma por su cuenta.
 
 Una advertencia sobre las que salen en blanco: el texto se vacía, pero lo que
 está **dibujado** no. La lámina 4 conserva las barras del cliente de referencia
@@ -232,10 +234,9 @@ npm run revisar-deck    # el inventario, lámina por lámina
 
   | Estado | Láminas | Qué necesita |
   |---|---|---|
-  | lista | 5 | nada, ya salen |
-  | decisión | 7 | una decisión de la mesa, no un programador |
-  | paginada | 2 | nada: son páginas del anexo, que se pagina solo |
-  | filas | 6 | ver abajo |
+  | lista | 8 | nada, ya salen |
+  | paginada | 7 | nada: son páginas del anexo o del antes y después |
+  | decision | 5 | una decisión de la mesa, no un programador |
   | geometría | 1 | redibujar barras y línea |
   | parcial | 1 | dos tercios salen; el resto es texto redactado |
 
@@ -246,9 +247,13 @@ npm run revisar-deck    # el inventario, lámina por lámina
   del catálogo, y descripción y propósito los escribe el asesor en la propuesta
   —son las dos que ningún dato puede llenar—.
 
-  Las seis de "filas" que quedan (11 a 16) no son tablas sino cajas de texto
-  sueltas en una grilla, y ahí hay que duplicar y reposicionar cajas una por
-  una.
+  Las de "antes y después" tampoco son tablas sino cajas de texto sueltas en
+  una grilla, y ahí el clonado va por otro camino: quien dibujó el deck les
+  puso nombre —`Row Nombre`, `Card Header Cambio`, `Subtotal A Val`— y ese
+  nombre viaja en el XML, así que cada forma se puede encontrar y usar de molde.
+  La geometría de la tarjeta está medida sobre el deck que Sabbi entrega, no
+  aproximada: una tarjeta de una fila mide 1,524,000 EMU y cada fila de más
+  suma 342,900.
 
   Las siete de "decisión" son las que bloquean de verdad, y las tres preguntas
   son: qué determina el arquetipo del cliente y quién escribe su párrafo; cómo

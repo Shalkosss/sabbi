@@ -256,7 +256,12 @@ export interface LineaCompra {
 
 // --- La propuesta entera ---
 
-import type { VistaComparativa, VistaDosPortafolios, VistaHoy } from './vistas.js'
+import type {
+  ClaseAntesDespues,
+  VistaComparativa,
+  VistaDosPortafolios,
+  VistaHoy,
+} from './vistas.js'
 
 export interface Propuesta {
   /** Vista 1: el portafolio de hoy, por clase y subclase, con su rentabilidad. */
@@ -307,6 +312,13 @@ export interface Propuesta {
    * que comparar, hay uno.
    */
   readonly dosPortafolios: VistaDosPortafolios | null
+  /**
+   * El antes y el despues de cada clase, posicion por posicion.
+   *
+   * Es la vista que el deck pone lado a lado: a la izquierda lo que el cliente
+   * tiene con su nombre, a la derecha lo que el plan propone.
+   */
+  readonly antesYDespues: readonly ClaseAntesDespues[]
   /** Avisos del motor mas los que nacen de armar la propuesta. */
   readonly avisos: readonly string[]
 }

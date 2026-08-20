@@ -2,11 +2,12 @@ import { strFromU8, unzipSync } from 'fflate'
 
 import type { Propuesta } from '@sabbi/core'
 
-import { CABECERA, filasDelAnexo } from './anexo.js'
+import { CABECERA, filasDelAnexo, tarjetasDelPortafolio } from './anexo.js'
 import { LAMINAS_TODAS, MAPA, valoresDe } from './mapa.js'
 import { renderizarReplica } from './plantilla.js'
 import type { ResultadoReplica } from './plantilla.js'
 import { ajustarMarco, altoDelMarco, altosDe, paginarFilas, rehacerTabla } from './tabla.js'
+import { escribirTarjetas, moldesDe, paginarTarjetas } from './tarjetas.js'
 
 /**
  * El deck replica.
@@ -33,6 +34,15 @@ import { ajustarMarco, altoDelMarco, altosDe, paginarFilas, rehacerTabla } from 
 
 /** La lamina de la plantilla que dibuja el anexo. Las 21 y 22 son sus paginas. */
 const LAMINA_ANEXO = 20
+
+/**
+ * La lamina que dibuja el "antes y despues". Las 12 a la 16 son sus paginas.
+ *
+ * De la 16 se toma prestado un molde que la 11 no tiene: el guion que se
+ * dibuja cuando una clase no tenia nada antes y nace del plan.
+ */
+const LAMINA_ANTES_DESPUES = 11
+const LAMINA_CON_VACIO = 16
 
 export interface OpcionesDeckReplica {
   /** La fecha de la portada. Llega de afuera: el motor no mira el reloj. */
@@ -65,19 +75,48 @@ export function armarDeckReplica(
       })
     : []
 
+  // El "antes y despues" es lo mismo pero con tarjetas en vez de filas: una por
+  // clase, apiladas hasta que no entran y siguen en la lamina siguiente.
+  const partes = unzipSync(plantilla)
+  const leer = (n: number) => strFromU8(partes[`ppt/slides/slide${n}.xml`] ?? new Uint8Array())
+  const moldes = moldesDe(leer(LAMINA_ANTES_DESPUES), leer(LAMINA_CON_VACIO))
+
+  const tarjetas = pedidas.includes(LAMINA_ANTES_DESPUES)
+    ? paginarTarjetas(tarjetasDelPortafolio(propuesta))
+    : []
+
+  const repeticiones = (numero: number): number => {
+    if (numero === LAMINA_ANEXO) return paginas.length
+    if (numero === LAMINA_ANTES_DESPUES) return tarjetas.length
+    return 1
+  }
+
   const laminas = pedidas.flatMap((numero) =>
-    numero === LAMINA_ANEXO ? paginas.map(() => numero) : [numero],
+    Array.from({ length: Math.max(1, repeticiones(numero)) }, () => numero),
   )
 
   return renderizarReplica(plantilla, valoresDe(propuesta, opciones.fecha, laminas), {
     laminas,
     transformar: (numero, xml, ocurrencia) => {
-      if (numero !== LAMINA_ANEXO) return xml
-      const pagina = paginas[ocurrencia]
-      if (pagina === undefined) return xml
+      if (numero === LAMINA_ANEXO) {
+        const pagina = paginas[ocurrencia]
+        if (pagina === undefined) return xml
+        const { xml: conFilas, altoEmu } = rehacerTabla(xml, pagina)
+        return ajustarMarco(conFilas, altoEmu)
+      }
 
-      const { xml: conFilas, altoEmu } = rehacerTabla(xml, pagina)
-      return ajustarMarco(conFilas, altoEmu)
+      if (numero === LAMINA_ANTES_DESPUES) {
+        const pagina = tarjetas[ocurrencia]
+        if (pagina === undefined || moldes === null) return xml
+        const de = tarjetas.length === 1 ? '' : ` (lámina ${ocurrencia + 1} de ${tarjetas.length})`
+
+        return escribirTarjetas(xml, moldes, pagina, {
+          texto: `Patrimonio total, antes y después${de}`,
+          bajada: 'Producto por producto, qué se mantiene y qué se cambia.',
+        })
+      }
+
+      return xml
     },
   })
 }

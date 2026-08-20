@@ -458,3 +458,73 @@ export function armarDosPortafolios(
     movidoUsd,
   }
 }
+
+// --- Vista 4: antes y despues, producto por producto ---
+
+/** Una linea de la comparacion detallada: un producto con su monto. */
+export interface FilaAntesDespues {
+  readonly etiqueta: string
+  readonly usd: number
+  /** Solo en el despues: el cliente ya la tenia y se conserva. */
+  readonly conservada: boolean
+}
+
+export interface ClaseAntesDespues {
+  readonly clase: ClaseModelo
+  readonly antesUsd: number
+  readonly despuesUsd: number
+  readonly antes: readonly FilaAntesDespues[]
+  readonly despues: readonly FilaAntesDespues[]
+}
+
+/**
+ * El antes y el despues de cada clase, posicion por posicion.
+ *
+ * Distinta de la comparativa en un punto que importa: el "antes" son las
+ * posiciones del cliente con su nombre —«Cuenta ahorros BCP»— y no las
+ * subclases agrupadas. Es la vista que el deck pone lado a lado para que el
+ * cliente reconozca lo suyo en la columna de la izquierda; agrupar por asset
+ * class ahi lo obligaria a adivinar cual de sus cuentas es cual.
+ *
+ * El "despues" son las lineas del plan, que es lo que el motor imprime.
+ */
+export function armarAntesYDespues(
+  posiciones: readonly PosicionPropuesta[],
+  plan: Plan,
+  incluirInmueblesDeRenta = true,
+): readonly ClaseAntesDespues[] {
+  const cuentan = cuentanEnElCalculo(posiciones, incluirInmueblesDeRenta)
+  const conservadas = lineasConservadas(posiciones)
+
+  return ORDEN_CLASES.flatMap((clase): ClaseAntesDespues[] => {
+    const antes = cuentan
+      .filter((p) => p.claseModelo === clase && p.valorUsd > EPS)
+      .map((p): FilaAntesDespues => ({
+        etiqueta: p.institucionProducto,
+        usd: p.valorUsd,
+        conservada: false,
+      }))
+      .sort((a, b) => b.usd - a.usd)
+
+    const despues = plan.lineas
+      .filter((l) => l.clase === clase && l.usd > EPS)
+      .map((l): FilaAntesDespues => ({
+        etiqueta: l.instrumento,
+        usd: l.usd,
+        conservada: conservadas.has(l.instrumento),
+      }))
+      .sort((a, b) => b.usd - a.usd)
+
+    if (antes.length === 0 && despues.length === 0) return []
+
+    return [
+      {
+        clase,
+        antesUsd: antes.reduce((acc, f) => acc + f.usd, 0),
+        despuesUsd: despues.reduce((acc, f) => acc + f.usd, 0),
+        antes,
+        despues,
+      },
+    ]
+  })
+}

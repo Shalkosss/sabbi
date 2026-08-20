@@ -24,6 +24,7 @@ import {
 } from './objetivo.js'
 import type { DatosProducto, EntradaPropuesta, Propuesta } from './tipos.js'
 import {
+  armarAntesYDespues,
   armarComparativa,
   armarDosPortafolios,
   armarVistaHoy,
@@ -84,6 +85,7 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
     cliente,
     vistaHoy: armarVistaHoy(posiciones, incluirInmueblesDeRenta),
     comparativa: armarComparativa(posiciones, plan, catalogo, incluirInmueblesDeRenta),
+    antesYDespues: armarAntesYDespues(posiciones, plan, incluirInmueblesDeRenta),
     dosPortafolios:
       planSistema === null
         ? null
@@ -121,12 +123,15 @@ export * from './tipos.js'
 export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './foto.js'
 export {
   armarVistaHoy,
+  armarAntesYDespues,
   armarComparativa,
   armarDosPortafolios,
   cuentanEnElCalculo,
   SUBCLASE_SIN_DATO,
 } from './vistas.js'
 export type {
+  ClaseAntesDespues,
+  FilaAntesDespues,
   FilaComparativa,
   FilaDosPortafolios,
   FilaVistaClase,

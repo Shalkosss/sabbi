@@ -64,12 +64,15 @@ export { decisionInicial } from './decision.js'
 export type { PosicionDecidible } from './decision.js'
 export {
   armarVistaHoy,
+  armarAntesYDespues,
   armarComparativa,
   armarDosPortafolios,
   cuentanEnElCalculo,
   SUBCLASE_SIN_DATO,
 } from './propuesta/vistas.js'
 export type {
+  ClaseAntesDespues,
+  FilaAntesDespues,
   FilaComparativa,
   FilaDosPortafolios,
   FilaVistaClase,

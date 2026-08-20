@@ -1,5 +1,7 @@
 import type { Propuesta } from '@sabbi/core'
 
+import { fecha, monto, pct } from './formato.js'
+
 /**
  * De donde sale el dato de cada lamina del deck replica.
  *
@@ -57,16 +59,88 @@ export interface Lamina {
   /** Que falta, en una linea. Vacio cuando el estado es `listo`. */
   readonly falta: string
   /** Los valores de sus tokens. Solo las laminas `listo` la traen. */
-  readonly valores?: (propuesta: Propuesta, fecha: Date) => ReadonlyMap<string, string>
+  readonly valores?: (propuesta: Propuesta, emitido: Date) => ReadonlyMap<string, string>
 }
 
-const corta = (fecha: Date): string =>
-  new Intl.DateTimeFormat('es-PE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'America/Lima',
-  }).format(fecha)
+/** Cuantas clases entran en el grafico de barras de la lamina 4. */
+const CLASES_EN_GRAFICO = 6
+
+/** Filas de venta y de compra que la lamina 10 dibuja. Son fijas en el diseno. */
+const FILAS_EN_PLAN = 3
+
+/**
+ * "Asi esta parado tu dinero hoy": los totales y la distribucion de hoy.
+ *
+ * `Patrimonio total` suma lo financiero y lo de uso propio — es el patrimonio
+ * del cliente, no su portafolio. `Invertido` es solo la seccion 1, que es sobre
+ * lo que el motor decide.
+ *
+ * Los tokens `pct7` a `pct12` son la segunda serie del grafico, la del
+ * portafolio objetivo, y quedan sin mapear a proposito: la seccion 3 clasifica
+ * por `assetClass` y la seccion 6 por `ClaseModelo`, que son taxonomias
+ * distintas. Cruzarlas a ojo daria un grafico que no cuadra con la lamina del
+ * portafolio objetivo.
+ */
+function lamina4(propuesta: Propuesta): ReadonlyMap<string, string> {
+  const invertido = propuesta.seccion1.totalUsd
+  const usoPropio = propuesta.seccion2.totalUsd
+
+  const valores = new Map<string, string>([
+    ['s04.monto', monto(invertido + usoPropio)],
+    ['s04.monto2', monto(invertido)],
+    ['s04.nombre', propuesta.cliente.perfil],
+  ])
+
+  const clases = [...propuesta.seccion3.filas]
+    .sort((a, b) => b.valorUsd - a.valorUsd)
+    .slice(0, CLASES_EN_GRAFICO)
+
+  clases.forEach((fila, i) => {
+    // La plantilla numera las etiquetas desde `nombre3` y los porcentajes desde
+    // `pct` sin sufijo.
+    valores.set(`s04.nombre${i + 3}`, fila.assetClass)
+    valores.set(i === 0 ? 's04.pct' : `s04.pct${i + 1}`, pct(fila.share))
+  })
+
+  return valores
+}
+
+/**
+ * "Tu plan: que mover, cuanto y a donde". El blotter, resumido.
+ *
+ * La lamina tiene tres filas por lado y el blotter trae las que trae, asi que
+ * se muestran las mayores por monto. No es una lista completa y no pretende
+ * serlo: el detalle instrumento por instrumento es el anexo.
+ *
+ * Quedan sin mapear `pct4` a `pct6` —una segunda cifra por fila que podria ser
+ * retorno esperado o peso sobre el total, y el diseno no lo aclara— y `conteo`,
+ * que por su formato («y N mas») parece un contador de excedente pero cuelga de
+ * la etiqueta «Liquidez por ingresar».
+ */
+function lamina10(propuesta: Propuesta): ReadonlyMap<string, string> {
+  const { ventas, compras, totalVentasUsd, totalComprasUsd } = propuesta.seccion7
+
+  const valores = new Map<string, string>([['s10.monto', monto(totalVentasUsd)]])
+
+  const mayores = <T extends { readonly usd: number }>(lineas: readonly T[]) =>
+    [...lineas].sort((a, b) => b.usd - a.usd).slice(0, FILAS_EN_PLAN)
+
+  // Los montos de venta van en la columna derecha del bloque: 2, 4 y 6.
+  mayores(ventas).forEach((linea, i) => {
+    valores.set(i === 0 ? 's10.nombre' : `s10.nombre${i + 1}`, linea.instrumento)
+    valores.set(`s10.monto${2 * i + 2}`, monto(linea.usd))
+  })
+
+  mayores(compras).forEach((linea, i) => {
+    valores.set(`s10.nombre${i + 5}`, linea.instrumento)
+    valores.set(`s10.monto${i + 7}`, monto(linea.usd))
+    if (totalComprasUsd > 0) {
+      valores.set(i === 0 ? 's10.pct' : `s10.pct${i + 1}`, pct(linea.usd / totalComprasUsd))
+    }
+  })
+
+  return valores
+}
 
 export const MAPA: readonly Lamina[] = [
   {
@@ -74,10 +148,10 @@ export const MAPA: readonly Lamina[] = [
     titulo: 'Portada',
     estado: 'listo',
     falta: '',
-    valores: (propuesta, fecha) =>
+    valores: (propuesta, emitido) =>
       new Map([
         ['s01.nombre', propuesta.cliente.nombre],
-        ['s01.fecha', corta(fecha)],
+        ['s01.fecha', fecha(emitido)],
       ]),
   },
   { numero: 2, titulo: 'Separador', estado: 'listo', falta: '' },
@@ -94,9 +168,13 @@ export const MAPA: readonly Lamina[] = [
     titulo: 'Así está parado tu dinero hoy',
     estado: 'geometria',
     falta:
-      'Las barras y la línea son formas dibujadas, no un gráfico. Hay que recalcular el alto y ' +
-      'la posición de doce elementos. Falta además decidir si la serie clara es el benchmark ' +
-      'del perfil o el portafolio que se propone: en el deck de referencia coinciden.',
+      'Los totales, el perfil y las seis asset class con su porcentaje ya salen. Lo que no ' +
+      'sale son las barras: son formas dibujadas, no un gráfico, así que conservan el alto ' +
+      'del cliente de referencia y no coinciden con los números que ahora tienen encima. ' +
+      'Hay que recalcular alto y posición de doce elementos. La segunda serie —el objetivo— ' +
+      'queda sin mapear a propósito: la sección 3 clasifica por asset class y la 6 por clase ' +
+      'del modelo, y cruzarlas a ojo daría un gráfico que no cuadra con la lámina del objetivo.',
+    valores: (propuesta) => lamina4(propuesta),
   },
   {
     numero: 5,
@@ -140,10 +218,13 @@ export const MAPA: readonly Lamina[] = [
   {
     numero: 10,
     titulo: 'De dónde sale y a dónde va',
-    estado: 'decision',
+    estado: 'parcial',
     falta:
-      'El blotter agrupado. El dato está en la sección 7; falta el criterio de agrupación y ' +
-      'el corte del «y N más».',
+      'Las tres ventas y las tres compras mayores ya salen, con el total de lo que se libera. ' +
+      'Quedan sin mapear una segunda cifra por fila —el diseño no aclara si es retorno ' +
+      'esperado o peso sobre el total— y el contador de «y N más», que por formato parece ' +
+      'excedente pero cuelga de la etiqueta «Liquidez por ingresar».',
+    valores: (propuesta) => lamina10(propuesta),
   },
   ...([11, 12, 13, 14, 15, 16] as const).map(
     (numero): Lamina => ({

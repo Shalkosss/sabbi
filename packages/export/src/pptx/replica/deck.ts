@@ -3,18 +3,22 @@ import { strFromU8, unzipSync } from 'fflate'
 import type { Propuesta } from '@sabbi/core'
 
 import { CABECERA, filasDelAnexo } from './anexo.js'
-import { LAMINAS_LISTAS, MAPA, valoresDe } from './mapa.js'
+import { LAMINAS_TODAS, MAPA, valoresDe } from './mapa.js'
 import { renderizarReplica } from './plantilla.js'
 import type { ResultadoReplica } from './plantilla.js'
 import { ajustarMarco, altoDelMarco, altosDe, paginarFilas, rehacerTabla } from './tabla.js'
 
 /**
- * El deck replica, con las laminas que hoy tienen de donde sacar su dato.
+ * El deck replica.
  *
- * Sale corto a proposito. La plantilla trae 22 laminas y el mapa dice, una por
- * una, que le falta a cada una; las que no estan resueltas no se imprimen a
- * medias. Cuando una consiga su fuente se cambia su estado en el mapa y aparece
- * aca sin tocar nada mas.
+ * Salen todas las laminas, y las que todavia no tienen de donde sacar su dato salen con
+ * las celdas en blanco. Es lo que pidio la mesa y tiene sentido: un hueco dice
+ * que falta algo y se puede llenar a mano antes de la reunion; una lamina que
+ * no esta no dice nada. `sinFuente` devuelve exactamente que quedo vacio, y
+ * `npm run revisar-deck` dice por que.
+ *
+ * El mapa manda sobre cada lamina. Cuando una consigue su fuente se cambia su
+ * estado ahi y deja de salir en blanco, sin tocar nada mas.
  *
  * El anexo es la excepcion a esa cuenta: en la plantilla son tres laminas —la
  * 20, la 21 y la 22— porque el cliente de referencia tenia esa cantidad de
@@ -34,8 +38,10 @@ export interface OpcionesDeckReplica {
   /** La fecha de la portada. Llega de afuera: el motor no mira el reloj. */
   readonly fecha: Date
   /**
-   * Laminas a forzar, por si alguien quiere ver una que el mapa todavia no da
-   * por lista. Sus tokens sin fuente salen en blanco y en `sinFuente`.
+   * Que laminas sacar. Por defecto, todas menos las paginas del anexo.
+   *
+   * Sirve para pedir un deck corto — solo las que estan completas — o una sola
+   * lamina para mirarla.
    */
   readonly laminas?: readonly number[]
 }
@@ -45,7 +51,7 @@ export function armarDeckReplica(
   propuesta: Propuesta,
   opciones: OpcionesDeckReplica,
 ): ResultadoReplica {
-  const pedidas = opciones.laminas ?? LAMINAS_LISTAS
+  const pedidas = opciones.laminas ?? LAMINAS_TODAS
 
   // El anexo no se pagina a ojo: se mide contra el alto que el diseno le
   // reservo a la tabla en la lamina, que es lo unico que decide si entra.

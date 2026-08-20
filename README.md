@@ -156,8 +156,17 @@ el blotter y las notas del cálculo. No hay una segunda implementación de ningu
 suma. Se descarga desde la propuesta y se genera en el momento: un deck guardado
 en disco es una copia que envejece sola.
 
-El **réplica** reproduce el deck de referencia lámina por lámina. Hoy salen 5
-de sus 22: la portada, las tres estáticas y el anexo, que se pagina solo. La maquinaria está hecha —sustituye
+El **réplica** reproduce el deck de referencia lámina por lámina. Salen todas,
+y las que todavía no tienen de dónde sacar su dato salen con las celdas en
+blanco: un hueco se llena a mano antes de una reunión, una lámina ausente no se
+ve. Hoy hay cinco completas —la portada, las tres estáticas y el anexo, que se
+pagina solo— y el resto espera lo que dice el mapa.
+
+Una advertencia sobre las que salen en blanco: el texto se vacía, pero lo que
+está **dibujado** no. La lámina 4 conserva las barras del cliente de referencia
+porque son formas con su alto en el XML, no un gráfico con datos detrás. Sin la
+etiqueta encima no dice una cifra falsa, pero la proporción que muestra no es la
+del cliente que se está atendiendo. La maquinaria está hecha —sustituye
 tokens, rehace una tabla con tantas filas como el cliente tenga, reparte las
 filas en varias láminas duplicando la que haga falta, y devuelve los tokens que
 ninguna fuente resolvió en vez de imprimir un `{{token}}` delante de un

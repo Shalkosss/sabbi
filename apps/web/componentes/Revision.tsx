@@ -26,6 +26,7 @@ import { plural } from '../lib/formato'
 import { AjustesObjetivo } from './AjustesObjetivo'
 import { Avisos } from './Avisos'
 import { BarraAccion } from './BarraAccion'
+import type { Salida } from './BarraAccion'
 import { BarraParametros } from './BarraParametros'
 import { Cabecera } from './Cabecera'
 import { Guardado } from './Guardado'
@@ -213,11 +214,31 @@ export function Revision({ inicial, asesor, productos }: Props) {
     })
   }
 
+  const sinPropuesta = estado.propuestaId === ''
+
   const nota = bloqueado
     ? 'Resolvé lo de arriba para poder calcular.'
-    : revision.resumen.sinMarcar > 0
-      ? `Quedan ${plural(revision.resumen.sinMarcar, 'posición sin marcar', 'posiciones sin marcar')}: se calculan como conservadas.`
-      : 'Todo listo. El cálculo corre en el servidor: los pesos del modelo no salen de ahí.'
+    : plan !== null
+      ? sinPropuesta
+        ? 'El plan está calculado, pero esta ficha no tiene una propuesta abierta: volvé a subirla para poder verla y descargar los decks.'
+        : 'El plan está calculado. Seguí a la propuesta para verlo entero y bajar los decks.'
+      : revision.resumen.sinMarcar > 0
+        ? `Quedan ${plural(revision.resumen.sinMarcar, 'posición sin marcar', 'posiciones sin marcar')}: se calculan como conservadas.`
+        : 'Todo listo. El cálculo corre en el servidor: los pesos del modelo no salen de ahí.'
+
+  // Una vez que hay plan, la barra deja de ser un botón y pasa a ser la salida
+  // de la pantalla: es donde el asesor está mirando cuando termina de calcular.
+  const salidas: readonly Salida[] =
+    plan === null || sinPropuesta
+      ? []
+      : [
+          {
+            href: `/propuestas/${estado.propuestaId}/deck`,
+            texto: 'Descargar el deck',
+            descarga: true,
+          },
+          { href: `/propuestas/${estado.propuestaId}`, texto: 'Ver la propuesta →' },
+        ]
 
   return (
     <Marco
@@ -281,9 +302,10 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
       <BarraAccion
         nota={nota}
-        texto={calculando ? 'Calculando…' : 'Calcular el plan'}
+        texto={calculando ? 'Calculando…' : plan === null ? 'Calcular el plan' : 'Recalcular'}
         deshabilitado={bloqueado || calculando}
         alApretar={alCalcular}
+        salidas={salidas}
       />
     </Marco>
   )

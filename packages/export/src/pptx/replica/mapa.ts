@@ -38,7 +38,12 @@ export type EstadoLamina =
   | 'paginada'
   /** Falta una decision de negocio antes de poder escribir el mapeo. */
   | 'decision'
-  /** El dato existe, pero la lamina hay que redibujarla, no rellenarla. */
+  /**
+   * El dato existe, pero la lamina hay que redibujarla, no rellenarla.
+   *
+   * Ojo con estas cuando salen en blanco: el texto se vacia, pero lo dibujado
+   * no. La lamina conserva las formas del cliente de referencia.
+   */
   | 'geometria'
   /** Necesita tantas filas como posiciones tenga el cliente. */
   | 'filas'
@@ -186,6 +191,23 @@ export const MAPA: readonly Lamina[] = [
 export const LAMINAS_LISTAS: readonly number[] = MAPA.filter((l) => l.estado === 'listo').map(
   (l) => l.numero,
 )
+
+/**
+ * El deck entero, salvo las paginas del anexo.
+ *
+ * Es lo que sale por defecto: la mesa prefiere ver la lamina con sus celdas en
+ * blanco antes que no verla. Un hueco dice que falta algo; una lamina ausente
+ * no dice nada. Las paginadas quedan afuera igual porque no son laminas
+ * propias sino copias de la 20, que se duplica sola segun haga falta.
+ */
+export const LAMINAS_TODAS: readonly number[] = MAPA.filter(
+  (l) => l.estado !== 'paginada',
+).map((l) => l.numero)
+
+/** Las que van a salir con algo en blanco. Para poder decirlo antes de bajarlas. */
+export const LAMINAS_INCOMPLETAS: readonly number[] = MAPA.filter(
+  (l) => l.estado !== 'paginada' && l.estado !== 'listo',
+).map((l) => l.numero)
 
 /** Todos los valores que el mapa sabe producir, en una sola tabla. */
 export function valoresDe(

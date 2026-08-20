@@ -5,7 +5,7 @@ import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 
 import { armarDeckReplica } from '../pptx/replica/deck.js'
-import { LAMINAS_LISTAS, MAPA } from '../pptx/replica/mapa.js'
+import { LAMINAS_LISTAS, LAMINAS_TODAS, MAPA } from '../pptx/replica/mapa.js'
 import { laminasDe, renderizarReplica, tokensDe } from '../pptx/replica/plantilla.js'
 import { propuestaDeEjemplo } from './propuesta-de-ejemplo.js'
 
@@ -185,14 +185,32 @@ describe('el mapa de la fase 6', () => {
     }
   })
 
-  it('el deck sale sin un solo token pendiente', () => {
-    const { bytes, laminas, sinFuente } = armarDeckReplica(PLANTILLA, propuesta, { fecha: FECHA })
+  it('pidiendo solo las listas, sale sin un token pendiente', () => {
+    const { bytes, laminas, sinFuente } = armarDeckReplica(PLANTILLA, propuesta, {
+      fecha: FECHA,
+      laminas: LAMINAS_LISTAS,
+    })
 
     expect(sinFuente).toEqual([])
     expect([...new Set(laminas)].sort((a, b) => a - b)).toEqual([...LAMINAS_LISTAS])
     expect(strFromU8(unzipSync(bytes)['ppt/slides/slide1.xml'] ?? new Uint8Array())).toContain(
       propuesta.cliente.nombre,
     )
+  })
+
+  it('por defecto salen todas, y las que faltan salen en blanco', () => {
+    // La mesa prefiere la lamina con huecos antes que no tenerla: un hueco se
+    // llena a mano, una lamina ausente no se ve.
+    const { bytes, laminas, sinFuente } = armarDeckReplica(PLANTILLA, propuesta, { fecha: FECHA })
+
+    expect([...new Set(laminas)].sort((a, b) => a - b)).toEqual([...LAMINAS_TODAS])
+    expect(sinFuente.length).toBeGreaterThan(0)
+
+    // En blanco de verdad: ni un `{{token}}` impreso en ninguna lamina.
+    for (const [ruta, contenido] of Object.entries(unzipSync(bytes))) {
+      if (!/^ppt\/slides\/slide\d+\.xml$/.test(ruta)) continue
+      expect(strFromU8(contenido), ruta).not.toContain('{{')
+    }
   })
 
   describe('el anexo', () => {

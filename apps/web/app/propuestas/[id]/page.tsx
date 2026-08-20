@@ -1,4 +1,4 @@
-import { LAMINAS_LISTAS } from '@sabbi/export'
+import { LAMINAS_INCOMPLETAS, LAMINAS_TODAS } from '@sabbi/export'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -66,9 +66,10 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
             resuelve el navegador, y una propuesta sin calcular devuelve el
             motivo en texto en vez de un archivo vacío.
 
-            El réplica sale corto —solo las láminas de la plantilla que ya
-            tienen de dónde sacar su dato— y el título del enlace lo dice, para
-            que nadie lo abra esperando las veintidós.
+            El réplica sale entero, y las láminas que todavía no tienen de
+            dónde sacar su dato salen con las celdas en blanco: un hueco se
+            llena a mano antes de la reunión, una lámina ausente no se ve. El
+            título del enlace dice cuántas van así.
           */}
           <a href={`/propuestas/${cargada.propuestaId}/deck`} className="secundario" download>
             Descargar el deck
@@ -76,10 +77,10 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
           <a
             href={`/propuestas/${cargada.propuestaId}/replica`}
             className="secundario"
-            title={`Formato réplica — por ahora ${LAMINAS_LISTAS.length} de 22 láminas`}
+            title={`Formato réplica — ${LAMINAS_TODAS.length} láminas, ${LAMINAS_INCOMPLETAS.length} todavía con celdas en blanco`}
             download
           >
-            Deck réplica ({LAMINAS_LISTAS.length}/22)
+            Deck réplica
           </a>
           <Link href={`/fichas/${cargada.revision.fichaId}`} className="secundario">
             Volver a la revisión

@@ -30,10 +30,19 @@ export function PanelPlan({ plan, propuestaId }: Props) {
         <p className={estilos.subtitulo}>
           {usd(total)} en total · {usd(plan.dineroNuevoUsd)} a ejecutar
         </p>
-        {propuestaId !== '' && (
-          <Link href={`/propuestas/${propuestaId}`} className={`secundario ${estilos.enlace}`}>
-            Ver la propuesta entera
-          </Link>
+        {propuestaId === '' ? (
+          <span className={`${estilos.enlace} ${estilos.sinPropuesta}`}>
+            Esta ficha no tiene una propuesta abierta: volvé a subirla.
+          </span>
+        ) : (
+          <div className={estilos.enlace}>
+            <a href={`/propuestas/${propuestaId}/deck`} className="secundario" download>
+              Descargar el deck
+            </a>
+            <Link href={`/propuestas/${propuestaId}`} className="primario">
+              Ver la propuesta →
+            </Link>
+          </div>
         )}
       </header>
 

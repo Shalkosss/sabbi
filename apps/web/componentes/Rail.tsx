@@ -9,7 +9,13 @@ interface Props {
   readonly activo: Seccion
 }
 
-export type Seccion = 'fichas' | 'propuestas' | 'clientes' | 'catalogo' | 'bitacora'
+export type Seccion =
+  | 'fichas'
+  | 'propuestas'
+  | 'clientes'
+  | 'catalogo'
+  | 'benchmark'
+  | 'bitacora'
 
 interface Item {
   readonly clave: Seccion
@@ -29,6 +35,13 @@ const SECCIONES: readonly Item[] = [
     ruta: null,
   },
   { clave: 'catalogo', texto: 'Catálogo', icono: 'M2 3h5v10H2zm7 0h5v10H9z', ruta: '/catalogo' },
+  {
+    clave: 'benchmark',
+    texto: 'Benchmark',
+    // Tres barras de distinto alto: el modelo mirado de lejos.
+    icono: 'M3 13V9m5 4V4m5 9v-6',
+    ruta: '/benchmark',
+  },
   { clave: 'bitacora', texto: 'Bitácora', icono: 'M8 4v4l3 2M8 14A6 6 0 108 2a6 6 0 000 12z', ruta: null },
 ]
 

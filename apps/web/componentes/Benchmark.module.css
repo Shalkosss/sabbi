@@ -1,0 +1,239 @@
+/*
+ * La matriz del modelo.
+ *
+ * Veinte filas que se leen juntas: una tabla densa y sin tarjetas, porque lo
+ * que importa es comparar una fila contra la de arriba. El detalle se abre de
+ * a una — dos abiertas a la vez ya no dejan comparar nada.
+ */
+
+.hoja {
+  padding: 0 26px 40px;
+}
+
+.cabecera {
+  padding: 26px 0 18px;
+}
+
+.cabecera h1 {
+  margin: 4px 0 6px;
+}
+
+.bajada {
+  color: var(--tinta-3);
+  font-size: 13px;
+  max-width: 78ch;
+  line-height: 1.5;
+}
+
+.reglas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 22px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  font-size: 12.5px;
+  color: var(--tinta-3);
+}
+
+.reglas b {
+  color: var(--tinta);
+}
+
+.nota {
+  flex: 1 1 34ch;
+  min-width: 0;
+  color: var(--tinta-4);
+  line-height: 1.45;
+}
+
+/* ── La tabla ──────────────────────────────────────────────────────────── */
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--fondo);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tinta-4);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--borde-fuerte);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--borde-suave);
+  vertical-align: middle;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.banda th {
+  position: static;
+  background: var(--acento-suave);
+  color: var(--acento-texto);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--acento-borde);
+  border-top: 1px solid var(--acento-borde);
+}
+
+.perfil {
+  color: var(--tinta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Un cero no es un dato: se apaga para que la vista lo salte y queden a la
+   vista las clases que el modelo sí abre. */
+.cero {
+  color: var(--tinta-4);
+}
+
+.filaAbierta td {
+  background: var(--acento-suave);
+  border-bottom-color: var(--acento-borde);
+}
+
+.avisos {
+  white-space: nowrap;
+}
+
+.marca {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--atencion-texto);
+  background: var(--atencion-suave);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
+
+.chevron {
+  background: transparent;
+  border: none;
+  color: var(--tinta-3);
+  padding: 3px;
+  display: block;
+}
+
+.chevron:hover {
+  color: var(--acento-texto);
+}
+
+.giro {
+  transform: rotate(180deg);
+}
+
+/* ── El detalle ────────────────────────────────────────────────────────── */
+
+.detalle {
+  background: var(--hundido);
+  padding: 14px 16px 18px;
+}
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 28px;
+}
+
+@media (max-width: 900px) {
+  .columnas {
+    grid-template-columns: 1fr;
+  }
+}
+
+.subtitulo {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-4);
+  margin: 0 0 8px;
+}
+
+.lineas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lineas li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.lineas li:last-child {
+  border-bottom: none;
+}
+
+.punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.punto_fijo { background: var(--clase-fijo-tinta); }
+.punto_variable { background: var(--clase-variable-tinta); }
+.punto_privados { background: var(--clase-privados-tinta); }
+.punto_club { background: var(--clase-club-tinta); }
+.punto_otros { background: var(--clase-otros-tinta); }
+.punto_inm { background: var(--clase-inm-tinta); }
+.punto_cash { background: var(--clase-cash-tinta); }
+
+.instrumento {
+  flex: 1;
+  min-width: 0;
+  color: var(--tinta-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.montoLinea {
+  color: var(--tinta);
+  min-width: 84px;
+  text-align: right;
+}
+
+.shareLinea {
+  color: var(--tinta-3);
+  min-width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.reglasLista {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--tinta-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.reglasLista li {
+  padding: 3px 0;
+}

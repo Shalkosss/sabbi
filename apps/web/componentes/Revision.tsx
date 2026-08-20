@@ -187,7 +187,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
             mensaje: `Faltan datos en ${plural(incompletas.length, 'posición', 'posiciones')}: ${incompletas
               .slice(0, 6)
               .map((f) => f.institucionProducto)
-              .join(', ')}${incompletas.length > 6 ? '…' : ''}. Cada fila marca qué le falta.`,
+              .join(', ')}${incompletas.length > 6 ? '…' : ''}. Cada fila marca qué le falta y se completa ahí mismo, en la tabla de arriba.`,
           },
         ]
 

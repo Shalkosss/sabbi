@@ -8,6 +8,7 @@ import type { EstadoRevision, Parametros } from '../estado'
 import { asesorActual, clienteServidor } from '../supabase/servidor'
 import { cargarAjustesObjetivo } from './ajustes'
 import { altaProductosDeFicha } from './alta-productos'
+import { completarDesdeCatalogo } from './completar'
 import { filaDeDeuda, filaDePosicion, posicionDeFila } from './mapeo'
 import type { FilaPosicion } from './mapeo'
 
@@ -250,10 +251,14 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
   // de la ficha: sin propuesta abierta no hay ajustes que traer.
   const { agregados, ajustes } = await cargarAjustesObjetivo(propuesta?.id ?? '')
 
-  const posiciones = ((filas ?? []) as FilaPosicion[])
+  const guardadas = ((filas ?? []) as FilaPosicion[])
     // Las deudas viven en la misma tabla pero no se revisan ni entran al motor.
     .filter((fila) => fila.origen !== 'deuda')
     .map(posicionDeFila)
+
+  // El catálogo se sigue llenando después de subir la ficha: lo que la mesa
+  // cargó el martes tiene que completar la ficha del lunes.
+  const { posiciones, delCatalogo } = await completarDesdeCatalogo(guardadas)
 
   const cliente = ficha.clients
   const notas = cliente?.notas ?? ''
@@ -271,7 +276,21 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
       flujoRetiro: ficha.flujo_retiro,
       observaciones: notas === '' ? [] : notas.split('\n'),
     },
-    avisos: (ficha.parse_warnings ?? []) as EstadoRevision['avisos'],
+    avisos: [
+      ...((ficha.parse_warnings ?? []) as EstadoRevision['avisos']),
+      ...(delCatalogo.length === 0
+        ? []
+        : [
+            {
+              codigo: 'rendimiento_del_catalogo' as const,
+              mensaje:
+                `${delCatalogo.length === 1 ? 'Una posición tomó' : `${delCatalogo.length} posiciones tomaron`} ` +
+                'su rendimiento del catálogo, como punto medio de la banda del producto: ' +
+                `${delCatalogo.slice(0, 6).join(', ')}${delCatalogo.length > 6 ? '…' : ''}. ` +
+                'Corregilo en la columna de rendimiento si el cliente tiene una cifra propia.',
+            },
+          ]),
+    ],
     ignoradas: (ficha.ignoradas ?? []) as EstadoRevision['ignoradas'],
     modelo: (ficha.modelo ?? null) as EstadoRevision['modelo'],
     posiciones,

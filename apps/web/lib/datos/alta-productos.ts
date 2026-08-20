@@ -87,6 +87,12 @@ const SIN_ALTA: ResultadoAlta = {
   rendimientoPorOrden: new Map(),
 }
 
+/** Lo mínimo que hace falta saber de un producto para leerle su banda. */
+export interface BandaDelCatalogo {
+  readonly ret_min: number | null
+  readonly ret_max: number | null
+}
+
 /**
  * El rendimiento que el catálogo le atribuye a un producto.
  *
@@ -95,7 +101,7 @@ const SIN_ALTA: ResultadoAlta = {
  * mesa cargó para ese producto, y queda editable y anotado en un aviso, que
  * es la diferencia entre completar y suponer.
  */
-function rendimientoDelCatalogo(producto: ProductoExistente): number | null {
+export function rendimientoDelCatalogo(producto: BandaDelCatalogo): number | null {
   const { ret_min: min, ret_max: max } = producto
   if (min === null && max === null) return null
   const banda = [min, max].filter((v): v is number => v !== null)

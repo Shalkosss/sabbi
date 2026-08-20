@@ -48,7 +48,7 @@ packages/
   config/              schema Zod y carga de configuración
   io/                  parsers de ficha
   export/
-    xlsx/              propuesta
+    xlsx/              propuesta — sin construir todavía
     src/pptx/rediseno/ el deck que se genera desde la propuesta
     src/pptx/replica/  motor de la plantilla y mapa de lo que falta
     pptx/replica/      plantilla tokenizada del deck de referencia
@@ -189,8 +189,8 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 2 | Parser de ficha y pantalla de revisión | hecho |
 | 3 | Motor `generarPlan()` y golden test | hecho |
 | 4 | Vista web de la propuesta | hecho |
-| 5 | Export a Excel | |
-| 6 | PPT réplica | motor hecho, 5 de 22 láminas; ver abajo |
+| 5 | Export a Excel | sin empezar; el dato está, falta escribir el archivo |
+| 6 | PPT réplica | motor hecho, 8 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | 9 | Asistencia opcional de IA | |

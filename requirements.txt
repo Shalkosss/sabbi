@@ -9,3 +9,12 @@ python-pptx      # lectura y escritura del .pptx
 openpyxl         # lectura de fichas y propuestas .xlsx
 lxml             # manipulacion del XML de OOXML
 oletools         # extraccion de las macros VBA de referencia
+
+# Analisis de la matriz del benchmark. Tampoco son dependencias de la
+# aplicacion: la plataforma corre sobre Node.
+#
+#   npm run exportar-benchmark
+#   python tools/benchmark-grafico.py
+pandas           # la matriz como DataFrame
+matplotlib       # el grafico de columnas apiladas
+seaborn          # el tema del grafico

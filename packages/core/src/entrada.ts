@@ -16,6 +16,7 @@
  * quien conoce `@sabbi/config`.
  */
 
+import type { ReglasMotor } from './domain/reglas.js'
 import type {
   AjusteClase,
   Benchmark,
@@ -76,6 +77,8 @@ export interface DecisionesPropuesta {
   readonly restricciones?: readonly Restriccion[]
   /** Montos clavados por clase. La unica palanca que empuja hacia abajo. */
   readonly ajustes?: readonly AjusteClase[]
+  /** La macro con la que se calcula. Sin ella, la v8. */
+  readonly reglas?: ReglasMotor
 }
 
 export type CodigoBloqueo =
@@ -321,6 +324,7 @@ export function armarEntradaPlan(
     colchonLiquidezUsd = 0,
     restricciones = [],
     ajustes = [],
+    reglas,
   } = decisiones
 
   const { resumen, bloqueos, cuentan } = evaluarRevision(posiciones, {
@@ -413,6 +417,7 @@ export function armarEntradaPlan(
     necesitaFlujos,
     institucional,
     ajustes,
+    ...(reglas === undefined ? {} : { reglas }),
     // Una restriccion sobre la clase inmobiliaria la salva del umbral de los
     // 500,000, que si no la disolveria por ticket bajo. Fijarla a mano tiene el
     // mismo efecto: es la misma decision dicha de otra manera.

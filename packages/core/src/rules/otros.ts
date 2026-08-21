@@ -16,8 +16,10 @@
  *    pesa menos del 2% de la clase en todos los perfiles.
  */
 
-/** Minimo de la clase y de cada linea. */
-export const MIN_OTROS = 10_000
+import { REGLAS_V8 } from '../domain/reglas.js'
+
+/** Minimo de la clase y de cada linea, en la macro v8. */
+export const MIN_OTROS = REGLAS_V8.otros.minUsd
 
 const EPS = 1e-6
 const TOL = 0.01
@@ -34,14 +36,16 @@ export interface LineaOtros {
  * Reparte el dinero nuevo de Otros entre BTC y Oro.
  *
  * @param pesos  pesos por instrumento renormalizados dentro de la clase
+ * @param minUsd minimo de la clase y de cada linea; sale de la macro
  * @returns `null` cuando el monto no llega al minimo de la clase
  */
 export function repartirOtros(
   montoUsd: number,
   pesos: Readonly<Record<string, number>>,
+  minUsd = MIN_OTROS,
 ): LineaOtros[] | null {
   if (montoUsd <= EPS) return null
-  if (montoUsd < MIN_OTROS - TOL) return null
+  if (montoUsd < minUsd - TOL) return null
 
   const totalPesos = Object.values(pesos).reduce((acc, p) => acc + p, 0)
   if (totalPesos <= EPS) return [{ instrumento: OTROS_BTC, usd: montoUsd }]
@@ -53,9 +57,9 @@ export function repartirOtros(
 
   // Las que no llegan al minimo se pliegan sobre la mas grande, que ya paso el
   // umbral de la clase. Mejor una linea ejecutable que dos con una muerta.
-  const viables = lineas.filter((l) => l.usd >= MIN_OTROS - TOL)
+  const viables = lineas.filter((l) => l.usd >= minUsd - TOL)
   const residuo = lineas
-    .filter((l) => l.usd < MIN_OTROS - TOL)
+    .filter((l) => l.usd < minUsd - TOL)
     .reduce((acc, l) => acc + l.usd, 0)
 
   if (viables.length === 0 || viables[0] === undefined) {

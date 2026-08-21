@@ -1,0 +1,85 @@
+/*
+ * Los cinco chips de perfil.
+ *
+ * Encendido, el chip se pinta con el color del perfil: el mismo que usa su
+ * curva en el grafico y la banda de su tarjeta. Apagado queda en gris con una
+ * muestra de color, que es lo que dice de que perfil se trata sin gritar.
+ */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+}
+
+.etiqueta {
+  color: var(--tinta-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Mientras el servidor recalcula, el grupo se apaga apenas. Es el unico aviso
+   de que algo esta en vuelo: un spinner por cinco chips seria mas ruido que
+   informacion. */
+.chips[data-pendiente] {
+  opacity: 0.55;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px 5px 9px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--tinta-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--borde-fuerte);
+  color: var(--tinta);
+}
+
+.chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--anillo);
+}
+
+.muestra {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--tinte);
+  flex: none;
+}
+
+.puesto {
+  background: var(--banda);
+  border-color: var(--banda);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.puesto .muestra {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* El ultimo encendido no se puede apagar, pero tampoco se ve deshabilitado:
+   sigue siendo el estado actual y verlo apagado confundiria. */
+.chip:disabled {
+  cursor: default;
+}

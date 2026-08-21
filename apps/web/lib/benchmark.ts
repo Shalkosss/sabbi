@@ -1,8 +1,9 @@
 import 'server-only'
 
 import { benchmarkDe, pesosDeClase } from '@sabbi/config'
-import { generarPlan, PERFILES } from '@sabbi/core'
-import type { ClaseModelo, Perfil, ReglaInmobiliario } from '@sabbi/core'
+import type { Macro } from '@sabbi/config'
+import { generarPlan, NOMBRE_CLASE, PERFILES } from '@sabbi/core'
+import type { ClaseModelo, Perfil, ReglaInmobiliario, ReglasMotor } from '@sabbi/core'
 
 import { FALLBACKS } from './catalogo'
 
@@ -10,31 +11,36 @@ import { FALLBACKS } from './catalogo'
  * El universo del motor: cada ticket contra cada perfil.
  *
  * No es una propuesta de nadie. Es el motor corrido en vacío —sin ficha, sin
- * posiciones conservadas, sin ajustes— para ver qué produce el modelo con un
- * cliente que llega con dinero y nada más. Sirve para mirar las reglas de la
- * macro de frente: cuáles abren, cuáles no llegan a su mínimo y a dónde va lo
+ * posiciones conservadas, sin ajustes— para ver qué produce la macro con un
+ * cliente que llega con dinero y nada más. Sirve para mirar las reglas de
+ * frente: cuáles clases abren, cuáles no llegan a su mínimo y a dónde va lo
  * que queda cuando no llega.
  *
- * Se corre en el servidor por la razón de siempre: los pesos del benchmark son
- * el modelo Sabbi y no bajan al navegador. Lo que baja son veinte portafolios
- * ya calculados.
+ * Sale abierto en instrumentos y no solo en porcentajes por clase, que es como
+ * la mesa lo lee en el Excel: qué ETF entró y cuál no es justamente lo que hay
+ * que mirar cuando el ticket es chico, y agregando por clase eso se pierde. La
+ * misma estructura alimenta la tabla y el gráfico — un dato, dos formas de
+ * verlo, y ninguna posibilidad de que se contradigan.
  *
- * Es una función pura envuelta en una lectura de configuración, así que dos
- * cargas de la página dan exactamente lo mismo mientras la configuración no
- * cambie. Cuando la mesa toque los pesos, esta vista lo muestra sin que nadie
- * tenga que subir una ficha de prueba.
+ * Se corre en el servidor por la razón de siempre: los pesos del benchmark son
+ * el modelo Sabbi y no bajan al navegador. Lo que baja son los portafolios ya
+ * calculados.
+ *
+ * Es una función pura envuelta en una lectura de la macro, así que dos cargas
+ * de la página dan exactamente lo mismo mientras la macro no cambie. Cuando la
+ * mesa la toque, esta vista lo muestra sin que nadie suba una ficha de prueba.
  */
 
 /** Los tickets que la mesa quiere mirar, en dólares. */
 export const TICKETS: readonly number[] = [25_000, 50_000, 75_000, 100_000]
 
 /**
- * Las reglas del portafolio que se pueden cambiar y mirar.
+ * Las reglas del portafolio que esta pantalla deja cambiar en caliente.
  *
- * No son «la macro» entera: son los tres puntos en los que las dos hojas con
- * las que la mesa venía trabajando no coinciden. Ponerlos acá y no como
- * constantes es lo que permite ver la misma matriz bajo una regla y bajo la
- * otra sin tocar código.
+ * No son «la macro» entera —esa se edita en su propia pantalla y se guarda—:
+ * son las tres palancas que la mesa mueve para comparar antes de decidir. Van
+ * en la URL para que una corrida se pueda pegar en un mensaje y el otro vea
+ * exactamente la misma.
  */
 export interface Reglas {
   /** A dónde va el capital de Inmobiliario cuando la clase se disuelve. */
@@ -45,39 +51,49 @@ export interface Reglas {
   readonly ticketEtfUsd: number
 }
 
-/**
- * La macro v8: la que el motor reproduce y la que fija el golden test.
- *
- * Es el punto de partida de la vista. Cambiar cualquiera de los tres valores
- * la aleja de lo que la propuesta produce de verdad, y por eso la pantalla lo
- * dice cuando pasa.
- */
-export const REGLAS_V8: Reglas = {
-  inmobiliario: 'prorratear',
-  umbralInmobiliarioUsd: 500_000,
-  ticketEtfUsd: 20_000,
-}
+/** Las tres palancas tal como están en la macro guardada. */
+export const reglasDeLaMacro = (macro: Macro): Reglas => ({
+  inmobiliario: macro.reglas.inmobiliario.destino,
+  umbralInmobiliarioUsd: macro.reglas.inmobiliario.umbralUsd,
+  ticketEtfUsd: macro.reglas.ticketEtfUsd,
+})
+
+/** La macro con las tres palancas de la pantalla encima. */
+const conLasPalancas = (base: ReglasMotor, reglas: Reglas): ReglasMotor => ({
+  ...base,
+  ticketEtfUsd: reglas.ticketEtfUsd,
+  inmobiliario: { umbralUsd: reglas.umbralInmobiliarioUsd, destino: reglas.inmobiliario },
+})
 
 /**
- * Cuántos perfiles mirar a la vez.
+ * Los perfiles que se pueden mirar a la vez.
  *
  * Cinco es el universo entero, que es lo que hay que ver para juzgar el
- * modelo. Tres son los extremos y el medio, donde se lee la forma sin que las
- * curvas se tapen. Dos es la comparación que la mesa hace más seguido.
+ * modelo. Menos son para leer la forma sin que las curvas se tapen, y con dos
+ * o menos el gráfico además escribe las cifras encima de cada punto: ahí ya no
+ * se solapan y no hace falta bajar la vista a la tabla.
  */
-export const VISTAS = {
-  '5': [...PERFILES],
-  '3': ['Conservador', 'Moderado', 'Arriesgado'] as Perfil[],
-  '2': ['Conservador', 'Moderado'] as Perfil[],
-} as const
+export const PERFILES_MIRABLES: readonly Perfil[] = [...PERFILES]
 
-export type ClaveDeVista = keyof typeof VISTAS
+/** Debajo de esta cantidad de perfiles, el gráfico rotula cada punto. */
+export const PERFILES_PARA_ROTULAR = 3
 
-export interface LineaBenchmark {
+export interface FilaInstrumento {
   readonly instrumento: string
+  /** Monto de la línea. */
+  readonly usd: number
+  /** Sobre el total del portafolio, que es como lo lee el Excel. */
+  readonly share: number
+  /** Lo que el motor anotó de esta línea, si anotó algo. */
+  readonly nota: string | null
+}
+
+export interface BloqueClase {
   readonly clase: ClaseModelo
+  readonly nombre: string
   readonly usd: number
   readonly share: number
+  readonly instrumentos: readonly FilaInstrumento[]
 }
 
 export interface Portafolio {
@@ -85,7 +101,13 @@ export interface Portafolio {
   readonly perfil: Perfil
   /** Monto por clase, en el orden del motor. */
   readonly porClase: Readonly<Record<ClaseModelo, number>>
-  readonly lineas: readonly LineaBenchmark[]
+  /**
+   * Las clases que abrieron, con sus instrumentos dentro.
+   *
+   * Solo las que reciben dinero: una fila en cero no dice nada que la ausencia
+   * de la fila no diga mejor, y son la mitad de la tabla en los tickets bajos.
+   */
+  readonly bloques: readonly BloqueClase[]
   /** Lo que el motor decidió y hay que poder leer: mínimos, derivaciones. */
   readonly avisos: readonly string[]
   /** Suma de las líneas. Tiene que ser el ticket. */
@@ -96,12 +118,14 @@ export interface Matriz {
   readonly portafolios: readonly Portafolio[]
   readonly tickets: readonly number[]
   readonly perfiles: readonly Perfil[]
-  /** Con qué reglas se corrió esta matriz. */
+  /** Con qué palancas se corrió esta matriz. */
   readonly reglas: Reglas
-  /** Cuál de las vistas de perfiles está puesta. */
-  readonly vista: ClaveDeVista
-  /** `true` cuando son las de la macro v8, que es lo que produce la propuesta. */
-  readonly esLaMacroDeLaPropuesta: boolean
+  /** `true` cuando son las de la macro guardada, que es lo que sale hoy. */
+  readonly esLaMacroGuardada: boolean
+  /** Versión de la macro con la que se corrió, para poder nombrarla. */
+  readonly versionMacro: number
+  /** `true` cuando la base no tiene macro guardada y corre la de fábrica. */
+  readonly esDeFabrica: boolean
 }
 
 const CLASES_VACIAS: Readonly<Record<ClaseModelo, number>> = {
@@ -114,24 +138,36 @@ const CLASES_VACIAS: Readonly<Record<ClaseModelo, number>> = {
   cash: 0,
 }
 
+/** El orden de bloques de la hoja Allocation detallado, que usa el motor. */
+const ORDEN: readonly ClaseModelo[] = [
+  'inm',
+  'fijo',
+  'variable',
+  'privados',
+  'club',
+  'otros',
+  'cash',
+]
+
+const EPS = 0.005
+
 /** Un portafolio del universo: un ticket, un perfil, el motor en vacío. */
-function correr(ticketUsd: number, perfil: Perfil, reglas: Reglas): Portafolio {
+function correr(ticketUsd: number, perfil: Perfil, macro: Macro, reglas: Reglas): Portafolio {
   const plan = generarPlan({
     perfil,
     patrimonioTotalUsd: ticketUsd,
-    benchmark: benchmarkDe(perfil),
+    benchmark: benchmarkDe(perfil, macro.pesos),
     pesos: {
-      fijo: pesosDeClase('fijo', perfil),
-      variable: pesosDeClase('variable', perfil),
-      otros: pesosDeClase('otros', perfil),
+      fijo: pesosDeClase('fijo', perfil, macro.pesos),
+      variable: pesosDeClase('variable', perfil, macro.pesos),
+      otros: pesosDeClase('otros', perfil, macro.pesos),
     },
     // Sin pisos: es un cliente que llega con dinero y nada mas. Esa es la
     // condicion que deja ver el modelo sin nada encima.
     pisos: [],
     ticketMinimoUsd: reglas.ticketEtfUsd,
     fallbacks: FALLBACKS,
-    reglaInmobiliario: reglas.inmobiliario,
-    umbralInmobiliarioUsd: reglas.umbralInmobiliarioUsd,
+    reglas: conLasPalancas(macro.reglas, reglas),
   })
 
   const porClase = { ...CLASES_VACIAS }
@@ -139,60 +175,105 @@ function correr(ticketUsd: number, perfil: Perfil, reglas: Reglas): Portafolio {
     porClase[clase.clase] = clase.objetivoUsd
   }
 
-  return {
-    ticketUsd,
-    perfil,
-    porClase,
-    lineas: plan.lineas.map((linea) => ({
-      instrumento: linea.instrumento,
-      clase: linea.clase,
-      usd: linea.usd,
-      share: plan.totalObjetivoUsd > 0 ? linea.usd / plan.totalObjetivoUsd : 0,
-    })),
-    avisos: plan.avisos,
-    totalUsd: plan.totalObjetivoUsd,
-  }
+  const total = plan.totalObjetivoUsd
+  const share = (usd: number) => (total > 0 ? usd / total : 0)
+
+  const bloques = ORDEN.filter((clase) => porClase[clase] > EPS).map(
+    (clase): BloqueClase => ({
+      clase,
+      nombre: NOMBRE_CLASE[clase],
+      usd: porClase[clase],
+      share: share(porClase[clase]),
+      instrumentos: plan.lineas
+        .filter((linea) => linea.clase === clase)
+        .map((linea) => ({
+          instrumento: linea.instrumento,
+          usd: linea.usd,
+          share: share(linea.usd),
+          nota: linea.nota ?? null,
+        })),
+    }),
+  )
+
+  return { ticketUsd, perfil, porClase, bloques, avisos: plan.avisos, totalUsd: total }
 }
 
-/** La matriz: cada ticket contra cada perfil de la vista, con estas reglas. */
-export function matrizDeBenchmark(reglas: Reglas = REGLAS_V8, vista: ClaveDeVista = '5'): Matriz {
-  const perfiles = VISTAS[vista]
+/** La matriz: cada ticket contra cada perfil elegido, con estas palancas. */
+export function matrizDeBenchmark(
+  macro: Macro,
+  reglas: Reglas,
+  perfiles: readonly Perfil[],
+  esDeFabrica = false,
+): Matriz {
+  const base = reglasDeLaMacro(macro)
 
   return {
     portafolios: TICKETS.flatMap((ticket) =>
-      perfiles.map((perfil) => correr(ticket, perfil, reglas)),
+      perfiles.map((perfil) => correr(ticket, perfil, macro, reglas)),
     ),
     tickets: TICKETS,
     perfiles: [...perfiles],
     reglas,
-    vista,
-    esLaMacroDeLaPropuesta:
-      reglas.inmobiliario === REGLAS_V8.inmobiliario &&
-      reglas.umbralInmobiliarioUsd === REGLAS_V8.umbralInmobiliarioUsd &&
-      reglas.ticketEtfUsd === REGLAS_V8.ticketEtfUsd,
+    esLaMacroGuardada:
+      reglas.inmobiliario === base.inmobiliario &&
+      reglas.umbralInmobiliarioUsd === base.umbralInmobiliarioUsd &&
+      reglas.ticketEtfUsd === base.ticketEtfUsd,
+    versionMacro: macro.version,
+    esDeFabrica,
   }
 }
 
-/** Lee la vista de perfiles de la URL. Ante cualquier duda, las cinco. */
-export function vistaDeLaUrl(
+/**
+ * Lee los perfiles a mirar de la URL.
+ *
+ * Acepta la lista por nombre —`?perfiles=Conservador,Arriesgado`— y también
+ * las tres vistas fijas que la pantalla tenía antes, para que un enlace
+ * guardado en un mensaje viejo siga abriendo lo mismo. Sin nada legible, los
+ * cinco: el universo entero es el punto de partida honesto.
+ */
+export function perfilesDeLaUrl(
   parametros: Record<string, string | string[] | undefined>,
-): ClaveDeVista {
+): readonly Perfil[] {
   const crudo = parametros['perfiles']
   const valor = Array.isArray(crudo) ? crudo[0] : crudo
-  return valor === '3' || valor === '2' ? valor : '5'
+  if (valor === undefined || valor.trim() === '') return PERFILES_MIRABLES
+
+  if (valor === '5') return PERFILES_MIRABLES
+  if (valor === '3') return ['Conservador', 'Moderado', 'Arriesgado']
+  if (valor === '2') return ['Conservador', 'Moderado']
+
+  const pedidos = new Set(valor.split(',').map((p) => p.trim()))
+  // Se filtra contra el orden canónico y no contra lo que vino: los perfiles
+  // son ordinales, y una leyenda con Arriesgado antes que Moderado se lee mal.
+  const elegidos = PERFILES_MIRABLES.filter((perfil) => pedidos.has(perfil))
+
+  return elegidos.length === 0 ? PERFILES_MIRABLES : elegidos
 }
 
-/** Lee las reglas de la URL, cayendo en las de la v8 ante cualquier duda. */
-export function reglasDeLaUrl(parametros: Record<string, string | string[] | undefined>): Reglas {
+/** Lee las palancas de la URL, cayendo en las de la macro ante cualquier duda. */
+export function reglasDeLaUrl(
+  parametros: Record<string, string | string[] | undefined>,
+  macro: Macro,
+): Reglas {
+  const base = reglasDeLaMacro(macro)
+
   const numero = (clave: string, porDefecto: number) => {
     const crudo = parametros[clave]
     const valor = Number(Array.isArray(crudo) ? crudo[0] : crudo)
     return Number.isFinite(valor) && valor > 0 ? valor : porDefecto
   }
 
+  const inm = parametros['inm']
+  const destino = Array.isArray(inm) ? inm[0] : inm
+
   return {
-    inmobiliario: parametros['inm'] === 'alternativos' ? 'alternativos' : 'prorratear',
-    umbralInmobiliarioUsd: numero('umbral', REGLAS_V8.umbralInmobiliarioUsd),
-    ticketEtfUsd: numero('etf', REGLAS_V8.ticketEtfUsd),
+    inmobiliario:
+      destino === 'alternativos'
+        ? 'alternativos'
+        : destino === 'prorratear'
+          ? 'prorratear'
+          : base.inmobiliario,
+    umbralInmobiliarioUsd: numero('umbral', base.umbralInmobiliarioUsd),
+    ticketEtfUsd: numero('etf', base.ticketEtfUsd),
   }
 }

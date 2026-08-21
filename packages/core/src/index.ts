@@ -1,10 +1,28 @@
 export * from './domain/tipos.js'
+export {
+  CAMPOS_DE_MACRO,
+  REGLAS_V8,
+  conValorDeMacro,
+  valorDeMacro,
+} from './domain/reglas.js'
+export type {
+  CampoDeMacro,
+  ReglaInmobiliario,
+  ReglasCascada,
+  ReglasClub,
+  ReglasInmobiliario,
+  ReglasMotor,
+  ReglasOtros,
+  ReglasPrivados,
+  ReglasVariable,
+} from './domain/reglas.js'
 export { repartirPorClase } from './rules/reparto.js'
 export { repartirEtfs } from './rules/cascada.js'
 export type { AsignacionEtf, OpcionesCascada } from './rules/cascada.js'
 export { repartirVariable } from './rules/variable.js'
+export type { OpcionesVariable } from './rules/variable.js'
 export { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
-export type { OpcionesInmobiliario, ReglaInmobiliario } from './rules/inmobiliario.js'
+export type { OpcionesInmobiliario } from './rules/inmobiliario.js'
 export { prorratearResiduales } from './rules/residuales.js'
 export {
   aperturaFm,
@@ -28,9 +46,16 @@ export {
   FONDO_DIVIDENDOS_GLOBAL,
   NOTA_INSTITUCIONAL,
   MIN_SUBFONDO,
+  MIN_DIVIDENDOS_GLOBAL,
 } from './rules/privados.js'
 export type { LineaPrivados, OpcionesPrivados } from './rules/privados.js'
-export { repartirClub, etiquetaClubDeal, FONDO_ESTRATEGICO, MIN_CLUB } from './rules/club.js'
+export {
+  repartirClub,
+  etiquetaClubDeal,
+  FONDO_ESTRATEGICO,
+  MIN_CLUB,
+  UMBRAL_CLASE_A,
+} from './rules/club.js'
 export type { LineaClub, OpcionesClub } from './rules/club.js'
 export { repartirOtros, OTROS_BTC, OTROS_ORO, MIN_OTROS } from './rules/otros.js'
 export type { LineaOtros } from './rules/otros.js'

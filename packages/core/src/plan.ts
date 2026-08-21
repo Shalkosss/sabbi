@@ -11,11 +11,11 @@
  *     estan cubiertas por lo conservado o por una restriccion. Desde que Club
  *     Deals y Otros son clases propias, este paso tambien hace el neteo por
  *     familia que el motor viejo resolvia a mano dentro de privados.
- *  2. Umbral inmobiliario. Con ticket bajo 500,000 la clase se disuelve y su
- *     capital engorda a las otras. Va antes de repartir instrumentos porque
- *     cambia el objetivo de cada clase.
- *  3. Derivacion de residuos. Un Club Deals bajo 10,000 o un Otros bajo su
- *     minimo no imprimen lineas inejecutables: su dinero nuevo pasa al Fondo
+ *  2. Umbral inmobiliario. Bajo el ticket que fija la macro —500,000 en la v8—
+ *     la clase se disuelve y su capital engorda a las otras. Va antes de
+ *     repartir instrumentos porque cambia el objetivo de cada clase.
+ *  3. Derivacion de residuos. Un Club Deals o un Otros por debajo de su minimo
+ *     no imprimen lineas inejecutables: su dinero nuevo pasa al Fondo
  *     Oportunidad de Mercados Privados, que no tiene minimo de inversion.
  *  4. Reparto por clase, sobre el dinero nuevo: cascada v8 en Fijo, motor de
  *     nucleo y satelites en Variable, familia de fondos en Privados, Edifica o
@@ -24,9 +24,13 @@
  *     ya se sabe cuanto le toco a cada una.
  *
  * La funcion es pura: no lee configuracion, no toca la red y no mira el reloj.
- * Los pesos, los pisos y los toggles llegan como argumento.
+ * Los pesos, los pisos, los toggles y la macro —los umbrales con los que se
+ * decide— llegan como argumento. Sin macro corre la v8, que es la que fija el
+ * golden test de Ana Tumi.
  */
 
+import { REGLAS_V8 } from './domain/reglas.js'
+import type { ReglasMotor } from './domain/reglas.js'
 import type {
   AjusteAplicado,
   AjusteClase,
@@ -40,11 +44,10 @@ import type {
 } from './domain/tipos.js'
 import { NOMBRE_CLASE } from './domain/tipos.js'
 import { repartirEtfs } from './rules/cascada.js'
-import { repartirClub, MIN_CLUB } from './rules/club.js'
-import { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
-import type { ReglaInmobiliario } from './rules/inmobiliario.js'
+import { repartirClub } from './rules/club.js'
+import { prorratearInmobiliario } from './rules/inmobiliario.js'
 import type { EstadoInstitucional } from './rules/institucional.js'
-import { repartirOtros, MIN_OTROS } from './rules/otros.js'
+import { repartirOtros } from './rules/otros.js'
 import { repartirPrivados, FONDO_OPORTUNIDAD } from './rules/privados.js'
 import { repartirPorClase } from './rules/reparto.js'
 import { prorratearResiduales } from './rules/residuales.js'
@@ -112,14 +115,16 @@ export interface EntradaPlan {
    */
   readonly ajustes?: readonly AjusteClase[]
   /**
-   * A donde va el capital de Inmobiliario Directo cuando la clase se disuelve.
+   * La macro: los umbrales y minimos con los que se calcula.
    *
-   * Es la regla en la que difieren las dos macros con las que la mesa venia
-   * trabajando. Por defecto la de la v8, que es la que fija el golden test.
+   * Es lo que la mesa edita en la pantalla de Macro y lo que hace que dos
+   * corridas del mismo cliente den portafolios distintos. Sin ella manda la
+   * v8, que es la que fija el golden test de Ana Tumi.
+   *
+   * `ticketMinimoUsd` viaja aparte y gana: es el unico numero de la macro que
+   * el asesor puede mover propuesta por propuesta.
    */
-  readonly reglaInmobiliario?: ReglaInmobiliario
-  /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
-  readonly umbralInmobiliarioUsd?: number
+  readonly reglas?: ReglasMotor
 }
 
 export interface Plan {
@@ -147,9 +152,10 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     institucional = 'auto',
     inmFijado = false,
     ajustes = [],
-    reglaInmobiliario = 'prorratear',
-    umbralInmobiliarioUsd = UMBRAL_INMOBILIARIO,
+    reglas = REGLAS_V8,
   } = entrada
+
+  const { destino: reglaInmobiliario, umbralUsd: umbralInmobiliarioUsd } = reglas.inmobiliario
 
   if (ticketMinimoUsd <= 0) {
     throw new Error(`El ticket minimo debe ser mayor que cero, se recibio ${ticketMinimoUsd}.`)
@@ -205,8 +211,16 @@ export function generarPlan(entrada: EntradaPlan): Plan {
   // Los montos que no llegan al minimo de su clase van al Fondo Oportunidad,
   // que no tiene minimo. El reparto se ajusta para que cada clase siga
   // cuadrando contra sus lineas.
-  const club = repartirClub(claseDe(conInmobiliario, 'club').dineroNuevoUsd, { necesitaFlujos })
-  const otros = repartirOtros(claseDe(conInmobiliario, 'otros').dineroNuevoUsd, pesos.otros)
+  const club = repartirClub(claseDe(conInmobiliario, 'club').dineroNuevoUsd, {
+    necesitaFlujos,
+    minUsd: reglas.club.minUsd,
+    umbralClaseAUsd: reglas.club.umbralClaseAUsd,
+  })
+  const otros = repartirOtros(
+    claseDe(conInmobiliario, 'otros').dineroNuevoUsd,
+    pesos.otros,
+    reglas.otros.minUsd,
+  )
 
   const residuoClub = club === null ? claseDe(conInmobiliario, 'club').dineroNuevoUsd : 0
   const residuoOtros = otros === null ? claseDe(conInmobiliario, 'otros').dineroNuevoUsd : 0
@@ -220,13 +234,13 @@ export function generarPlan(entrada: EntradaPlan): Plan {
   if (residuoClub > EPS) {
     avisos.push(
       `Club Deals: el dinero nuevo (${residuoClub.toFixed(2)}) no llega al minimo de ` +
-        `${MIN_CLUB.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
+        `${reglas.club.minUsd.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
     )
   }
   if (residuoOtros > EPS) {
     avisos.push(
       `Otros: el dinero nuevo (${residuoOtros.toFixed(2)}) no llega al minimo de ` +
-        `${MIN_OTROS.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
+        `${reglas.otros.minUsd.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
     )
   }
   if ((residuoClub > EPS || residuoOtros > EPS) && destino.pisaUnAjuste) {
@@ -248,6 +262,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
       fallbacks,
       necesitaFlujos,
       institucional,
+      reglas,
       club,
       otros,
       fijadas: new Set(reparto.porClase.filter((c) => c.fijada).map((c) => c.clase)),
@@ -404,6 +419,8 @@ interface ContextoClase {
   readonly fallbacks: { readonly fijo: string; readonly variable: string }
   readonly necesitaFlujos: boolean
   readonly institucional: EstadoInstitucional
+  /** La macro con la que se esta calculando. */
+  readonly reglas: ReglasMotor
   /** Resultado de `repartirClub`, ya evaluado para derivar residuos. */
   readonly club: ReturnType<typeof repartirClub>
   /** Resultado de `repartirOtros`, ya evaluado para derivar residuos. */
@@ -439,6 +456,8 @@ function lineasDeClase(
       perfil: ctx.perfil,
       necesitaFlujos: ctx.necesitaFlujos,
       institucional: ctx.institucional,
+      minSubfondoUsd: ctx.reglas.privados.minSubfondoUsd,
+      minDividendosGlobalUsd: ctx.reglas.privados.minDividendosGlobalUsd,
     }).map(
       (l): LineaPlan => ({
         instrumento: l.instrumento,
@@ -470,12 +489,22 @@ function lineasDeClase(
   }
 
   if (clase === 'fijo' || clase === 'variable') {
-    const repartir = clase === 'fijo' ? repartirEtfs : repartirVariable
     const exenta = ctx.fijadas.has(clase)
-    const nuevas = repartir(ctx.pesos[clase], dineroNuevoUsd, {
-      ticketMinimo: ctx.ticketMinimoUsd,
-      fallback: ctx.fallbacks[clase],
-    }).map(
+    // Los dos motores reciben el mismo ticket y el mismo fallback, pero cada
+    // uno mira sus propios ajustes: la cascada, los de la poda; el de nucleo y
+    // satelites, los del rescate.
+    const nuevas = (clase === 'fijo'
+      ? repartirEtfs(ctx.pesos.fijo, dineroNuevoUsd, {
+          ticketMinimo: ctx.ticketMinimoUsd,
+          fallback: ctx.fallbacks.fijo,
+          ajustes: ctx.reglas.fijo,
+        })
+      : repartirVariable(ctx.pesos.variable, dineroNuevoUsd, {
+          ticketMinimo: ctx.ticketMinimoUsd,
+          fallback: ctx.fallbacks.variable,
+          ajustes: ctx.reglas.variable,
+        })
+    ).map(
       (a): LineaPlan => ({
         instrumento: a.nombre,
         clase,

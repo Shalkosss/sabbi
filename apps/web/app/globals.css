@@ -96,6 +96,22 @@
   --clase-inm-fondo: light-dark(#e5e3f4, #201b36);
   --clase-inm-tinta: light-dark(#3f3585, #b5b3ff);
 
+  /* Los cinco perfiles, en una rampa de riesgo. Ordinales: el color solo
+     tiene que decir donde cae cada uno entre el mas prudente y el mas
+     agresivo. Azul y rojo anclan los extremos, el verde de marca se queda con
+     el centro y los dos intermedios ocupan las transiciones. La `-banda` es la
+     version que lleva texto claro encima, asi que no se aclara en oscuro. */
+  --perfil-conservador: light-dark(#2f6fb2, #74acea);
+  --perfil-conservador-banda: light-dark(#2f6fb2, #2a5c94);
+  --perfil-conservador-moderado: light-dark(#1f8676, #4cc3a9);
+  --perfil-conservador-moderado-banda: light-dark(#1f8676, #1c6d61);
+  --perfil-moderado: light-dark(#5f8f1f, #a4d651);
+  --perfil-moderado-banda: light-dark(#5f8f1f, #4d7519);
+  --perfil-moderado-arriesgado: light-dark(#c2761a, #eba845);
+  --perfil-moderado-arriesgado-banda: light-dark(#b96f18, #995c14);
+  --perfil-arriesgado: light-dark(#b03a2b, #e8836c);
+  --perfil-arriesgado-banda: light-dark(#a93b2c, #8b3023);
+
   /* Luz. Una sombra en capas (contacto + ambiente) y un realce de un pixel en
      el borde superior de cada plano: la unica fuente de luz esta arriba. */
   --sombra-tinte: light-dark(rgba(38, 56, 18, 0.07), rgba(0, 0, 0, 0.55));

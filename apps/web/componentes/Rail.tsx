@@ -14,6 +14,7 @@ export type Seccion =
   | 'propuestas'
   | 'clientes'
   | 'catalogo'
+  | 'macro'
   | 'benchmark'
   | 'bitacora'
 
@@ -35,6 +36,13 @@ const SECCIONES: readonly Item[] = [
     ruta: null,
   },
   { clave: 'catalogo', texto: 'Catálogo', icono: 'M2 3h5v10H2zm7 0h5v10H9z', ruta: '/catalogo' },
+  {
+    clave: 'macro',
+    texto: 'Macro',
+    // Tres correderas: las palancas con las que se calibra el modelo.
+    icono: 'M3 4h10M3 8h10M3 12h10M6 2.5v3M10.5 6.5v3M5 10.5v3',
+    ruta: '/macro',
+  },
   {
     clave: 'benchmark',
     texto: 'Benchmark',

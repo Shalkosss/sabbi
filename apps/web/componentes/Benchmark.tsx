@@ -1,52 +1,68 @@
-'use client'
-
-import { useState } from 'react'
-
 import type { Matriz, Portafolio } from '../lib/benchmark'
-import { NOMBRE_CLASE, NOMBRE_CLASE_CORTO, ORDEN_CLASES } from '../lib/clases'
-import { pct1, plural, usdCorto, usdTabla } from '../lib/formato'
+import { pct1, plural, usdCentavos, usdTabla } from '../lib/formato'
+import { bandaPerfil } from '../lib/perfiles'
 import { GraficoBenchmark } from './GraficoBenchmark'
+import { SelectorPerfiles } from './SelectorPerfiles'
 import estilos from './Benchmark.module.css'
 
 /**
  * El universo del motor, ticket por ticket y perfil por perfil.
  *
- * No es la propuesta de nadie: es el modelo corrido en vacío, sin ficha y sin
- * posiciones conservadas. Sirve para mirar las reglas de frente — cuáles
- * clases abren, cuáles no llegan a su mínimo y a dónde va lo que no llega — y
- * para ver de un vistazo qué cambia cuando la mesa toca los pesos.
+ * No es la propuesta de nadie: es la macro corrida en vacío, sin ficha y sin
+ * posiciones conservadas. Sirve para mirar las reglas de frente — qué clases
+ * abren, cuáles no llegan a su mínimo y a dónde va lo que no llega — y para
+ * ver de un vistazo qué cambia cuando la mesa toca los pesos.
  *
- * Las veinte filas se leen juntas a propósito. Una propuesta se mira de a una;
- * un modelo se juzga por lo que hace en todo su rango, y sobre todo por lo que
- * hace en los bordes.
+ * Sale en cuatro columnas verticales, una por monto, con las clases y sus
+ * instrumentos dentro: es la forma del Excel con el que la mesa venía
+ * trabajando, y no es una copia por nostalgia. Un porcentaje por clase no dice
+ * si Renta Fija entró con cinco ETFs o con un Flip, y esa es exactamente la
+ * diferencia que hay que ver cuando el ticket es chico. Los montos van al
+ * centavo por lo mismo: el número que hay que poder cotejar contra la hoja.
+ *
+ * Las cuatro columnas se leen juntas a propósito. Una propuesta se mira de a
+ * una; un modelo se juzga por lo que hace en todo su rango, y sobre todo por
+ * lo que hace en los bordes.
  */
-export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
-  const [abierta, setAbierta] = useState<string | null>(null)
-  const clave = (p: Portafolio) => `${p.ticketUsd}-${p.perfil}`
-
+export function Benchmark({
+  matriz,
+  problemaDeMacro,
+}: {
+  readonly matriz: Matriz
+  readonly problemaDeMacro: string | null
+}) {
   return (
     <div className={estilos.hoja}>
       <header className={estilos.cabecera}>
         <p className="eyebrow">Benchmark</p>
         <h1>Los {matriz.portafolios.length} portafolios del modelo</h1>
         <p className={estilos.bajada}>
-          El motor corrido en vacío: {plural(matriz.tickets.length, 'ticket', 'tickets')} contra{' '}
+          El motor corrido en vacío: {plural(matriz.tickets.length, 'monto', 'montos')} contra{' '}
           {plural(matriz.perfiles.length, 'perfil', 'perfiles')}, sin ficha y sin nada
-          conservado. Es lo que el modelo propone a un cliente que llega con dinero y nada más.
+          conservado. Es lo que el modelo propone a un cliente que llega con dinero y nada más,
+          con la{' '}
+          {matriz.esDeFabrica ? (
+            <>macro de fábrica</>
+          ) : (
+            <>
+              macro <b>v{matriz.versionMacro}</b>
+            </>
+          )}
+          . <a href="/macro">Ver o cambiar la macro</a>
         </p>
       </header>
+
+      {problemaDeMacro !== null && <p className={estilos.problema}>{problemaDeMacro}</p>}
 
       <form className={estilos.reglas} method="get">
         <p className={estilos.tituloReglas}>Reglas del portafolio</p>
 
-        <label className={estilos.campo}>
-          <span>Perfiles a mirar</span>
-          <select name="perfiles" defaultValue={matriz.vista}>
-            <option value="5">Los cinco</option>
-            <option value="3">Tres: Conservador, Moderado y Arriesgado</option>
-            <option value="2">Dos: Conservador contra Moderado</option>
-          </select>
-        </label>
+        {/*
+          El selector de perfiles se corre solo y no pasa por este `submit`: es
+          un cliente con su propia navegación. Va adentro del bloque igual
+          porque conceptualmente es una regla más de lo que se está mirando.
+        */}
+        <SelectorPerfiles elegidos={matriz.perfiles} />
 
         <label className={estilos.campo}>
           <span>Inmobiliario disuelto</span>
@@ -91,167 +107,141 @@ export function Benchmark({ matriz }: { readonly matriz: Matriz }) {
           Volver a correr
         </button>
 
-        {!matriz.esLaMacroDeLaPropuesta && (
+        {!matriz.esLaMacroGuardada && (
           <p className={estilos.desviada}>
-            Estas no son las reglas de la macro v8. Lo que ves acá no es lo que la propuesta le
-            entrega hoy a un cliente.{' '}
-            <a href="/benchmark">Volver a las de la propuesta</a>
+            Estas no son las reglas de la macro guardada. Lo que ves acá no es lo que la
+            propuesta le entrega hoy a un cliente. <a href="/benchmark">Volver a las de la macro</a>{' '}
+            ·{' '}
+            <a
+              href={`/macro?etf=${matriz.reglas.ticketEtfUsd}&umbral=${matriz.reglas.umbralInmobiliarioUsd}&inm=${matriz.reglas.inmobiliario}`}
+            >
+              llevarlas a la macro
+            </a>
           </p>
         )}
       </form>
 
       <p className={estilos.nota}>
-        La diferencia entre las dos reglas es la que separa las dos hojas con las que la mesa
-        venía trabajando. Sobre un perfil Moderado, prorratear le da{' '}
+        La diferencia entre las dos reglas del inmobiliario es la que separa las dos hojas con
+        las que la mesa venía trabajando. Sobre un perfil Moderado, prorratear le da{' '}
         <b>{pct1(0.2585)}</b> a Renta Fija; mandarlo al bloque alternativo le deja{' '}
         <b>{pct1(0.1899)}</b>. Casi siete puntos, con el mismo benchmark y el mismo ticket.
       </p>
 
       <GraficoBenchmark matriz={matriz} />
 
-      <table className={estilos.tabla}>
-        <thead>
-          <tr>
-            <th scope="col">Perfil</th>
-            {ORDEN_CLASES.map((clase) => (
-              <th key={clase} scope="col" className={estilos.num} title={NOMBRE_CLASE[clase]}>
-                {NOMBRE_CLASE_CORTO[clase]}
-              </th>
-            ))}
-            <th scope="col" className={estilos.num}>
-              Líneas
-            </th>
-            <th scope="col">Reglas que actuaron</th>
-            <th scope="col" aria-label="Abrir el detalle" />
-          </tr>
-        </thead>
-
+      <div className={estilos.columnas} data-columnas={matriz.tickets.length}>
         {matriz.tickets.map((ticket) => (
-          <tbody key={ticket}>
-            <tr className={estilos.banda}>
-              <th scope="rowgroup" colSpan={ORDEN_CLASES.length + 4}>
-                Ticket <b className="mono">{usdTabla(ticket)}</b> USD
-              </th>
-            </tr>
+          <section key={ticket} className={estilos.columna}>
+            <h2 className={estilos.banda}>
+              Monto: <span className="mono">{usdTabla(ticket)}</span> dólares
+            </h2>
 
-            {matriz.portafolios
-              .filter((p) => p.ticketUsd === ticket)
-              .map((p) => {
-                const esta = clave(p)
-                const abierto = abierta === esta
-
-                return (
-                  <Fragmento key={esta}>
-                    <tr className={abierto ? estilos.filaAbierta : ''}>
-                      <td className={estilos.perfil}>{p.perfil}</td>
-
-                      {ORDEN_CLASES.map((clase) => {
-                        const usd = p.porClase[clase]
-                        const share = p.totalUsd > 0 ? usd / p.totalUsd : 0
-                        return (
-                          <td
-                            key={clase}
-                            className={`${estilos.num} ${usd <= 0 ? estilos.cero : ''}`}
-                            title={usd > 0 ? usdTabla(usd) : 'sin asignación'}
-                          >
-                            {usd > 0 ? pct1(share) : '—'}
-                          </td>
-                        )
-                      })}
-
-                      <td className={`${estilos.num} mono`}>{p.lineas.length}</td>
-                      <td className={estilos.avisos}>
-                        {p.avisos.length === 0 ? (
-                          <span className={estilos.cero}>ninguna</span>
-                        ) : (
-                          <span className={estilos.marca}>
-                            {plural(p.avisos.length, 'regla', 'reglas')}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={estilos.chevron}
-                          aria-expanded={abierto}
-                          aria-label={`${abierto ? 'Cerrar' : 'Abrir'} el detalle de ${p.perfil} con ticket ${usdCorto(ticket)}`}
-                          onClick={() => setAbierta(abierto ? null : esta)}
-                        >
-                          <svg
-                            width="11"
-                            height="11"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className={abierto ? estilos.giro : undefined}
-                          >
-                            <path d="M2.5 4.5L6 8l3.5-3.5" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-
-                    {abierto && (
-                      <tr>
-                        <td colSpan={ORDEN_CLASES.length + 4} className={estilos.detalle}>
-                          <Detalle portafolio={p} />
-                        </td>
-                      </tr>
-                    )}
-                  </Fragmento>
-                )
-              })}
-          </tbody>
+            {matriz.perfiles.map((perfil) => {
+              const portafolio = matriz.portafolios.find(
+                (p) => p.ticketUsd === ticket && p.perfil === perfil,
+              )
+              return portafolio === undefined ? null : (
+                <TarjetaPerfil key={perfil} portafolio={portafolio} />
+              )
+            })}
+          </section>
         ))}
-      </table>
+      </div>
     </div>
   )
 }
 
-function Detalle({ portafolio }: { readonly portafolio: Portafolio }) {
+/**
+ * Un portafolio: sus clases, y dentro de cada una sus instrumentos.
+ *
+ * La clase va en negrita con su total y su peso; los instrumentos, debajo y en
+ * tinta más suave. Es la jerarquía de la hoja: la clase es la decisión del
+ * benchmark y el instrumento es cómo se ejecuta, y verlos al mismo peso
+ * visual haría creer que son lo mismo.
+ */
+function TarjetaPerfil({ portafolio }: { readonly portafolio: Portafolio }) {
   return (
-    <div className={estilos.columnas}>
-      <div>
-        <h3 className={estilos.subtitulo}>Instrumentos</h3>
-        {portafolio.lineas.length === 0 ? (
-          <p className={estilos.cero}>El modelo no abre ninguna línea con este ticket.</p>
-        ) : (
-          <ul className={estilos.lineas}>
-            {portafolio.lineas.map((linea) => (
-              <li key={`${linea.clase}-${linea.instrumento}`}>
-                <span
-                  className={`${estilos.punto} ${estilos[`punto_${linea.clase}`] ?? ''}`}
-                  aria-hidden="true"
-                />
-                <span className={estilos.instrumento}>{linea.instrumento}</span>
-                <span className={`mono ${estilos.montoLinea}`}>{usdTabla(linea.usd)}</span>
-                <span className={estilos.shareLinea}>{pct1(linea.share)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+    <figure className={estilos.tarjeta}>
+      <table className={estilos.tabla}>
+        <thead>
+          <tr style={{ background: bandaPerfil(portafolio.perfil) }}>
+            <th scope="col">Clase de Activo</th>
+            <th scope="col" className={estilos.num}>
+              {portafolio.perfil}
+            </th>
+            <th scope="col" className={estilos.num}>
+              %
+            </th>
+          </tr>
+        </thead>
 
-      <div>
-        <h3 className={estilos.subtitulo}>Qué decidió el motor</h3>
-        {portafolio.avisos.length === 0 ? (
-          <p className={estilos.cero}>Ninguna regla especial actuó en esta corrida.</p>
-        ) : (
-          <ul className={estilos.reglasLista}>
+        <tbody>
+          {portafolio.bloques.length === 0 ? (
+            <tr>
+              <td colSpan={3} className={estilos.vacio}>
+                El modelo no abre ninguna línea con este monto.
+              </td>
+            </tr>
+          ) : (
+            portafolio.bloques.map((bloque) => (
+              <Fragmento key={bloque.clase}>
+                <tr className={estilos.filaClase}>
+                  <th scope="rowgroup">{bloque.nombre}</th>
+                  <td className={`${estilos.num} mono`}>{usdCentavos(bloque.usd)}</td>
+                  <td className={estilos.num}>{pct1(bloque.share)}</td>
+                </tr>
+
+                {bloque.instrumentos.map((linea) => (
+                  <tr key={`${bloque.clase}-${linea.instrumento}`} className={estilos.filaLinea}>
+                    <td title={linea.nota ?? undefined}>
+                      {linea.instrumento}
+                      {linea.nota !== null && (
+                        <span className={estilos.asterisco} aria-hidden="true">
+                          {' '}
+                          *
+                        </span>
+                      )}
+                    </td>
+                    <td className={`${estilos.num} mono`}>{usdCentavos(linea.usd)}</td>
+                    <td className={estilos.num}>{pct1(linea.share)}</td>
+                  </tr>
+                ))}
+              </Fragmento>
+            ))
+          )}
+        </tbody>
+
+        <tfoot>
+          <tr>
+            <th scope="row">Total del Portafolio</th>
+            <td className={`${estilos.num} mono`}>{usdCentavos(portafolio.totalUsd)}</td>
+            <td className={estilos.num}>{pct1(portafolio.totalUsd > 0 ? 1 : 0)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {/*
+        Lo que el motor decidió por su cuenta. Va plegado porque en la mayoría
+        de las corridas no hay nada que decir, y abierto ocuparía más alto que
+        el portafolio mismo. Cuando hay algo, es lo primero que hay que leer:
+        una clase que no llegó a su mínimo explica una fila que no está.
+      */}
+      {portafolio.avisos.length > 0 && (
+        <details className={estilos.avisos}>
+          <summary>{plural(portafolio.avisos.length, 'regla actuó', 'reglas actuaron')}</summary>
+          <ul>
             {portafolio.avisos.map((aviso) => (
               <li key={aviso}>{aviso}</li>
             ))}
           </ul>
-        )}
-      </div>
-    </div>
+        </details>
+      )}
+    </figure>
   )
 }
 
-/** Un `<tr>` y su detalle son hermanos: no pueden ir envueltos en un `<div>`. */
+/** Las filas de una clase y sus instrumentos son hermanas: no van en un `div`. */
 function Fragmento({ children }: { readonly children: React.ReactNode }) {
   return <>{children}</>
 }

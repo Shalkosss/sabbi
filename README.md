@@ -20,7 +20,8 @@ Reemplaza dos herramientas: un HTML monolítico de 10,863 líneas y la macro
 1. **El motor es una función pura.** Vive en `packages/core`. Sin red, sin DOM,
    sin Supabase, sin reloj. Misma entrada, misma salida, siempre.
 2. **Una sola fuente de verdad de configuración.** Un número de negocio dentro de
-   un `.tsx` es un error.
+   un `.tsx` es un error. Desde la pantalla de Macro, tampoco puede estar dentro
+   de un `.ts` del motor: los pesos y los umbrales viajan como argumento.
 3. **Una sola función `claseDe(posición)`**, usada por el motor y por la UI. Dos
    criterios en paralelo produjeron el bug v37.25b.
 4. **Neteo solo contra el menú real de cada clase.** El catálogo tiene 319
@@ -43,9 +44,11 @@ apps/web/              Next.js. UI delgada, sin reglas de negocio
 packages/
   core/                MOTOR PURO
     domain/            tipos: Perfil, Segmento, ClaseModelo, Posición, Piso
+                       y `reglas.ts`, la macro: los trece umbrales del motor
     rules/             reparto, cascada, privados, club, otros, residuales
     propuesta/         las siete secciones y las dos miradas del cliente
-  config/              schema Zod y carga de configuración
+  config/              schema Zod y carga de configuración; `macro.ts` valida
+                       la macro entera — pesos y umbrales — que entra y sale
   io/                  parsers de ficha
   export/
     xlsx/              propuesta — sin construir todavía
@@ -147,6 +150,44 @@ a precisión completa. El JSON de configuración trae esos mismos pesos redondea
 a cuatro decimales, y ese redondeo desplaza la base de redistribución en 6,502.88
 USD sobre el caso Ana Tumi.
 
+## La macro
+
+`/macro` es el modelo Sabbi escrito en un solo sitio, y es lo que se edita
+cuando hay que calibrarlo. Dos mitades:
+
+- **Los pesos.** Cuánto le toca a cada una de las siete clases en cada perfil, y
+  dentro de cada clase, qué parte se lleva cada instrumento. Los instrumentos se
+  editan como reparto interno —el 100% es la clase, no el patrimonio— porque así
+  es como se piensan; al guardar se multiplican por el peso de la clase, que es
+  como lo guarda la hoja.
+- **Los umbrales.** Los trece números que convierten ese reparto en líneas
+  ejecutables: el ticket mínimo de ETF, el mínimo por subfondo, el de Club Deals
+  y el de Otros, la frontera Edifica A/B, el umbral de los 500,000 del
+  inmobiliario y a dónde va su capital cuando se disuelve, y las tolerancias de
+  los dos motores de mercados públicos.
+
+Vivían como un JSON versionado y doce constantes de módulo repartidas por
+`packages/core/src/rules/`. Ahora son un argumento: `generarPlan` recibe
+`reglas` y sin ellas corre la v8, que es la que fija el golden test. Los tres
+caminos que producen cifras —la propuesta en pantalla, la matriz del benchmark
+y los dos decks— leen la macro activa con `macroActiva()` y no tienen otra
+fuente, así que guardar una versión cambia todo lo que se calcule después.
+
+Guardar no sobreescribe: escribe una versión nueva en `macro_versions` y la
+activa. Una cifra que salió en la propuesta de un cliente se explica por la
+macro con la que se calculó, y esa explicación tiene que seguir estando el mes
+que viene. Editar es de admin; ver es de cualquiera, porque la pantalla es
+también la documentación del modelo.
+
+Lo que no se toca no se reescribe. Los pesos de la hoja `Data` llegan con
+dieciséis dígitos y redondearlos a cuatro decimales desplaza la base de
+redistribución en 6,502.88 USD sobre el caso Ana Tumi; el editor marca cada
+celda editada y solo esas viajan.
+
+Si la base no tiene ninguna macro guardada —o la que tiene no valida contra
+`macroSchema`— el motor corre con la de fábrica, que es la v4 de pesos con la
+v8 de umbrales, y la pantalla lo dice. Nunca se calcula con media macro.
+
 ## Los dos decks
 
 El **rediseñado** se arma desde el objeto `Propuesta` y solo desde ahí: portada,
@@ -194,6 +235,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | 9 | Asistencia opcional de IA | |
+| — | Macro editable, versionada y con historial | hecho |
 
 ### Pendientes con el equipo
 

@@ -20,7 +20,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { benchmarkDe, pesosDeClase } from '../packages/config/dist/src/index.js'
-import { generarPlan, NOMBRE_CLASE, PERFILES } from '../packages/core/dist/index.js'
+import { generarPlan, NOMBRE_CLASE, PERFILES, REGLAS_V8 } from '../packages/core/dist/index.js'
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -78,7 +78,9 @@ for (const ticket of TICKETS) {
       pisos: [],
       ticketMinimoUsd: TICKET_ETF,
       fallbacks: FALLBACKS,
-      reglaInmobiliario: REGLA,
+      // Los umbrales de la macro v8 con la regla del inmobiliario cambiada.
+      // Este script no lee la base: es el modelo de fabrica, a proposito.
+      reglas: { ...REGLAS_V8, inmobiliario: { ...REGLAS_V8.inmobiliario, destino: REGLA } },
     })
 
     const totalDe = (clase) =>

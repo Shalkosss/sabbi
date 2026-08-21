@@ -22,20 +22,21 @@
  * la clase y de los montos de Club Deals y Otros que no llegan a su umbral.
  */
 
+import { REGLAS_V8 } from '../domain/reglas.js'
 import type { Perfil } from '../domain/tipos.js'
 import { aperturaFm } from './institucional.js'
 import type { EstadoInstitucional } from './institucional.js'
 
-/** Minimo por subfondo institucional. Debajo de esto no se abre ninguno. */
-export const MIN_SUBFONDO = 50_000
+/** Minimo por subfondo institucional en la macro v8. */
+export const MIN_SUBFONDO = REGLAS_V8.privados.minSubfondoUsd
 
 /**
- * Ticket minimo de Vision Dividendos Global (Clase B, §4.7).
+ * Ticket minimo de Vision Dividendos Global (Clase B, §4.7) en la macro v8.
  *
  * Debajo de esto el destino de flujos no es viable y el monto se queda en el
  * Fondo Oportunidad.
  */
-const MIN_DIVIDENDOS_GLOBAL = 80_000
+export const MIN_DIVIDENDOS_GLOBAL = REGLAS_V8.privados.minDividendosGlobalUsd
 
 const EPS = 1e-6
 const TOL = 0.01
@@ -76,6 +77,10 @@ export interface OpcionesPrivados {
    * Gana el toggle de flujos: forzar `si` no vuelve liquidos a los FM.
    */
   readonly institucional?: EstadoInstitucional
+  /** Minimo por subfondo. Sale de la macro; por defecto, el de la v8. */
+  readonly minSubfondoUsd?: number
+  /** Ticket de Vision Dividendos Global. Sale de la macro. */
+  readonly minDividendosGlobalUsd?: number
 }
 
 /** Split del Fondo Oportunidad entre los tres institucionales, por perfil. */
@@ -92,9 +97,13 @@ function splitInstitucional(perfil: Perfil): { reInfra: number; pc: number; pevc
  * ticket; por debajo se queda en el Fondo Oportunidad. Son los dos unicos
  * destinos posibles cuando el cliente necesita flujos.
  */
-function lineaOportunidad(montoUsd: number, necesitaFlujos: boolean): LineaPrivados {
+function lineaOportunidad(
+  montoUsd: number,
+  necesitaFlujos: boolean,
+  minDividendosGlobalUsd: number,
+): LineaPrivados {
   const instrumento =
-    necesitaFlujos && montoUsd >= MIN_DIVIDENDOS_GLOBAL - TOL
+    necesitaFlujos && montoUsd >= minDividendosGlobalUsd - TOL
       ? FONDO_DIVIDENDOS_GLOBAL
       : FONDO_OPORTUNIDAD
   return { instrumento, usd: montoUsd }
@@ -113,14 +122,22 @@ export function repartirPrivados(
   montoUsd: number,
   opciones: OpcionesPrivados,
 ): LineaPrivados[] {
-  const { perfil, necesitaFlujos = false, institucional = 'auto' } = opciones
+  const {
+    perfil,
+    necesitaFlujos = false,
+    institucional = 'auto',
+    minSubfondoUsd = MIN_SUBFONDO,
+    minDividendosGlobalUsd = MIN_DIVIDENDOS_GLOBAL,
+  } = opciones
   if (montoUsd <= EPS) return []
 
   // Los FM no distribuyen. Con flujos activos el split ni se evalua.
-  if (necesitaFlujos) return [lineaOportunidad(montoUsd, true)]
+  if (necesitaFlujos) return [lineaOportunidad(montoUsd, true, minDividendosGlobalUsd)]
 
   const apertura = aperturaFm(institucional)
-  if (apertura === 'cerrada') return [lineaOportunidad(montoUsd, false)]
+  if (apertura === 'cerrada') {
+    return [lineaOportunidad(montoUsd, false, minDividendosGlobalUsd)]
+  }
 
   const split = splitInstitucional(perfil)
   const candidatos = [
@@ -130,10 +147,10 @@ export function repartirPrivados(
   ].filter((c) => c.usd > EPS)
 
   const todosPasan =
-    candidatos.length > 0 && candidatos.every((c) => c.usd >= MIN_SUBFONDO - TOL)
+    candidatos.length > 0 && candidatos.every((c) => c.usd >= minSubfondoUsd - TOL)
 
   if (!todosPasan) {
-    return [lineaOportunidad(montoUsd, false)]
+    return [lineaOportunidad(montoUsd, false, minDividendosGlobalUsd)]
   }
 
   return candidatos.map((c) => ({

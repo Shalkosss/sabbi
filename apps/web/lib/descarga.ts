@@ -9,6 +9,7 @@ import {
   catalogoDeAssetClass,
   catalogoDeProductos,
 } from './datos/propuestas'
+import { macroParaCalcular } from './datos/macro'
 import { asesorActual } from './supabase/servidor'
 
 /**
@@ -34,10 +35,13 @@ export async function prepararDescarga(propuestaId: string): Promise<Preparada> 
   const cargada = await cargarPropuesta(propuestaId)
   if (cargada === null) return { ok: false, respuesta: texto('No existe esa propuesta.', 404) }
 
-  const [catalogo, assetClassCatalogo, anotaciones] = await Promise.all([
+  const [catalogo, assetClassCatalogo, anotaciones, macro] = await Promise.all([
     catalogoDeProductos(),
     catalogoDeAssetClass(),
     anotacionesDeLinea(propuestaId),
+    // El deck no puede calcular con una macro distinta de la que muestra la
+    // pantalla: es la misma propuesta vista de otra manera.
+    macroParaCalcular(),
   ])
 
   const resultado = construirPropuesta(cargada.revision, {
@@ -45,6 +49,7 @@ export async function prepararDescarga(propuestaId: string): Promise<Preparada> 
     catalogo,
     assetClassCatalogo,
     anotaciones,
+    macro,
   })
 
   // El mismo corte que la pantalla: sin propuesta calculada no hay archivo que

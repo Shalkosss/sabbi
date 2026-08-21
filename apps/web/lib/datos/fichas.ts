@@ -7,6 +7,7 @@ import type { FichaParseada } from '@sabbi/io'
 import type { EstadoRevision, Parametros } from '../estado'
 import { asesorActual, clienteServidor } from '../supabase/servidor'
 import { cargarAjustesObjetivo } from './ajustes'
+import { macroParaCalcular } from './macro'
 import { altaProductosDeFicha } from './alta-productos'
 import { completarDesdeCatalogo } from './completar'
 import { filaDeDeuda, filaDePosicion, posicionDeFila } from './mapeo'
@@ -21,8 +22,19 @@ import type { FilaPosicion } from './mapeo'
  * cada una queda a nombre de quien la creó.
  */
 
-/** Cuando la ficha no trae el bloque de modelo, este es el mínimo de la macro. */
-const TICKET_ETF_POR_DEFECTO = 20_000
+/**
+ * El mínimo de ETF cuando nadie lo dijo.
+ *
+ * Sale de la macro activa, no de una constante: es el mismo número que el
+ * motor usa para decidir si una línea es ejecutable, y tenerlo escrito acá
+ * también significaba que cambiarlo en la pantalla de Macro no cambiaba el
+ * valor con el que nacía cada propuesta nueva.
+ *
+ * Es un default, no una atadura: el asesor lo mueve propuesta por propuesta en
+ * el panel de parámetros, y esa elección se guarda y manda.
+ */
+const ticketEtfPorDefecto = async (): Promise<number> =>
+  (await macroParaCalcular()).reglas.ticketEtfUsd
 
 /** Sin perfil declarado en la ficha, el del medio: ni el más caro ni el más barato de corregir. */
 const PERFIL_POR_DEFECTO: Perfil = 'Moderado'
@@ -165,6 +177,7 @@ export async function guardarFichaNueva(
   }
 
   const minimoEtf = ficha.modelo?.montoMinimoEtfUsd ?? null
+  const porDefecto = await ticketEtfPorDefecto()
 
   const { error: errorPropuesta } = await supabase.from('proposals').insert({
     client_id: cliente.id,
@@ -175,7 +188,7 @@ export async function guardarFichaNueva(
     segmento: ficha.totales.invertibleUsd >= 500_000 ? 'gte500' : 'lt500',
     patrimonio_financiero_usd: ficha.totales.invertibleUsd,
     patrimonio_uso_propio_usd: ficha.totales.usoPropioUsd,
-    ticket_minimo_etf_usd: minimoEtf !== null && minimoEtf > 0 ? minimoEtf : TICKET_ETF_POR_DEFECTO,
+    ticket_minimo_etf_usd: minimoEtf !== null && minimoEtf > 0 ? minimoEtf : porDefecto,
   })
 
   if (errorPropuesta !== null) {
@@ -303,7 +316,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
       institucional: (propuesta?.institucional_override ?? 'auto') as Parametros['institucional'],
       incluirInmueblesDeRenta: propuesta?.toggle_inm_seccion_propia ?? true,
       colchonLiquidezUsd: propuesta?.colchon_liquidez_usd ?? 0,
-      ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? TICKET_ETF_POR_DEFECTO,
+      ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? (await ticketEtfPorDefecto()),
       fxPenUsd: propuesta?.fx ?? 3.4,
     },
   }

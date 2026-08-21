@@ -7,12 +7,17 @@
  *
  * v8 hace dos cosas distintas:
  *
- *  1. Poda por costo. Solo descarta lo que quedaria por debajo de la mitad del
- *     ticket minimo. Un ETF que llega al 60% del minimo no se tira: se rescata.
+ *  1. Poda por costo. Solo descarta lo que quedaria por debajo de una fraccion
+ *     del ticket minimo — la mitad, en la v8. Un ETF que llega al 60% del
+ *     minimo no se tira: se rescata.
  *  2. Cadena de separacion. A los sobrevivientes les impone pisos escalonados
- *     (minimo, minimo x1.15, x1.15^2 ...) para que no queden todos pegados al
- *     minimo, y comprueba que ninguno sacrifique mas del 20% de su objetivo.
- *     Si la combinacion no es viable, descarta el mas chico y reintenta.
+ *     (minimo, minimo x1.15, x1.15^2 ... en la v8) para que no queden todos
+ *     pegados al minimo, y comprueba que ninguno sacrifique mas de una parte de
+ *     su objetivo — el 20%, en la v8. Si la combinacion no es viable, descarta
+ *     el mas chico y reintenta.
+ *
+ * Las tres tolerancias salen de la macro; los numeros de arriba son los que
+ * trae la v8 y los que fija el golden test.
  *
  * El reparto se aplica sobre el dinero NUEVO de la clase, no sobre su objetivo
  * total: lo que el cliente ya conserva no se vuelve a comprar.
@@ -21,14 +26,8 @@
  * `variable.ts` — con nucleo, satelites y rescate de rango.
  */
 
-/** Por debajo de esta fraccion del ticket minimo, el ETF se descarta. */
-const FACTOR_DESCARTE = 0.5
-
-/** Un ETF no puede perder mas de esta fraccion de su objetivo por los pisos. */
-const MAX_SACRIFICIO = 0.2
-
-/** Separacion entre pisos consecutivos de la cadena. */
-const SEPARACION = 0.15
+import { REGLAS_V8 } from '../domain/reglas.js'
+import type { ReglasCascada } from '../domain/reglas.js'
 
 const EPS = 1e-6
 const TOL = 0.01
@@ -48,6 +47,12 @@ export interface OpcionesCascada {
    * ticket. En la configuracion son los "Flip".
    */
   readonly fallback: string
+  /**
+   * Las tres tolerancias de la cascada, que salen de la macro.
+   *
+   * Sin ellas manda la v8, que es lo que fija el golden test.
+   */
+  readonly ajustes?: ReglasCascada
 }
 
 /**
@@ -62,7 +67,7 @@ export function repartirEtfs(
   montoUsd: number,
   opciones: OpcionesCascada,
 ): AsignacionEtf[] {
-  const { ticketMinimo, fallback } = opciones
+  const { ticketMinimo, fallback, ajustes = REGLAS_V8.fijo } = opciones
   if (ticketMinimo <= 0) throw new Error('El ticket minimo debe ser mayor que cero.')
   if (montoUsd <= EPS) return []
 
@@ -77,7 +82,7 @@ export function repartirEtfs(
   const objetivo = nombres.map((n) => (montoUsd * (pesos[n] ?? 0)) / sumaPesos)
   const cuota = objetivo.map((v) => v / montoUsd)
 
-  const valores = resolver(objetivo, cuota, montoUsd, ticketMinimo)
+  const valores = resolver(objetivo, cuota, montoUsd, ticketMinimo, ajustes)
 
   return nombres
     .map((nombre, i) => ({ nombre, usd: valores[i] ?? 0 }))
@@ -90,24 +95,34 @@ function resolver(
   cuota: readonly number[],
   total: number,
   minimo: number,
+  ajustes: ReglasCascada,
 ): number[] {
   const n = objetivo.length
   const vivo = new Array<boolean>(n).fill(true)
   let valores = new Array<number>(n).fill(0)
 
-  podar(vivo, cuota, total, minimo)
+  podar(vivo, cuota, total, minimo, ajustes.factorDescarte)
 
   for (let ciclo = 0; ciclo < MAX_CICLOS; ciclo += 1) {
     const orden = indicesVivos(vivo).sort((a, b) => (objetivo[a] ?? 0) - (objetivo[b] ?? 0))
     if (orden.length === 0) break
 
-    // Cadena de separacion: el mas chico al minimo, cada siguiente un 15% mas.
+    // Cadena de separacion: el mas chico al minimo, cada siguiente un tanto
+    // por ciento mas — 15 en la v8, lo que diga la macro despues.
     const piso = new Array<number>(n).fill(0)
     orden.forEach((idx, k) => {
-      piso[idx] = k === 0 ? minimo : (piso[orden[k - 1]!] ?? 0) * (1 + SEPARACION)
+      piso[idx] = k === 0 ? minimo : (piso[orden[k - 1]!] ?? 0) * (1 + ajustes.separacion)
     })
 
-    const intento = repartirConPisos(vivo, cuota, piso, objetivo, total, minimo)
+    const intento = repartirConPisos(
+      vivo,
+      cuota,
+      piso,
+      objetivo,
+      total,
+      minimo,
+      ajustes.maxSacrificio,
+    )
     if (intento) {
       valores = intento
       break
@@ -136,6 +151,7 @@ function podar(
   cuota: readonly number[],
   total: number,
   minimo: number,
+  factorDescarte: number,
 ): void {
   for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta += 1) {
     const vivos = indicesVivos(vivo)
@@ -148,7 +164,7 @@ function podar(
     let menor = Number.POSITIVE_INFINITY
     for (const i of vivos) {
       const v = escala(i)
-      if (v < FACTOR_DESCARTE * minimo - EPS && v < menor) {
+      if (v < factorDescarte * minimo - EPS && v < menor) {
         menor = v
         peor = i
       }
@@ -184,6 +200,7 @@ function repartirConPisos(
   objetivo: readonly number[],
   total: number,
   minimo: number,
+  maxSacrificio: number,
 ): number[] | null {
   const n = cuota.length
   const clavado = new Array<boolean>(n).fill(false)
@@ -220,7 +237,7 @@ function repartirConPisos(
     for (const i of libres) {
       const v = (resto * (cuota[i] ?? 0)) / sumaCuota
       if (v < minimo - TOL) return null
-      if (v < (1 - MAX_SACRIFICIO) * (objetivo[i] ?? 0) - TOL) return null
+      if (v < (1 - maxSacrificio) * (objetivo[i] ?? 0) - TOL) return null
       valores[i] = v
     }
     return valores

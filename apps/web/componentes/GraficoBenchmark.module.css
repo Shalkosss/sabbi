@@ -1,9 +1,9 @@
 /*
  * Los cuatro paneles del benchmark.
  *
- * Van arriba de la tabla y no adentro: la tabla es para leer una cifra, el
- * grafico es para ver la forma, y mezclarlos hace que ninguno de los dos se
- * lea bien.
+ * Van arriba de las columnas y no adentro: las columnas son para leer una
+ * cifra, el grafico es para ver la forma, y mezclarlos hace que ninguno de los
+ * dos se lea bien.
  */
 
 .bloque {
@@ -63,6 +63,19 @@
 
 .punto:hover {
   r: 5.4;
+}
+
+/* La cifra encima del punto. Solo aparece con menos de tres perfiles puestos;
+   con tres se tapan entre ellas y no se lee ninguna. */
+.rotulo {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--fondo);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .leyenda {

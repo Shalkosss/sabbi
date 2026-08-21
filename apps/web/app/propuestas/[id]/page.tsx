@@ -10,6 +10,7 @@ import { FotoActual } from '../../../componentes/propuesta/FotoActual'
 import { Objetivo } from '../../../componentes/propuesta/Objetivo'
 import { Vistas } from '../../../componentes/propuesta/Vistas'
 import { construirPropuesta } from '../../../lib/armar-propuesta'
+import { macroParaCalcular } from '../../../lib/datos/macro'
 import vistas from '../../../componentes/propuesta/Vistas.module.css'
 import {
   anotacionesDeLinea,
@@ -36,10 +37,11 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
   const cargada = await cargarPropuesta(id)
   if (cargada === null) notFound()
 
-  const [catalogo, assetClassCatalogo, anotaciones] = await Promise.all([
+  const [catalogo, assetClassCatalogo, anotaciones, macro] = await Promise.all([
     catalogoDeProductos(),
     catalogoDeAssetClass(),
     anotacionesDeLinea(id),
+    macroParaCalcular(),
   ])
 
   const resultado = construirPropuesta(cargada.revision, {
@@ -47,6 +49,7 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
     catalogo,
     assetClassCatalogo,
     anotaciones,
+    macro,
   })
 
   const marco = (contenido: React.ReactNode) => (

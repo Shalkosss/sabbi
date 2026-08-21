@@ -1,6 +1,7 @@
 import 'server-only'
 
-import { benchmarkDe, pesosDeClase } from '@sabbi/config'
+import { benchmarkDe, MACRO_DE_FABRICA, pesosDeClase } from '@sabbi/config'
+import type { Macro } from '@sabbi/config'
 import {
   armarEntradaPlan,
   armarPropuesta,
@@ -25,6 +26,10 @@ import type { EstadoRevision } from './estado'
  * El modelo puro es el mismo motor corrido sin pisos: el benchmark aplicado al
  * patrimonio entero ignorando lo que el cliente ya tiene. Sin esa segunda
  * corrida no hay forma de explicar por qué el plan se desvía del modelo.
+ *
+ * La macro entra por argumento y no se lee acá: esta función es la que corren
+ * la pantalla y las dos descargas, y todas tienen que estar mirando la misma.
+ * Quien la llama la trae de `macroActiva()`.
  */
 
 export type ResultadoPropuesta =
@@ -37,6 +42,13 @@ interface Opciones {
   readonly assetClassCatalogo: readonly string[]
   /** Lo que el asesor escribió de cada línea del objetivo, por instrumento. */
   readonly anotaciones?: ReadonlyMap<string, AnotacionLinea>
+  /**
+   * La macro con la que se calcula: pesos de benchmark y umbrales del motor.
+   *
+   * Sin ella, la de fábrica. No se cae a valores sueltos: o la macro entera
+   * que la mesa guardó, o la entera de fábrica.
+   */
+  readonly macro?: Macro
 }
 
 /** La revisión trae más campos de los que el motor mira; acá se completan. */
@@ -67,8 +79,9 @@ export function construirPropuesta(
   opciones: Opciones,
 ): ResultadoPropuesta {
   const { parametros } = revision
+  const macro = opciones.macro ?? MACRO_DE_FABRICA
   const posiciones = revision.posiciones.map(aPropuesta)
-  const benchmark = benchmarkDe(parametros.perfil)
+  const benchmark = benchmarkDe(parametros.perfil, macro.pesos)
 
   // Ningun dato vacio pasa en silencio: la propuesta no se arma hasta que la
   // revision este completa. La pantalla de revision marca estos mismos campos.
@@ -97,11 +110,15 @@ export function construirPropuesta(
     perfil: parametros.perfil,
     benchmark,
     pesos: {
-      fijo: pesosDeClase('fijo', parametros.perfil),
-      variable: pesosDeClase('variable', parametros.perfil),
-      otros: pesosDeClase('otros', parametros.perfil),
+      fijo: pesosDeClase('fijo', parametros.perfil, macro.pesos),
+      variable: pesosDeClase('variable', parametros.perfil, macro.pesos),
+      otros: pesosDeClase('otros', parametros.perfil, macro.pesos),
     },
-    ticketMinimoUsd: parametros.ticketMinimoUsd,
+    reglas: macro.reglas,
+    // El ticket mínimo es el único número de la macro que el asesor mueve
+    // propuesta por propuesta. Vacío en la ficha, manda el de la macro.
+    ticketMinimoUsd:
+      parametros.ticketMinimoUsd > 0 ? parametros.ticketMinimoUsd : macro.reglas.ticketEtfUsd,
     fallbacks: FALLBACKS,
     usPerson: parametros.usPerson,
     necesitaFlujos: parametros.necesitaFlujos,
@@ -163,7 +180,7 @@ export function construirPropuesta(
     pisos: derivacion.entrada.pisos,
     benchmark: derivacion.entrada.benchmark,
     parametros: {
-      ticketMinimoUsd: parametros.ticketMinimoUsd,
+      ticketMinimoUsd: derivacion.entrada.ticketMinimoUsd,
       colchonLiquidezUsd: parametros.colchonLiquidezUsd,
       fxPenUsd: parametros.fxPenUsd,
     },

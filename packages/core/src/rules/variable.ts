@@ -13,29 +13,43 @@
  *     ticket, su monto se reparte solo entre los satelites vivos. El nucleo no
  *     crece con los restos; solo recoge al ultimo satelite si mueren todos.
  *  2. Rescate de rango. Si queda exactamente un satelite por debajo del ticket
- *     y esta entre 14,500 y el minimo, en vez de matarlo se le compra el salto:
- *     se redondea la diferencia al millar superior y la financian el nucleo y
- *     los demas satelites a prorrata. El ciclo termina ahi.
- *  3. Separacion del 10%. Los satelites sobrevivientes no pueden quedar pegados
- *     entre si: cada uno debe superar al anterior en al menos un 10%, y el
- *     ajuste lo paga el nucleo.
+ *     y esta entre el piso de rescate y el minimo, en vez de matarlo se le
+ *     compra el salto: se redondea la diferencia hacia arriba a un multiplo del
+ *     bloque y la financian el nucleo y los demas satelites a prorrata. El
+ *     ciclo termina ahi.
+ *  3. Separacion entre satelites. Los sobrevivientes no pueden quedar pegados
+ *     entre si: cada uno debe superar al anterior en al menos una proporcion, y
+ *     el ajuste lo paga el nucleo.
  *
  * Si el nucleo se queda bajo el ticket despues de financiar todo eso, el bloque
  * colapsa a una sola linea de S&P 500 con el monto entero.
+ *
+ * Los tres numeros salen de la macro. En la v8 son 14,500 de piso de rescate,
+ * el millar como bloque y un 10% de separacion.
  */
 
-import type { AsignacionEtf, OpcionesCascada } from './cascada.js'
-
-/** Piso del rescate de rango. Debajo de esto el satelite se descarta. */
-const PISO_RESCATE = 14_500
-
-/** El salto del rescate se redondea al millar superior. */
-const BLOQUE_RESCATE = 1_000
-
-/** Separacion minima obligatoria entre satelites consecutivos. */
-const SEPARACION = 0.1
+import { REGLAS_V8 } from '../domain/reglas.js'
+import type { ReglasVariable } from '../domain/reglas.js'
+import type { AsignacionEtf } from './cascada.js'
 
 const EPS = 1e-6
+
+/**
+ * Lo que necesita el motor de Variable.
+ *
+ * Misma forma que `OpcionesCascada` — ticket y fallback — con los tres numeros
+ * propios del rescate y la separacion, que salen de la macro. Es un tipo
+ * aparte y no el de la cascada porque los ajustes no son los mismos: mezclarlos
+ * dejaria a cada motor recibiendo campos que no mira.
+ */
+export interface OpcionesVariable {
+  /** Ticket minimo por instrumento. */
+  readonly ticketMinimo: number
+  /** Instrumento al que cae todo el monto cuando no alcanza para un ticket. */
+  readonly fallback: string
+  /** Rescate y separacion. Sin ellos manda la v8, que fija el golden test. */
+  readonly ajustes?: ReglasVariable
+}
 
 /** Un satelite en curso de reparto. */
 interface Satelite {
@@ -59,9 +73,9 @@ function esNucleo(nombre: string): boolean {
 export function repartirVariable(
   pesos: Readonly<Record<string, number>>,
   montoUsd: number,
-  opciones: OpcionesCascada,
+  opciones: OpcionesVariable,
 ): AsignacionEtf[] {
-  const { ticketMinimo, fallback } = opciones
+  const { ticketMinimo, fallback, ajustes = REGLAS_V8.variable } = opciones
   if (ticketMinimo <= 0) throw new Error('El ticket minimo debe ser mayor que cero.')
   if (montoUsd <= EPS) return []
 
@@ -83,8 +97,8 @@ export function repartirVariable(
     .map((n) => ({ nombre: n, usd: valorDe(n), vivo: true }))
     .filter((s) => s.usd > EPS)
 
-  nucleo = podarSatelites(satelites, nucleo, ticketMinimo)
-  nucleo = separarSatelites(satelites, nucleo)
+  nucleo = podarSatelites(satelites, nucleo, ticketMinimo, ajustes)
+  nucleo = separarSatelites(satelites, nucleo, ajustes.separacion)
 
   // El nucleo pago los rescates y la separacion; si quedo corto, el bloque no
   // se sostiene desglosado y colapsa a una sola linea.
@@ -103,7 +117,12 @@ export function repartirVariable(
  *
  * Devuelve el nuevo valor del nucleo.
  */
-function podarSatelites(satelites: Satelite[], nucleoInicial: number, minimo: number): number {
+function podarSatelites(
+  satelites: Satelite[],
+  nucleoInicial: number,
+  minimo: number,
+  ajustes: ReglasVariable,
+): number {
   let nucleo = nucleoInicial
 
   // Cada vuelta mata a uno o termina: el tope solo protege de un empate raro.
@@ -117,8 +136,8 @@ function podarSatelites(satelites: Satelite[], nucleoInicial: number, minimo: nu
     const suma = vivos.reduce((acc, s) => acc + s.usd, 0)
     const menor = vivos.reduce((a, b) => (a.usd <= b.usd ? a : b))
 
-    if (bajos.length === 1 && menor.usd >= PISO_RESCATE) {
-      return rescatar(satelites, nucleo, menor, minimo)
+    if (bajos.length === 1 && menor.usd >= ajustes.pisoRescateUsd) {
+      return rescatar(satelites, nucleo, menor, minimo, ajustes.bloqueRescateUsd)
     }
 
     menor.vivo = false
@@ -140,17 +159,19 @@ function podarSatelites(satelites: Satelite[], nucleoInicial: number, minimo: nu
  * Compra el salto al ticket para el satelite rescatado.
  *
  * Lo financian el nucleo y los demas satelites vivos a prorrata. El monto se
- * redondea al millar superior: es lo que hace que la linea rescatada quede en
- * un numero limpio por encima del minimo.
+ * redondea hacia arriba a un multiplo del bloque de la macro —el millar, en la
+ * v8—: es lo que hace que la linea rescatada quede en un numero limpio por
+ * encima del minimo.
  */
 function rescatar(
   satelites: readonly Satelite[],
   nucleoInicial: number,
   rescatado: Satelite,
   minimo: number,
+  bloque: number,
 ): number {
   let nucleo = nucleoInicial
-  const salto = (Math.floor((minimo - rescatado.usd) / BLOQUE_RESCATE) + 1) * BLOQUE_RESCATE
+  const salto = (Math.floor((minimo - rescatado.usd) / bloque) + 1) * bloque
 
   const otros = satelites.filter((s) => s.vivo && s !== rescatado)
   const disponible = nucleo + otros.reduce((acc, s) => acc + s.usd, 0)
@@ -165,12 +186,16 @@ function rescatar(
 }
 
 /**
- * Impone la separacion del 10% entre satelites consecutivos.
+ * Impone la separacion minima entre satelites consecutivos.
  *
  * El ajuste lo paga el nucleo, no los satelites: si se lo cobrara a ellos, la
  * separacion se rompería en la linea siguiente.
  */
-function separarSatelites(satelites: readonly Satelite[], nucleoInicial: number): number {
+function separarSatelites(
+  satelites: readonly Satelite[],
+  nucleoInicial: number,
+  separacion: number,
+): number {
   let nucleo = nucleoInicial
   const vivos = satelites.filter((s) => s.vivo).sort((a, b) => a.usd - b.usd)
   if (vivos.length <= 1) return nucleo
@@ -180,7 +205,7 @@ function separarSatelites(satelites: readonly Satelite[], nucleoInicial: number)
     const mayor = vivos[i + 1]
     if (!menor || !mayor) continue
 
-    const objetivo = menor.usd * (1 + SEPARACION)
+    const objetivo = menor.usd * (1 + separacion)
     if (mayor.usd < objetivo) {
       const falta = objetivo - mayor.usd
       mayor.usd += falta

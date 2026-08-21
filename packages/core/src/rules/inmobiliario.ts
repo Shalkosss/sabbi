@@ -2,13 +2,16 @@
  * Umbral de Inmobiliario Directo.
  *
  * Port de `ProrratearInmobiliario` de la macro Benchmark Sabbi v8. Es la regla
- * que menos se ve en la especificacion y mas mueve las cifras: por debajo de
- * 500,000 de ticket, la clase inmobiliaria no existe.
+ * que menos se ve en la especificacion y mas mueve las cifras: por debajo del
+ * ticket que fija la macro —500,000 en la v8— la clase inmobiliaria no existe.
  *
  * No es un toggle sino un umbral con escape manual. Se corre despues del solver
  * de pisos y antes de repartir cada clase en instrumentos, igual que en la
  * macro: el objetivo de `inm` se disuelve y su capital se prorratea entre Fijo,
  * Variable y Privados en proporcion a lo que ya tenian. Cash no participa.
+ *
+ * A donde va ese capital es un campo de la macro y no una constante: cual de
+ * las dos reglas es la buena lo decide la mesa mirando la matriz.
  *
  * El escape es el piso: un inmueble que el cliente conserva, o una restriccion
  * del asesor sobre la clase, la clavan y la regla no se aplica. En la macro son
@@ -21,10 +24,14 @@
  * se reparte entre las que quedan libres.
  */
 
+import { REGLAS_V8 } from '../domain/reglas.js'
+import type { ReglaInmobiliario } from '../domain/reglas.js'
 import type { ClaseModelo, RepartoClase, ResultadoReparto } from '../domain/tipos.js'
 
+export type { ReglaInmobiliario }
+
 /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
-export const UMBRAL_INMOBILIARIO = 500_000
+export const UMBRAL_INMOBILIARIO = REGLAS_V8.inmobiliario.umbralUsd
 
 /**
  * Las clases que absorben el capital del inmobiliario disuelto.
@@ -44,20 +51,12 @@ const RECEPTORAS: ReadonlySet<ClaseModelo> = new Set([
 const EPS = 1e-6
 const TOL = 0.01
 
-/**
- * A donde va el capital del inmobiliario cuando la clase se disuelve.
- *
- * `prorratear` lo reparte entre las cinco receptoras en proporcion a lo que ya
- * tenian, que es lo que hace la macro v8 y lo que fija el golden test de Ana
- * Tumi. `alternativos` lo manda entero al bloque de Privados, Club y Otros,
- * que es lo que hace la hoja con la que la mesa venia trabajando.
- *
- * Las dos reparten el mismo dinero y las dos dejan al cash afuera; lo que
- * cambia es quien lo recibe, y sobre un perfil Moderado la diferencia es de
- * casi siete puntos en Renta Fija. Por eso es una opcion y no una constante:
- * cual de las dos es la buena lo decide la mesa mirando la matriz.
+/*
+ * Las dos reglas reparten el mismo dinero y las dos dejan al cash afuera; lo
+ * que cambia es quien lo recibe, y sobre un perfil Moderado la diferencia es
+ * de casi siete puntos en Renta Fija. Por eso es un campo de la macro y no una
+ * constante: cual de las dos es la buena lo decide la mesa mirando la matriz.
  */
-export type ReglaInmobiliario = 'prorratear' | 'alternativos'
 
 /** Las clases del bloque alternativo, que es quien recibe con `alternativos`. */
 const ALTERNATIVAS: ReadonlySet<ClaseModelo> = new Set(['privados', 'club', 'otros'])

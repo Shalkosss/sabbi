@@ -3,7 +3,17 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "./dist",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts", "benchmarks.v4.json"]
+  "include": [
+    "src/**/*.ts",
+    "benchmarks.v4.json"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    }
+  ]
 }

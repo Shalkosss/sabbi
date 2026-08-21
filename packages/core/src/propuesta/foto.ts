@@ -144,6 +144,7 @@ const ETIQUETAS_CTA = {
   venta_total: 'Venta total (completo)',
   parcial_vende: 'Venta parcial, se vende',
   parcial_conserva: 'Venta parcial, se conserva',
+  venta_condicionada: 'Venta condicionada',
   sin_marcar: 'Sin marcar',
 } as const
 
@@ -169,6 +170,9 @@ export function armarSeccion4(posiciones: readonly PosicionPropuesta[]): {
     venta_total: porCta('venta_total'),
     parcial_vende: suma(parciales.map(seVendeUsd)),
     parcial_conserva: suma(parciales.map(seConservaUsd)),
+    // Se vende entera, como la venta total, pero se muestra aparte: el dinero
+    // no cae al pozo comun y el resumen tiene que poder decirlo.
+    venta_condicionada: porCta('venta_condicionada'),
     sin_marcar: porCta('sin_marcar'),
   }
 

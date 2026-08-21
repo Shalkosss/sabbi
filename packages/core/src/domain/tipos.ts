@@ -70,8 +70,37 @@ export const NOMBRE_CLASE_CORTO: Readonly<Record<ClaseModelo, string>> = {
 }
 
 /** Decision del asesor sobre una posicion. */
-export const CTAS = ['conservar', 'venta_total', 'venta_parcial', 'sin_marcar'] as const
+export const CTAS = [
+  'conservar',
+  'venta_total',
+  'venta_parcial',
+  'venta_condicionada',
+  'sin_marcar',
+] as const
 export type Cta = (typeof CTAS)[number]
+
+/**
+ * A donde va una parte del dinero de una venta condicionada.
+ *
+ * El caso que lo motiva es literal: el cliente vende un inmueble y ya decidio
+ * que la mitad va al Fondo Estrategico. Ese dinero no se puede tratar como
+ * dinero libre — el benchmark lo repartiria entre las siete clases y la
+ * decision del cliente desapareceria en el prorrateo.
+ *
+ * `pct` es una fraccion de 0 a 1 sobre el valor de la posicion, no un monto:
+ * el asesor razona en mitades y tercios, y un monto tecleado a mano queda
+ * viejo en cuanto se corrige la valuacion del inmueble.
+ */
+export interface DestinoVenta {
+  readonly id: string
+  /** Fraccion del valor de la posicion. Los destinos suman 1. */
+  readonly pct: number
+  readonly clase: ClaseModelo
+  /** Referencia al catalogo cuando el destino es un producto concreto. */
+  readonly productoId: string | null
+  /** Lo que se imprime como etiqueta del piso: «Sabbi Fondo Estrategico». */
+  readonly nombre: string
+}
 
 export type Moneda = 'PEN' | 'USD'
 export type Plaza = 'Perú' | 'Offshore'
@@ -99,6 +128,13 @@ export interface Posicion {
   readonly esInvertible: boolean
   readonly cta: Cta
   readonly montoVentaParcial: number
+  /**
+   * Reparto de una venta condicionada. Vacio en cualquier otra decision.
+   *
+   * Se vende la posicion entera y el dinero no cae al pozo comun: cada destino
+   * clava su parte en la clase o el producto que el cliente pidio.
+   */
+  readonly destinos?: readonly DestinoVenta[]
   readonly nota?: string
 }
 

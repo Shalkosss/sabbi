@@ -21,6 +21,8 @@ import type {
   AjusteClase,
   Benchmark,
   ClaseModelo,
+  Cta,
+  DestinoVenta,
   Perfil,
   Piso,
   Restriccion,
@@ -50,8 +52,10 @@ export interface PosicionRevisada {
   readonly valorUsd: number
   /** Un inmueble de uso propio queda fuera de todo. */
   readonly esInvertible: boolean
-  readonly cta: 'conservar' | 'venta_total' | 'venta_parcial' | 'sin_marcar'
+  readonly cta: Cta
   readonly montoVentaParcial: number
+  /** Reparto de una venta condicionada. Vacio en cualquier otra decision. */
+  readonly destinos?: readonly DestinoVenta[]
 }
 
 export interface DecisionesPropuesta {
@@ -96,6 +100,8 @@ export type CodigoBloqueo =
   | 'ticket_invalido'
   /** Los montos fijados no dejan un portafolio posible. */
   | 'ajuste_invalido'
+  /** Una venta condicionada cuyo reparto no suma 100%. */
+  | 'destino_invalido'
 
 export interface Bloqueo {
   readonly codigo: CodigoBloqueo
@@ -151,6 +157,9 @@ export function redistribuirInmobiliario(benchmark: Benchmark): Benchmark {
 /** Lo que el cliente conserva de una posicion: su valor menos lo que vende. */
 function conservadoDe(posicion: PosicionRevisada): number {
   if (posicion.cta === 'venta_total') return 0
+  // Una venta condicionada es una venta entera: lo que la distingue no es
+  // cuanto se vende sino a donde va lo vendido.
+  if (posicion.cta === 'venta_condicionada') return 0
   if (posicion.cta === 'venta_parcial') {
     return Math.max(0, posicion.valorUsd - posicion.montoVentaParcial)
   }
@@ -161,9 +170,33 @@ function conservadoDe(posicion: PosicionRevisada): number {
 
 /** Lo que se libera de una posicion para comprar. */
 function vendidoDe(posicion: PosicionRevisada): number {
-  if (posicion.cta === 'venta_total') return posicion.valorUsd
+  if (posicion.cta === 'venta_total' || posicion.cta === 'venta_condicionada') {
+    return posicion.valorUsd
+  }
   if (posicion.cta === 'venta_parcial') return Math.min(posicion.valorUsd, posicion.montoVentaParcial)
   return 0
+}
+
+/** Los destinos de una posicion, ya sin los que no aportan nada. */
+const destinosDe = (posicion: PosicionRevisada): readonly DestinoVenta[] =>
+  posicion.cta === 'venta_condicionada'
+    ? (posicion.destinos ?? []).filter((destino) => destino.pct > EPS)
+    : []
+
+/**
+ * Lo que una venta condicionada clava, destino por destino.
+ *
+ * El `pct` es una fraccion del valor de la posicion y no un monto porque asi
+ * es como se decide — «la mitad al Fondo Estrategico» — y asi sobrevive a que
+ * despues se corrija la valuacion del inmueble.
+ */
+function pisosDeDestinos(posicion: PosicionRevisada): Piso[] {
+  return destinosDe(posicion).map((destino) => ({
+    clase: destino.clase,
+    montoUsd: posicion.valorUsd * destino.pct,
+    origen: 'restriccion' as const,
+    etiqueta: destino.nombre === '' ? posicion.institucionProducto : destino.nombre,
+  }))
 }
 
 /**
@@ -223,8 +256,13 @@ export function evaluarRevision(
   const valor = (posicion: PosicionRevisada) => posicion.valorUsd
   const patrimonioInvertibleUsd = suma(cuentan, valor)
   const conservadoUsd = suma(cuentan, conservadoDe)
+  const condicionadoUsd = suma(cuentan, (posicion) =>
+    destinosDe(posicion).reduce((total, destino) => total + posicion.valorUsd * destino.pct, 0),
+  )
   const restringidoUsd =
-    restricciones.reduce((total, r) => total + r.montoUsd, 0) + Math.max(0, colchonLiquidezUsd)
+    restricciones.reduce((total, r) => total + r.montoUsd, 0) +
+    Math.max(0, colchonLiquidezUsd) +
+    condicionadoUsd
 
   const resumen: ResumenPatrimonio = {
     patrimonioFinancieroUsd: suma(financieras, valor),
@@ -269,6 +307,33 @@ export function evaluarRevision(
         `Faltan clasificar ${sinClase.length} posiciones: ` +
         `${sinClase.map((posicion) => posicion.institucionProducto).join(', ')}.`,
     })
+  }
+
+  // Un reparto que no suma 100% deja dinero sin dueño o clava mas de lo que la
+  // posicion vale, y en los dos casos la cifra que sale no es la que el cliente
+  // pidio. Se corta aca, con el nombre de la posicion, y no en el solver.
+  for (const posicion of cuentan) {
+    if (posicion.cta !== 'venta_condicionada') continue
+    const destinos = posicion.destinos ?? []
+    const total = destinos.reduce((acc, destino) => acc + destino.pct, 0)
+
+    if (destinos.length === 0) {
+      bloqueos.push({
+        codigo: 'destino_invalido',
+        mensaje:
+          `«${posicion.institucionProducto}» está marcada como venta condicionada y no tiene ` +
+          'ningún destino. Decí a dónde va el dinero o cambiá la decisión a venta total.',
+      })
+      continue
+    }
+    if (Math.abs(total - 1) > 1e-6) {
+      bloqueos.push({
+        codigo: 'destino_invalido',
+        mensaje:
+          `El reparto de «${posicion.institucionProducto}» suma ${(total * 100).toFixed(1)}% y ` +
+          'tiene que sumar 100%.',
+      })
+    }
   }
 
   if (ticketMinimoUsd !== undefined && !(ticketMinimoUsd > 0)) {
@@ -349,6 +414,11 @@ export function armarEntradaPlan(
       etiqueta: posicion.institucionProducto,
     })
   }
+
+  // Lo que el cliente ya decidio sobre el dinero de una venta condicionada
+  // clava su parte, igual que una restriccion: se vendio entero, pero la mitad
+  // ya tiene dueño y el benchmark no la puede repartir.
+  for (const posicion of cuentan) pisos.push(...pisosDeDestinos(posicion))
 
   // Una restriccion no agranda el patrimonio: clava una parte del ticket. El
   // colchon de liquidez es una restriccion mas, sobre cash.

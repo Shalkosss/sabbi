@@ -5,11 +5,14 @@ import { useState } from 'react'
 
 import type { PosicionEditada } from '../lib/estado'
 import { plural, usd } from '../lib/formato'
+import type { ProductoOfrecible } from '../lib/catalogo'
 import { FilaPosicion } from './FilaPosicion'
 import estilos from './TablaPosiciones.module.css'
 
 interface Props {
   readonly posiciones: readonly PosicionEditada[]
+  /** El menú del catálogo, para los destinos de una venta condicionada. */
+  readonly productos: readonly ProductoOfrecible[]
   readonly editar: (id: string, cambios: Partial<PosicionEditada>) => void
   readonly marcar: (id: string, cta: Cta) => void
 }
@@ -33,7 +36,7 @@ const COLUMNAS = [
  * para arreglarlos, pero trece campos abiertos a la vez no se leen: se
  * escanean mal y se tocan por accidente.
  */
-export function TablaPosiciones({ posiciones, editar, marcar }: Props) {
+export function TablaPosiciones({ posiciones, productos, editar, marcar }: Props) {
   const [abierta, setAbierta] = useState<string | null>(null)
 
   const financieras = posiciones.filter((posicion) => posicion.origen === 'financiero').length
@@ -74,6 +77,7 @@ export function TablaPosiciones({ posiciones, editar, marcar }: Props) {
               <FilaPosicion
                 key={posicion.id}
                 posicion={posicion}
+                productos={productos}
                 abierta={abierta === posicion.id}
                 alternar={() => setAbierta((previa) => (previa === posicion.id ? null : posicion.id))}
                 editar={(cambios) => editar(posicion.id, cambios)}

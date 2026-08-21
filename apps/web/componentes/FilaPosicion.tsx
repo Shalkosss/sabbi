@@ -1,16 +1,20 @@
 'use client'
 
 import { camposFaltantes, ETIQUETA_CAMPO } from '@sabbi/core'
-import type { ClaseModelo, Cta } from '@sabbi/core'
+import type { ClaseModelo, Cta, DestinoVenta } from '@sabbi/core'
 
+import type { ProductoOfrecible } from '../lib/catalogo'
 import type { PosicionEditada } from '../lib/estado'
 import { paraInput, porcentajeEditable, usd } from '../lib/formato'
 import { CampoNumero } from './CampoNumero'
+import { DestinosVenta } from './DestinosVenta'
 import { DetallePosicion } from './DetallePosicion'
 import estilos from './TablaPosiciones.module.css'
 
 interface Props {
   readonly posicion: PosicionEditada
+  /** El menú del catálogo, para los destinos de una venta condicionada. */
+  readonly productos: readonly ProductoOfrecible[]
   readonly abierta: boolean
   readonly alternar: () => void
   readonly editar: (cambios: Partial<PosicionEditada>) => void
@@ -32,6 +36,7 @@ const CTAS: readonly { readonly valor: Cta; readonly texto: string }[] = [
   { valor: 'conservar', texto: 'Conservar' },
   { valor: 'venta_total', texto: 'Vender' },
   { valor: 'venta_parcial', texto: 'Vender parte' },
+  { valor: 'venta_condicionada', texto: 'Venta condicionada' },
 ]
 
 /** Lo que va bajo el nombre: de dónde salió la fila, en las palabras de la ficha. */
@@ -55,7 +60,14 @@ function pieDeFila(posicion: PosicionEditada): string | null {
  * verde: en una ficha de dieciséis líneas es la única forma de saber, tres
  * días después, qué leyó el parser y qué arregló alguien a mano.
  */
-export function FilaPosicion({ posicion, abierta, alternar, editar, marcar }: Props) {
+export function FilaPosicion({
+  posicion,
+  productos,
+  abierta,
+  alternar,
+  editar,
+  marcar,
+}: Props) {
   const editado = (campo: string): string =>
     posicion.camposEditados.includes(campo) ? (estilos.editado ?? '') : ''
 
@@ -220,6 +232,24 @@ export function FilaPosicion({ posicion, abierta, alternar, editar, marcar }: Pr
           </button>
         </td>
       </tr>
+
+      {/*
+        El reparto cuelga de la fila y no del detalle plegado: elegir «venta
+        condicionada» y que no aparezca nada seria pedirle al asesor que adivine
+        donde se completa la decision que acaba de tomar.
+      */}
+      {posicion.cta === 'venta_condicionada' && posicion.esInvertible && (
+        <tr>
+          <td colSpan={7} className={estilos.celdaDetalle}>
+            <DestinosVenta
+              destinos={posicion.destinos ?? []}
+              valorUsd={posicion.valorUsd}
+              productos={productos}
+              cambiar={(destinos: readonly DestinoVenta[]) => editar({ destinos })}
+            />
+          </td>
+        </tr>
+      )}
 
       {abierta && (
         <tr>

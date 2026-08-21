@@ -1,10 +1,14 @@
 /*
  * La pantalla de la macro.
  *
- * Es una hoja de calculo con explicaciones: treinta y cinco pesos y trece
+ * Es una hoja de calculo con explicaciones: treinta y cinco pesos y diecinueve
  * umbrales, cada uno con lo que decide escrito al lado. La densidad es la de
  * una tabla; lo que la hace legible es que cada bloque dice de que se trata
  * antes de mostrar sus celdas.
+ *
+ * Todo lo que se ve se edita. No hay estado de solo lectura porque no hay
+ * lector: la macro la cambia cualquiera de la mesa, y lo que la protege es el
+ * historial, no el permiso.
  */
 
 .hoja {
@@ -55,16 +59,6 @@
 
 .errores li {
   padding: 2px 0;
-}
-
-.soloLectura {
-  margin: 0 0 14px;
-  padding: 9px 12px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--atencion-texto);
-  background: var(--atencion-suave);
-  border-radius: var(--radio-control);
 }
 
 .exito {
@@ -129,12 +123,17 @@
 
 .descuadres {
   margin: 0 0 14px;
-  padding: 9px 12px 9px 30px;
+  padding: 9px 12px;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--atencion-texto);
   background: var(--atencion-suave);
   border-radius: var(--radio-control);
+}
+
+.descuadres ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 /* ── Los bloques ───────────────────────────────────────────────────────── */
@@ -199,14 +198,6 @@
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-.instrumento {
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500 !important;
-  color: var(--tinta-2) !important;
 }
 
 .entrada {
@@ -275,41 +266,35 @@
   background: var(--acento-borde);
 }
 
-/* ── El reparto interno, plegado por clase ─────────────────────────────── */
+/* ── Los umbrales ──────────────────────────────────────────────────────── */
 
-.clase {
+/* El titulo y el buscador comparten linea: buscar un umbral entre diecinueve es
+   el gesto de todos los dias, y mandarlo a otra fila lo esconde. */
+.tituloConFiltro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.buscador {
+  flex: 0 1 240px;
+  margin-top: 2px;
+  background: var(--superficie);
   border: 1px solid var(--borde);
   border-radius: var(--radio-control);
-  margin-bottom: 8px;
-  background: var(--superficie);
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--tinta);
 }
 
-.clase > summary {
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--tinta-2);
-  list-style-position: inside;
+.buscador:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+  outline: none;
 }
-
-.clase > summary:hover {
-  background: var(--hundido);
-}
-
-.clase[open] > summary {
-  border-bottom: 1px solid var(--borde-suave);
-}
-
-.clase .tabla {
-  padding: 0 4px 8px;
-}
-
-.cuenta {
-  color: var(--tinta-4);
-  font-size: 12px;
-}
-
-/* ── Los umbrales ──────────────────────────────────────────────────────── */
 
 .grupos {
   display: grid;
@@ -326,12 +311,29 @@
 }
 
 .grupo h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tinta-4);
   margin: 0 0 10px;
+}
+
+/* Cuantos campos del bloque estan tocados. Con los bloques plegados en una
+   rejilla, es lo unico que dice donde quedo un cambio sin mirarlos todos. */
+.contador {
+  min-width: 17px;
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--atencion-texto);
+  background: var(--atencion-suave);
+  border: 1px solid var(--atencion);
+  border-radius: 999px;
 }
 
 .campoAncho {
@@ -379,6 +381,75 @@
   font-size: 11.5px;
   line-height: 1.5;
   color: var(--tinta-4);
+}
+
+/* El numero con sus dos botones de paso. Teclear cinco ceros para probar un
+   umbral es lo que hace que nadie lo pruebe. */
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fila .entrada {
+  flex: 1 1 auto;
+  max-width: none;
+}
+
+.paso {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+  line-height: 1;
+  font-family: inherit;
+  color: var(--tinta-2);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  cursor: pointer;
+}
+
+.paso:hover {
+  background: var(--hundido);
+  color: var(--tinta);
+}
+
+.entradaTexto {
+  width: 100%;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 5px 9px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--tinta);
+}
+
+.entradaTexto:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+  outline: none;
+}
+
+/* Solo para fracciones: el rango es conocido y lo que se quiere es tantear.
+   Sobre un campo en dolares un deslizador seria una precision falsa. */
+.deslizador {
+  display: block;
+  width: 100%;
+  margin: 7px 0 0;
+  accent-color: var(--acento);
+  cursor: pointer;
+}
+
+/* De donde venia el numero, y como volver solo a este. Descartar todo cuando
+   se quiere deshacer uno es lo que hace que se prefiera no tocar ninguno. */
+.fabrica {
+  display: flex !important;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px !important;
+  color: var(--tinta-3) !important;
 }
 
 /* ── El historial ──────────────────────────────────────────────────────── */

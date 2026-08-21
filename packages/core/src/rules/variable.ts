@@ -25,7 +25,8 @@
  * colapsa a una sola linea de S&P 500 con el monto entero.
  *
  * Los tres numeros salen de la macro. En la v8 son 14,500 de piso de rescate,
- * el millar como bloque y un 10% de separacion.
+ * el millar como bloque y un 10% de separacion. Quien es el nucleo tambien:
+ * es el texto con el que se reconoce su nombre, `S&P 500` en la v8.
  */
 
 import { REGLAS_V8 } from '../domain/reglas.js'
@@ -58,10 +59,20 @@ interface Satelite {
   vivo: boolean
 }
 
-/** Reconoce al nucleo del bloque por nombre, como hace la macro. */
-function esNucleo(nombre: string): boolean {
-  const n = nombre.toUpperCase()
-  return n.includes('S&P 500') || n.includes('SP500')
+/**
+ * Reconoce al nucleo del bloque por nombre.
+ *
+ * La macro traia el nombre escrito en el codigo — `S&P 500` o `SP500` — y eso
+ * dejaba al motor atado a un instrumento concreto: el dia que el nucleo cambie
+ * habria que desplegar. Ahora el texto sale de la macro y la comparacion
+ * ignora mayusculas, espacios y simbolos, de modo que un solo campo con
+ * `S&P 500` sigue reconociendo tanto `iShares Core S&P 500` como `SP500`.
+ */
+const canonico = (texto: string): string => texto.toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+function esNucleo(nombre: string, nucleo: string): boolean {
+  const aguja = canonico(nucleo)
+  return aguja !== '' && canonico(nombre).includes(aguja)
 }
 
 /**
@@ -86,7 +97,7 @@ export function repartirVariable(
     return [{ nombre: fallback, usd: montoUsd }]
   }
 
-  const nombreNucleo = nombres.find(esNucleo)
+  const nombreNucleo = nombres.find((n) => esNucleo(n, ajustes.nucleo))
   if (nombreNucleo === undefined) return [{ nombre: fallback, usd: montoUsd }]
 
   const valorDe = (n: string) => (montoUsd * (pesos[n] ?? 0)) / sumaPesos

@@ -1,7 +1,7 @@
 'use client'
 
 import { evaluarRevision, posicionesIncompletas } from '@sabbi/core'
-import type { AjusteClase, Bloqueo, ClaseModelo, Cta, Restriccion } from '@sabbi/core'
+import type { AjusteClase, Bloqueo, ClaseModelo, Cta } from '@sabbi/core'
 import { useMemo, useReducer, useState, useTransition } from 'react'
 
 import {
@@ -13,7 +13,7 @@ import {
 } from '../app/acciones'
 import type { PlanResumido } from '../app/acciones'
 import { useAutoguardado } from '../lib/autoguardado'
-import type { ProductoOfrecible } from '../lib/catalogo'
+import type { ActivoAgregado, ProductoOfrecible } from '../lib/catalogo'
 import {
   aRevisadas,
   cambiosDeCta,
@@ -48,7 +48,7 @@ const CLAVE_PARAMETROS = 'parametros'
 const PREFIJO_ACTIVO = 'activo:'
 const PREFIJO_AJUSTE = 'ajuste:'
 
-type ActivoEnCola = Restriccion & { readonly eliminado: boolean }
+type ActivoEnCola = ActivoAgregado & { readonly eliminado: boolean }
 type AjusteEnCola = AjusteClase & { readonly eliminado: boolean }
 
 type Cambio = Partial<PosicionEditada> | Parametros | ActivoEnCola | AjusteEnCola
@@ -131,7 +131,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
     encolar(CLAVE_PARAMETROS, { ...estado.parametros, ...cambios })
   }
 
-  const cambiarActivo = (activo: Restriccion) => {
+  const cambiarActivo = (activo: ActivoAgregado) => {
     setPlan(null)
     setRechazo([])
     despacharCrudo({ tipo: 'activo', activo })
@@ -281,7 +281,12 @@ export function Revision({ inicial, asesor, productos }: Props) {
         </div>
       )}
 
-      <TablaPosiciones posiciones={posiciones} editar={editar} marcar={marcar} />
+      <TablaPosiciones
+        posiciones={posiciones}
+        productos={productos}
+        editar={editar}
+        marcar={marcar}
+      />
 
       {cliente.observaciones.length > 0 && (
         <details className={estilos.observaciones}>

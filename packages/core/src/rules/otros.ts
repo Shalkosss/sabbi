@@ -11,9 +11,11 @@
  *  - La clase entera necesita 10,000. Por debajo no se abre y el monto pasa al
  *    Fondo Oportunidad de Mercados Privados; la derivacion la hace el
  *    ensamblador del plan porque cruza clases.
- *  - Cada linea tambien necesita 10,000. Una que no llega no se imprime: su
+ *  - Cada linea tambien necesita su minimo. Una que no llega no se imprime: su
  *    monto engorda a la mas grande, que en la practica es siempre BTC — el oro
- *    pesa menos del 2% de la clase en todos los perfiles.
+ *    pesa menos del 2% de la clase en todos los perfiles. En la v8 era el mismo
+ *    10,000 de la clase; hoy es un campo aparte de la macro que, en cero, lo
+ *    hereda.
  */
 
 import { REGLAS_V8 } from '../domain/reglas.js'
@@ -35,17 +37,26 @@ export interface LineaOtros {
 /**
  * Reparte el dinero nuevo de Otros entre BTC y Oro.
  *
- * @param pesos  pesos por instrumento renormalizados dentro de la clase
- * @param minUsd minimo de la clase y de cada linea; sale de la macro
+ * Los dos minimos son distintos a proposito. El de la clase decide si el
+ * bloque existe; el de la linea, si vale la pena imprimir la segunda. Cuando
+ * el de linea llega en cero manda el de la clase, que es como corria la v8
+ * mientras los dos eran el mismo numero.
+ *
+ * @param pesos       pesos por instrumento renormalizados dentro de la clase
+ * @param minUsd      minimo de la clase; sale de la macro
+ * @param minLineaUsd minimo de cada linea; en cero, el de la clase
  * @returns `null` cuando el monto no llega al minimo de la clase
  */
 export function repartirOtros(
   montoUsd: number,
   pesos: Readonly<Record<string, number>>,
   minUsd = MIN_OTROS,
+  minLineaUsd = 0,
 ): LineaOtros[] | null {
   if (montoUsd <= EPS) return null
   if (montoUsd < minUsd - TOL) return null
+
+  const minLinea = minLineaUsd > 0 ? minLineaUsd : minUsd
 
   const totalPesos = Object.values(pesos).reduce((acc, p) => acc + p, 0)
   if (totalPesos <= EPS) return [{ instrumento: OTROS_BTC, usd: montoUsd }]
@@ -57,9 +68,9 @@ export function repartirOtros(
 
   // Las que no llegan al minimo se pliegan sobre la mas grande, que ya paso el
   // umbral de la clase. Mejor una linea ejecutable que dos con una muerta.
-  const viables = lineas.filter((l) => l.usd >= minUsd - TOL)
+  const viables = lineas.filter((l) => l.usd >= minLinea - TOL)
   const residuo = lineas
-    .filter((l) => l.usd < minUsd - TOL)
+    .filter((l) => l.usd < minLinea - TOL)
     .reduce((acc, l) => acc + l.usd, 0)
 
   if (viables.length === 0 || viables[0] === undefined) {

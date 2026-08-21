@@ -123,9 +123,16 @@ export type ResultadoGuardarMacro =
 /**
  * Guarda una macro nueva y la activa.
  *
- * Nunca sobreescribe: la anterior queda con su autor y su fecha. Una cifra que
- * salió en la propuesta de un cliente real se explica por la macro con la que
- * se calculó, y esa explicación tiene que seguir estando el mes que viene.
+ * La puede guardar cualquier asesor con sesión. Es la herramienta con la que la
+ * mesa calibra el modelo, y un permiso que obliga a pedirle a otro que teclee
+ * un número no protege el modelo: hace que se calibre en una hoja suelta que
+ * después nadie puede auditar.
+ *
+ * Lo que lo hace seguro no es el permiso sino que nunca sobreescribe: la
+ * anterior queda con su autor y su fecha, y volver a ella es guardar otra vez.
+ * Una cifra que salió en la propuesta de un cliente real se explica por la
+ * macro con la que se calculó, y esa explicación tiene que seguir estando el
+ * mes que viene.
  *
  * La validación es la misma que usa la lectura. Escribir algo que después no
  * se puede leer dejaría el modelo corriendo de fábrica en silencio.
@@ -136,12 +143,6 @@ export async function guardarMacro(
 ): Promise<ResultadoGuardarMacro> {
   const asesor = await asesorActual()
   if (asesor === null) return { ok: false, errores: ['No hay sesión de asesor.'] }
-  if (asesor.rol !== 'admin') {
-    return {
-      ok: false,
-      errores: ['Solo un admin puede cambiar la macro: un umbral mal puesto las rompe todas.'],
-    }
-  }
 
   const supabase = await clienteServidor()
 
@@ -180,10 +181,13 @@ export async function guardarMacro(
 
 function traducir(crudo: string): string {
   if (crudo.includes('row-level security')) {
-    return 'Tu cuenta no tiene permiso para cambiar la macro. Pedile a un admin que lo haga.'
+    return (
+      'Tu cuenta no tiene permiso para cambiar la macro. Si esta base todavía corre la política ' +
+      'vieja, hay que aplicar la migración 0011, que la abre a toda la mesa.'
+    )
   }
   if (crudo.includes('does not exist') || crudo.includes('relation')) {
-    return 'La tabla de macros todavía no está en esta base. Corré la migración 0010.'
+    return 'La tabla de macros todavía no está en esta base. Corré las migraciones 0010 y 0011.'
   }
   return crudo
 }

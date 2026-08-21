@@ -30,7 +30,7 @@
  */
 
 import { REGLAS_V8 } from './domain/reglas.js'
-import type { ReglasMotor } from './domain/reglas.js'
+import type { ClaseResiduo, ReglasMotor } from './domain/reglas.js'
 import type {
   AjusteAplicado,
   AjusteClase,
@@ -58,8 +58,14 @@ const EPS = 1e-6
 /** Un centavo. Por debajo, una diferencia es ruido de coma flotante. */
 const TOL = 0.01
 
-/** Clases que pueden absorber el residuo de Club y Otros, en orden de preferencia. */
-const CANDIDATAS_RESIDUO: readonly ClaseModelo[] = ['privados', 'cash', 'fijo', 'variable']
+/**
+ * Clases que pueden absorber el residuo de Club y Otros, en orden de preferencia.
+ *
+ * La macro elige cual va primero; el resto queda como respaldo en este orden,
+ * porque una clase fijada por un ajuste del asesor no puede recibir dinero que
+ * el asesor no pidio.
+ */
+const CANDIDATAS_RESIDUO: readonly ClaseResiduo[] = ['privados', 'cash', 'fijo', 'variable']
 
 /** Orden de bloques de la propuesta. Es el de la hoja Allocation detallado. */
 const ORDEN_CLASES: readonly ClaseModelo[] = [
@@ -220,6 +226,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     claseDe(conInmobiliario, 'otros').dineroNuevoUsd,
     pesos.otros,
     reglas.otros.minUsd,
+    reglas.otros.minLineaUsd,
   )
 
   const residuoClub = club === null ? claseDe(conInmobiliario, 'club').dineroNuevoUsd : 0
@@ -227,7 +234,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
 
   // Su casa natural es el Fondo Oportunidad, que no tiene minimo. Solo cambia
   // cuando el asesor fijo Mercados Privados y esa clase ya no puede crecer.
-  const destino = destinoDeResiduos(conInmobiliario)
+  const destino = destinoDeResiduos(conInmobiliario, reglas.residuos.destino)
   const dondeCae =
     destino.clase === 'privados' ? FONDO_OPORTUNIDAD : NOMBRE_CLASE[destino.clase]
 
@@ -352,16 +359,22 @@ function avisosDeAjustes(ajustes: readonly AjusteAplicado[]): string[] {
  * clase libre. Si no hay ninguna vuelve a Privados y el llamador lo avisa: es
  * preferible un ajuste desbordado y dicho que un portafolio que no cuadra.
  */
-function destinoDeResiduos(reparto: ResultadoReparto): {
+function destinoDeResiduos(
+  reparto: ResultadoReparto,
+  preferida: ClaseResiduo,
+): {
   readonly clase: ClaseModelo
   readonly pisaUnAjuste: boolean
 } {
   const fijada = (clase: ClaseModelo) =>
     reparto.porClase.find((c) => c.clase === clase)?.fijada ?? false
 
-  const libre = CANDIDATAS_RESIDUO.find((clase) => !fijada(clase))
+  // La de la macro primero; las demas quedan en su orden como respaldo.
+  const orden = [preferida, ...CANDIDATAS_RESIDUO.filter((c) => c !== preferida)]
+
+  const libre = orden.find((clase) => !fijada(clase))
   return libre === undefined
-    ? { clase: 'privados', pisaUnAjuste: true }
+    ? { clase: preferida, pisaUnAjuste: true }
     : { clase: libre, pisaUnAjuste: false }
 }
 
@@ -490,17 +503,18 @@ function lineasDeClase(
 
   if (clase === 'fijo' || clase === 'variable') {
     const exenta = ctx.fijadas.has(clase)
-    // Los dos motores reciben el mismo ticket y el mismo fallback, pero cada
-    // uno mira sus propios ajustes: la cascada, los de la poda; el de nucleo y
-    // satelites, los del rescate.
+    // Cada motor mira sus propios ajustes — la cascada, los de la poda; el de
+    // nucleo y satelites, los del rescate — y puede tener su propio ticket. En
+    // cero manda el general, que es el que el asesor puede pisar desde la
+    // ficha: un ticket por clase que ganara siempre le sacaria esa palanca.
     const nuevas = (clase === 'fijo'
       ? repartirEtfs(ctx.pesos.fijo, dineroNuevoUsd, {
-          ticketMinimo: ctx.ticketMinimoUsd,
+          ticketMinimo: ticketDeClase(ctx.reglas.ticketFijoUsd, ctx.ticketMinimoUsd),
           fallback: ctx.fallbacks.fijo,
           ajustes: ctx.reglas.fijo,
         })
       : repartirVariable(ctx.pesos.variable, dineroNuevoUsd, {
-          ticketMinimo: ctx.ticketMinimoUsd,
+          ticketMinimo: ticketDeClase(ctx.reglas.ticketVariableUsd, ctx.ticketMinimoUsd),
           fallback: ctx.fallbacks.variable,
           ajustes: ctx.reglas.variable,
         })
@@ -523,6 +537,17 @@ function lineasDeClase(
     { instrumento, clase, usd: dineroNuevoUsd, residuales: 'exenta' as const },
   ]
 }
+
+/**
+ * El ticket con el que se mide una clase de mercados publicos.
+ *
+ * El general es el unico umbral que el asesor pisa propuesta por propuesta
+ * desde la ficha; el de la clase es una decision de la mesa que vive en la
+ * macro. Por eso el de clase solo manda cuando esta puesto: en cero se hereda
+ * el general y el asesor conserva su palanca.
+ */
+const ticketDeClase = (propio: number, general: number): number =>
+  propio > 0 ? propio : general
 
 function claseDe(reparto: ResultadoReparto, clase: ClaseModelo) {
   const encontrada = reparto.porClase.find((c) => c.clase === clase)

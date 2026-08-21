@@ -1,14 +1,16 @@
 import { MACRO_DE_FABRICA, validarMacro } from '@sabbi/config'
 import type { Macro } from '@sabbi/config'
+import { PERFILES } from '@sabbi/core'
 import { describe, expect, it } from 'vitest'
 
 import {
-  conDestinoInmobiliario,
   conPesoDeClase,
   conRegla,
   conRepartoInterno,
+  conTexto,
   cuadrarPerfil,
   cuadrarReparto,
+  cuadrarTodoElReparto,
   descuadres,
   pesoDeClase,
   repartoInterno,
@@ -204,10 +206,40 @@ describe('los umbrales', () => {
     expect(despues.pesos).toBe(antes.pesos)
   })
 
-  it('conDestinoInmobiliario conserva el umbral', () => {
-    const despues = conDestinoInmobiliario(base(), 'alternativos')
+  it('conTexto cambia el destino del inmobiliario y conserva el umbral', () => {
+    const despues = conTexto(base(), 'inmobiliario.destino', 'alternativos')
 
     expect(despues.reglas.inmobiliario.destino).toBe('alternativos')
     expect(despues.reglas.inmobiliario.umbralUsd).toBe(500_000)
+  })
+
+  it('conTexto llega a los campos que no son numeros ni enumeraciones', () => {
+    const antes = base()
+    const despues = conTexto(antes, 'variable.nucleo', 'MSCI World')
+
+    expect(despues.reglas.variable.nucleo).toBe('MSCI World')
+    expect(despues.reglas.variable.separacion).toBe(antes.reglas.variable.separacion)
+    expect(despues.pesos).toBe(antes.pesos)
+  })
+})
+
+describe('cuadrarTodoElReparto', () => {
+  it('deja intacta una macro que ya cuadra', () => {
+    // Es la promesa que sostiene el boton: apretarlo sobre algo cuadrado no
+    // puede reescribir los treinta y cinco pesos con su version redondeada.
+    const antes = base()
+    expect(cuadrarTodoElReparto(antes, PERFILES)).toEqual(antes)
+  })
+
+  it('cierra el descuadre que el editor ya no puede tocar celda por celda', () => {
+    // Los instrumentos se mueven con su clase y no tienen celda propia, asi
+    // que un reparto torcido —escrito desde el panel de Supabase, o heredado—
+    // dejaria el guardado bloqueado sin salida.
+    const torcida = conRepartoInterno(base(), CLASE_CON_PRODUCTOS, 0, PERFIL, 0.9)
+    expect(descuadres(torcida, [PERFIL]).length).toBeGreaterThan(0)
+
+    const cuadrada = cuadrarTodoElReparto(torcida, PERFILES)
+    expect(descuadres(cuadrada, PERFILES)).toEqual([])
+    expect(sumaDelReparto(cuadrada, CLASE_CON_PRODUCTOS, PERFIL)).toBeCloseTo(1, 12)
   })
 })

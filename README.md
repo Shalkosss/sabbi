@@ -44,7 +44,7 @@ apps/web/              Next.js. UI delgada, sin reglas de negocio
 packages/
   core/                MOTOR PURO
     domain/            tipos: Perfil, Segmento, ClaseModelo, Posición, Piso
-                       y `reglas.ts`, la macro: los trece umbrales del motor
+                       y `reglas.ts`, la macro: los diecinueve umbrales del motor
     rules/             reparto, cascada, privados, club, otros, residuales
     propuesta/         las siete secciones y las dos miradas del cliente
   config/              schema Zod y carga de configuración; `macro.ts` valida
@@ -155,16 +155,20 @@ USD sobre el caso Ana Tumi.
 `/macro` es el modelo Sabbi escrito en un solo sitio, y es lo que se edita
 cuando hay que calibrarlo. Dos mitades:
 
-- **Los pesos.** Cuánto le toca a cada una de las siete clases en cada perfil, y
-  dentro de cada clase, qué parte se lleva cada instrumento. Los instrumentos se
-  editan como reparto interno —el 100% es la clase, no el patrimonio— porque así
-  es como se piensan; al guardar se multiplican por el peso de la clase, que es
-  como lo guarda la hoja.
-- **Los umbrales.** Los trece números que convierten ese reparto en líneas
-  ejecutables: el ticket mínimo de ETF, el mínimo por subfondo, el de Club Deals
-  y el de Otros, la frontera Edifica A/B, el umbral de los 500,000 del
-  inmobiliario y a dónde va su capital cuando se disuelve, y las tolerancias de
-  los dos motores de mercados públicos.
+- **Los pesos.** Cuánto le toca a cada una de las siete clases en cada perfil.
+  Los instrumentos de una clase se mueven con ella: subirla no cambia qué parte
+  se lleva cada uno, cambia cuánto es esa parte. Por eso la pantalla edita las
+  clases y no los treinta y cinco pesos sueltos — el reparto interno se conserva
+  solo, y al guardar se multiplica por el peso de la clase, que es como lo
+  guarda la hoja.
+- **Los umbrales.** Los diecinueve números que convierten ese reparto en líneas
+  ejecutables, ordenados como los aplica el motor: el ticket mínimo de ETF y los
+  dos que cada motor de mercados públicos puede tener propio, las tolerancias de
+  la cascada de Renta Fija, el núcleo y el rescate de Renta Variable, el umbral
+  del inmobiliario y a dónde va su capital cuando se disuelve, el mínimo por
+  subfondo, el de Club Deals con su frontera Edifica A/B, los dos de Otros —el
+  de la clase y el de cada línea— y a dónde cae el dinero que no llegó a
+  ninguno.
 
 Vivían como un JSON versionado y doce constantes de módulo repartidas por
 `packages/core/src/rules/`. Ahora son un argumento: `generarPlan` recibe
@@ -176,8 +180,20 @@ fuente, así que guardar una versión cambia todo lo que se calcule después.
 Guardar no sobreescribe: escribe una versión nueva en `macro_versions` y la
 activa. Una cifra que salió en la propuesta de un cliente se explica por la
 macro con la que se calculó, y esa explicación tiene que seguir estando el mes
-que viene. Editar es de admin; ver es de cualquiera, porque la pantalla es
-también la documentación del modelo.
+que viene.
+
+La edita cualquier asesor con sesión (migración `0011`). Empezó siendo de admin
+por un argumento cierto —un umbral mal puesto no rompe una propuesta, las rompe
+todas— que sin embargo no protege el modelo: un permiso que obliga a pedirle a
+otro que teclee un número hace que la calibración se haga en una hoja suelta que
+después nadie puede auditar. Lo que la protege es que nada se sobreescribe:
+cada guardado queda con su autor, su fecha y su nota, y volver a la anterior es
+guardar otra vez. No hay política de `delete`: la historia no se borra ni siendo
+admin.
+
+Todo lo que la pantalla muestra se puede editar. Una pantalla que mezcla lo
+editable con lo que solo se lee obliga a probar cada celda para saber cuál es
+cuál.
 
 Lo que no se toca no se reescribe. Los pesos de la hoja `Data` llegan con
 dieciséis dígitos y redondearlos a cuatro decimales desplaza la base de

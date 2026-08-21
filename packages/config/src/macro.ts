@@ -42,8 +42,21 @@ const fraccion = (etiqueta: string) =>
     .min(0, `${etiqueta} no puede ser negativo`)
     .max(1, `${etiqueta} va de 0 a 1, no de 0 a 100`)
 
+/**
+ * Las palancas del motor.
+ *
+ * Las que llegaron despues de la v8 entran con `default`, y no por comodidad:
+ * en la base hay macros guardadas con la forma vieja, y un campo nuevo sin
+ * valor por defecto las volveria invalidas de golpe — el motor caeria en la de
+ * fabrica y la mesa veria cambiar todas sus cifras sin haber tocado nada. El
+ * defecto de cada uno es su valor neutro, el que reproduce lo que el motor ya
+ * hacia.
+ */
 export const reglasSchema = z.object({
   ticketEtfUsd: positivo('El ticket minimo de ETF'),
+  /** En cero manda el general. Por eso no negativo y no positivo. */
+  ticketFijoUsd: noNegativo('El ticket de Renta Fija').default(0),
+  ticketVariableUsd: noNegativo('El ticket de Renta Variable').default(0),
   inmobiliario: z.object({
     umbralUsd: noNegativo('El umbral del inmobiliario'),
     destino: z.enum(['prorratear', 'alternativos']),
@@ -58,6 +71,7 @@ export const reglasSchema = z.object({
   }),
   otros: z.object({
     minUsd: noNegativo('El minimo de Otros'),
+    minLineaUsd: noNegativo('El minimo de cada linea de Otros').default(0),
   }),
   fijo: z.object({
     factorDescarte: fraccion('La poda por costo'),
@@ -68,7 +82,17 @@ export const reglasSchema = z.object({
     pisoRescateUsd: noNegativo('El piso de rescate'),
     bloqueRescateUsd: positivo('El bloque del rescate'),
     separacion: fraccion('La separacion de satelites'),
+    nucleo: z
+      .string()
+      .trim()
+      .min(1, 'El nucleo de Renta Variable no puede quedar vacio')
+      .default('S&P 500'),
   }),
+  residuos: z
+    .object({
+      destino: z.enum(['privados', 'cash', 'fijo', 'variable']),
+    })
+    .default({ destino: 'privados' }),
 })
 
 export const macroSchema = z.object({

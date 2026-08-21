@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   CAMPOS_DE_MACRO,
   REGLAS_V8,
+  conTextoDeMacro,
   conValorDeMacro,
+  textoDeMacro,
   valorDeMacro,
 } from '../domain/reglas.js'
 import type { Benchmark } from '../domain/tipos.js'
@@ -93,7 +95,7 @@ describe('la macro llega al motor', () => {
 
     const conMinimoAlto = generarPlan({
       ...base(200_000),
-      reglas: { ...REGLAS_V8, otros: { minUsd: 50_000 } },
+      reglas: { ...REGLAS_V8, otros: { ...REGLAS_V8.otros, minUsd: 50_000 } },
     })
     expect(conMinimoAlto.lineas.some((l) => l.clase === 'otros')).toBe(false)
     expect(conMinimoAlto.avisos.join(' ')).toContain('50,000')
@@ -179,6 +181,96 @@ describe('la macro llega al motor', () => {
     expect(conSeparacionGrande.map((l) => l.usd)).not.toEqual(conV8.map((l) => l.usd))
   })
 
+  it('el ticket propio de Renta Fija manda sobre el general', () => {
+    // 200,000 de ticket son 60,000 de Fijo: alcanza para los dos ETFs con el
+    // ticket general de 20,000 y para uno solo con uno de 45,000.
+    const conGeneral = generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'fijo')
+    expect(conGeneral.length).toBe(2)
+
+    const conPropio = generarPlan({
+      ...base(200_000),
+      reglas: { ...REGLAS_V8, ticketFijoUsd: 45_000 },
+    }).lineas.filter((l) => l.clase === 'fijo')
+
+    expect(conPropio.length).toBe(1)
+    // Y solo movio a Fijo: Variable siguio midiendose contra el general.
+    expect(generarPlan({ ...base(200_000), reglas: { ...REGLAS_V8, ticketFijoUsd: 45_000 } })
+      .lineas.filter((l) => l.clase === 'variable')
+      .map((l) => l.usd))
+      .toEqual(generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'variable').map((l) => l.usd))
+  })
+
+  it('el ticket propio de Renta Variable manda sobre el general', () => {
+    const conGeneral = generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'variable')
+    const conPropio = generarPlan({
+      ...base(200_000),
+      reglas: { ...REGLAS_V8, ticketVariableUsd: 45_000 },
+    }).lineas.filter((l) => l.clase === 'variable')
+
+    expect(conPropio.length).toBeLessThan(conGeneral.length)
+  })
+
+  it('un ticket por clase en cero deja mandar al general', () => {
+    // Es la garantia que permite agregar la palanca sin mover una cifra: la
+    // macro de fabrica los trae en cero y tiene que dar lo mismo que no tenerlos.
+    const conCeros = generarPlan({
+      ...base(400_000),
+      reglas: { ...REGLAS_V8, ticketFijoUsd: 0, ticketVariableUsd: 0 },
+    })
+    expect(conCeros.lineas).toEqual(generarPlan(base(400_000)).lineas)
+  })
+
+  it('el minimo por linea de Otros decide si se imprime el oro', () => {
+    // 600,000 de ticket son 60,000 de Otros: BTC se lleva 48,000 y el oro
+    // 12,000, que pasa el minimo de linea de la v8.
+    const conV8 = instrumentos(base(600_000))
+    expect(conV8).toContain('Oro')
+
+    const conMinimoDeLinea = instrumentos({
+      ...base(600_000),
+      reglas: { ...REGLAS_V8, otros: { ...REGLAS_V8.otros, minLineaUsd: 20_000 } },
+    })
+    // La clase sigue abierta —su minimo no cambio— pero el oro se pliega sobre BTC.
+    expect(conMinimoDeLinea).toContain('BTC (IBIT)')
+    expect(conMinimoDeLinea).not.toContain('Oro')
+  })
+
+  it('el nucleo de Renta Variable se reconoce por el texto de la macro', () => {
+    // Con un nucleo que ningun instrumento contiene, el bloque no se sostiene
+    // desglosado y cae entero al instrumento de consolidacion.
+    const conNucleoAjeno = instrumentos({
+      ...base(400_000),
+      reglas: {
+        ...REGLAS_V8,
+        variable: { ...REGLAS_V8.variable, nucleo: 'MSCI World' },
+      },
+    })
+    expect(conNucleoAjeno).toContain('Flip - Cobra achorada')
+
+    // Y el de fabrica reconoce al S&P 500 escrito de las dos formas.
+    const conSinSimbolos = instrumentos({
+      ...base(400_000),
+      reglas: { ...REGLAS_V8, variable: { ...REGLAS_V8.variable, nucleo: 'sp500' } },
+    })
+    expect(conSinSimbolos).toContain('iShares Core S&P 500')
+  })
+
+  it('el destino de residuos decide donde cae lo que no abrio linea', () => {
+    // 80,000 de ticket son 8,000 de club: no llega a los 10,000 de la v8.
+    const aPrivados = generarPlan(base(80_000))
+    expect(aPrivados.avisos.join(' ')).toContain('Sabbi Fondo Oportunidad')
+
+    const aCash = generarPlan({
+      ...base(80_000),
+      reglas: { ...REGLAS_V8, residuos: { destino: 'cash' } },
+    })
+
+    expect(aCash.avisos.join(' ')).toContain('Cash')
+    const cashDe = (plan: ReturnType<typeof generarPlan>) =>
+      plan.reparto.porClase.find((c) => c.clase === 'cash')?.objetivoUsd ?? 0
+    expect(cashDe(aCash)).toBeGreaterThan(cashDe(aPrivados))
+  })
+
   it('la separacion de satelites mueve las lineas de Renta Variable', () => {
     // Con 800,000 sobreviven los dos satelites, que es cuando la separacion
     // tiene sobre que actuar.
@@ -213,11 +305,42 @@ describe('leer y escribir un campo de la macro por su ruta', () => {
     expect(cambiada.fijo).toEqual(REGLAS_V8.fijo)
   })
 
+  it('lee un campo que no es un numero', () => {
+    expect(textoDeMacro(REGLAS_V8, 'variable.nucleo')).toBe('S&P 500')
+    expect(textoDeMacro(REGLAS_V8, 'inmobiliario.destino')).toBe('prorratear')
+    expect(textoDeMacro(REGLAS_V8, 'residuos.destino')).toBe('privados')
+  })
+
+  it('escribe un campo de texto sin mutar el original', () => {
+    const cambiada = conTextoDeMacro(REGLAS_V8, 'variable.nucleo', 'MSCI World')
+
+    expect(cambiada.variable.nucleo).toBe('MSCI World')
+    expect(REGLAS_V8.variable.nucleo).toBe('S&P 500')
+    expect(cambiada.variable.separacion).toBe(REGLAS_V8.variable.separacion)
+  })
+
   it('cada campo declarado existe de verdad en la macro', () => {
     // La pantalla de Macro construye sus campos desde esta lista. Una ruta que
     // no resuelve saldria como un input vacio que no guarda nada.
     for (const campo of CAMPOS_DE_MACRO) {
-      expect(valorDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBeNaN()
+      if (campo.unidad === 'usd' || campo.unidad === 'pct') {
+        expect(valorDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBeNaN()
+      } else {
+        expect(textoDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBe('')
+      }
+    }
+  })
+
+  it('cada opcion declarada es una que el motor acepta', () => {
+    // Un valor de mas en el desplegable seria una eleccion que el esquema
+    // rechaza al guardar, y el mensaje llegaria despues de teclear la nota.
+    for (const campo of CAMPOS_DE_MACRO) {
+      if (campo.unidad !== 'opcion') continue
+      expect(campo.opciones, campo.ruta).toBeDefined()
+      expect(
+        campo.opciones?.map((o) => o.valor),
+        campo.ruta,
+      ).toContain(textoDeMacro(REGLAS_V8, campo.ruta))
     }
   })
 })

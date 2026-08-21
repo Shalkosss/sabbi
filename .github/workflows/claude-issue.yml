@@ -53,6 +53,12 @@ jobs:
           # trabaja, así a la mañana se lee qué hizo sin abrir la bitácora de
           # Actions.
           track_progress: true
+          # El mismo par de disparadores que filtra el job, declarado también
+          # acá: la acción vuelve a comprobarlo por su cuenta antes de arrancar
+          # y sin esto no reconocería ninguno de los dos. Cada evento enciende
+          # uno solo.
+          assignee_trigger: ${{ github.event.action == 'assigned' && github.repository_owner || '' }}
+          label_trigger: ${{ github.event.action == 'labeled' && 'claude' || '' }}
           prompt: |
             Eres el desarrollador de guardia de Sabbi. Te asignaron el issue de
             este evento y lo trabajas de punta a punta, sin nadie a quien

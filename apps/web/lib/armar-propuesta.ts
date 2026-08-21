@@ -72,6 +72,7 @@ const aPropuesta = (posicion: EstadoRevision['posiciones'][number]): PosicionPro
   esInvertible: posicion.esInvertible,
   cta: posicion.cta,
   montoVentaParcial: posicion.montoVentaParcial,
+  destinos: posicion.destinos ?? [],
 })
 
 export function construirPropuesta(

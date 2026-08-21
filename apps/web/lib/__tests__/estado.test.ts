@@ -112,7 +112,28 @@ describe('reducir', () => {
     expect(cambiosDeCta(antes.posiciones[0]!, 'venta_parcial')).toEqual({
       cta: 'venta_parcial',
       montoVentaParcial: 30_000,
+      destinos: [],
     })
+  })
+
+  it('cambiar de decision limpia el reparto de la venta condicionada', () => {
+    // Un «conservar» con un reparto colgado es la misma clase de dato sucio
+    // que un «conservar» con monto a vender: no se ve, y descuadra despues.
+    const destinos = [
+      { id: 'a', pct: 1, clase: 'club' as const, productoId: null, nombre: 'Fondo Estratégico' },
+    ]
+    const antes = revision([posicion({ cta: 'venta_condicionada', destinos })])
+
+    expect(cambiosDeCta(antes.posiciones[0]!, 'conservar').destinos).toEqual([])
+  })
+
+  it('volver a marcar venta condicionada no borra lo que costo teclear', () => {
+    const destinos = [
+      { id: 'a', pct: 1, clase: 'club' as const, productoId: null, nombre: 'Fondo Estratégico' },
+    ]
+    const antes = revision([posicion({ cta: 'venta_condicionada', destinos })])
+
+    expect(cambiosDeCta(antes.posiciones[0]!, 'venta_condicionada').destinos).toEqual(destinos)
   })
 
   it('los parametros se funden, no se reemplazan', () => {
@@ -136,8 +157,23 @@ describe('proyeccion al motor', () => {
         esInvertible: true,
         cta: 'sin_marcar',
         montoVentaParcial: 0,
+        destinos: [],
       },
     ])
+  })
+
+  it('lleva el reparto de una venta condicionada', () => {
+    // Es lo unico que distingue a una venta condicionada de una venta total:
+    // si el reparto no viaja, el motor la trata como dinero libre y la
+    // instruccion del cliente se disuelve en el prorrateo del benchmark.
+    const destinos = [
+      { id: 'a', pct: 0.5, clase: 'club' as const, productoId: null, nombre: 'Fondo Estratégico' },
+      { id: 'b', pct: 0.5, clase: 'variable' as const, productoId: null, nombre: 'Renta Variable' },
+    ]
+
+    const proyectada = aRevisadas([posicion({ cta: 'venta_condicionada', destinos })])
+
+    expect(proyectada[0]?.destinos).toEqual(destinos)
   })
 })
 

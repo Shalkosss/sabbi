@@ -86,6 +86,7 @@ const DECISION: Readonly<Record<Cta, string>> = {
   conservar: 'Conservar',
   venta_total: 'Venta total',
   venta_parcial: 'Venta parcial',
+  venta_condicionada: 'Venta condicionada',
   sin_marcar: 'Sin marcar',
 }
 

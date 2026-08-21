@@ -156,6 +156,8 @@
 
 .texto,
 .numero,
+.numeroPct,
+.frecuencia,
 .modo,
 .chipClase {
   background: var(--hundido);
@@ -282,4 +284,38 @@
   font-size: 13px;
   color: var(--tinta-4);
   padding-right: 9px;
+}
+
+
+/* ── Rentabilidad y distribucion del activo agregado ────────────────────── */
+
+/*
+ * El catalogo guarda rangos y no numeros porque eso es lo que un producto
+ * declara —«entre 6% y 8%»—, y aplanarlo a un promedio afirmaria una precision
+ * que nadie tiene. Los dos campos van pegados para que se lean como una sola
+ * cifra y no como dos preguntas.
+ */
+.rango {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+}
+
+.numeroPct {
+  width: 52px;
+  text-align: right;
+  font-size: 12.5px;
+  padding: 4px 5px;
+}
+
+.guion {
+  color: var(--tinta-4);
+  font-size: 11px;
+}
+
+.frecuencia {
+  font-size: 12px;
+  padding: 4px 6px;
+  max-width: 130px;
 }

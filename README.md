@@ -182,7 +182,10 @@ activa. Una cifra que salió en la propuesta de un cliente se explica por la
 macro con la que se calculó, y esa explicación tiene que seguir estando el mes
 que viene.
 
-La edita cualquier asesor con sesión (migración `0011`). Empezó siendo de admin
+La edita cualquier asesor con sesión (migración `0011`). El catálogo también,
+desde la `0012`, por el mismo argumento — con la diferencia, que conviene
+decir, de que el catálogo no tiene historial de versiones: ahí un cambio pisa
+al anterior. Empezó siendo de admin
 por un argumento cierto —un umbral mal puesto no rompe una propuesta, las rompe
 todas— que sin embargo no protege el modelo: un permiso que obliga a pedirle a
 otro que teclee un número hace que la calibración se haga en una hoja suelta que
@@ -203,6 +206,41 @@ celda editada y solo esas viajan.
 Si la base no tiene ninguna macro guardada —o la que tiene no valida contra
 `macroSchema`— el motor corre con la de fábrica, que es la v4 de pesos con la
 v8 de umbrales, y la pantalla lo dice. Nunca se calcula con media macro.
+
+## Las decisiones sobre una posición
+
+Cada posición de la ficha lleva una decisión: conservar, vender, vender parte,
+**venta condicionada** o sin marcar. Las cuatro primeras deciden cuánto dinero
+se libera; la venta condicionada decide además a dónde va.
+
+El caso viene de la mesa y es literal: el cliente vende su inmueble y ya
+decidió que la mitad va al Fondo Estratégico. Marcarlo como venta total
+mandaría esa mitad al pozo común y el benchmark la repartiría entre las siete
+clases — la instrucción del cliente desaparecería dentro del prorrateo sin que
+nadie lo note. Con la venta condicionada, cada destino clava su parte donde el
+cliente la pidió, por el mismo mecanismo de pisos con el que ya funcionan las
+restricciones.
+
+Se reparte en porcentajes y no en montos porque así es como se decide —«la
+mitad»— y porque un monto tecleado a mano queda viejo en cuanto alguien
+corrige la valuación del inmueble. El reparto tiene que sumar 100%: si no
+suma, la pantalla lo dice y el motor se niega a calcular, porque un reparto
+que cierra en 70% deja el 30% sin dueño.
+
+## El portafolio objetivo
+
+Dos palancas sobre lo que el modelo propone, en la pantalla de ficha. Un
+**ajuste de clase** fija una clase en un monto o la saca del cálculo. Un
+**activo agregado** suma una línea que el modelo no propone y clava ese monto
+dentro del ticket: no agranda el patrimonio, sale del mismo dinero.
+
+Un activo agregado se da de alta en el catálogo con su rentabilidad y su
+distribución. No es una comodidad: la sección 6 empareja las líneas contra
+`products`, y una línea sin producto imprime dos celdas vacías donde van el
+retorno y lo que distribuye — y una celda vacía en una tabla de retornos se
+lee como un cero. Entra como `origen = 'ficha'` y sin `ofrecer`, así que no se
+cuela en el menú neteable de su clase (confundir esas dos listas produjo el
+bug v37.25) y queda en la cola de productos incompletos.
 
 ## El Excel
 

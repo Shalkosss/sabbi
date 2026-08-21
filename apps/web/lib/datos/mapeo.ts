@@ -1,3 +1,4 @@
+import type { DestinoVenta } from '@sabbi/core'
 import type { DeudaFicha, PosicionFicha } from '@sabbi/io'
 
 import type { PosicionEditada } from '../estado'
@@ -49,6 +50,7 @@ const filaBase = (fichaId: string) => ({
   es_invertible: true,
   cta: 'sin_marcar' as string,
   monto_venta_parcial: 0,
+  destinos: [] as unknown[],
   nota: null as string | null,
   editado_manualmente: false,
   campos_editados: [] as string[],
@@ -77,6 +79,7 @@ export const filaDePosicion = (posicion: PosicionFicha, fichaId: string) => ({
   es_invertible: posicion.esInvertible,
   cta: posicion.cta,
   monto_venta_parcial: posicion.montoVentaParcial,
+  destinos: posicion.destinos ?? [],
 })
 
 /**
@@ -120,6 +123,7 @@ export interface FilaPosicion {
   es_invertible: boolean
   cta: string
   monto_venta_parcial: number
+  destinos: unknown
   nota: string | null
   editado_manualmente: boolean
   campos_editados: string[] | null
@@ -155,6 +159,10 @@ export const posicionDeFila = (fila: FilaPosicion): PosicionEditada => ({
   esInvertible: fila.es_invertible,
   cta: fila.cta as PosicionEditada['cta'],
   montoVentaParcial: fila.monto_venta_parcial,
+  // El reparto llega como jsonb y puede venir de una fila escrita antes de que
+  // la columna existiera. Lo que no es una lista se lee como sin reparto, que
+  // es lo que el motor bloquea con nombre propio.
+  destinos: Array.isArray(fila.destinos) ? (fila.destinos as readonly DestinoVenta[]) : [],
   nota: fila.nota ?? '',
   editadoManualmente: fila.editado_manualmente,
   camposEditados: fila.campos_editados ?? [],
@@ -173,6 +181,7 @@ export const COLUMNA_DE_CAMPO: Readonly<Record<string, string>> = {
   feePct: 'fee_pct',
   cta: 'cta',
   montoVentaParcial: 'monto_venta_parcial',
+  destinos: 'destinos',
   nota: 'nota',
   esInvertible: 'es_invertible',
   camposEditados: 'campos_editados',

@@ -320,6 +320,12 @@
   background: var(--tinta);
 }
 
+/* La venta condicionada es una venta, pero con el dinero ya comprometido. Se
+   distingue del resto porque su fila arrastra un reparto que hay que mirar. */
+.cta_venta_condicionada {
+  background: var(--atencion);
+}
+
 .cta_sin_marcar {
   background: var(--borde-fuerte);
 }
@@ -331,6 +337,11 @@
 .texto_venta_total,
 .texto_venta_parcial {
   color: var(--tinta);
+}
+
+.texto_venta_condicionada {
+  color: var(--atencion-texto);
+  font-weight: 600;
 }
 
 .texto_sin_marcar {

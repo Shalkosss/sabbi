@@ -1,0 +1,121 @@
+name: Claude toma un issue
+
+# El caso que motiva todo esto: dejas un issue asignado antes de dormir y a la
+# mañana hay un pull request esperando. Se dispara de dos maneras.
+#
+#   - Te asignas el issue a ti mismo, el dueño del repositorio.
+#   - Le pones la etiqueta `claude` a cualquier issue.
+#
+# Para que Claude lo vuelva a intentar sobre el mismo issue, quítale y vuélvele
+# a poner la etiqueta, o desasígnalo y asígnatelo de nuevo.
+on:
+  issues:
+    types: [assigned, labeled]
+
+jobs:
+  implementar:
+    if: >-
+      (github.event.action == 'assigned' && github.event.assignee.login == github.repository_owner) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: claude-issue-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: clave-de-relleno-para-ci
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar
+        run: npm ci
+
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Deja un comentario en el issue y lo va actualizando mientras
+          # trabaja, así a la mañana se lee qué hizo sin abrir la bitácora de
+          # Actions.
+          track_progress: true
+          prompt: |
+            Eres el desarrollador de guardia de Sabbi. Te asignaron el issue de
+            este evento y lo trabajas de punta a punta, sin nadie a quien
+            preguntarle hasta mañana.
+
+            El orden:
+
+            1. Lee CLAUDE.md y el README antes de tocar código. Las siete
+               reglas del proyecto no se negocian: el motor es puro, la
+               configuración vive en un solo lugar, `claseDe()` es una sola, el
+               neteo va contra el menú ofrecible, los golden tests mandan,
+               ningún dato vacío pasa en silencio y no se inventa lo que los
+               datos no sostienen.
+            2. Resuelve lo que pide el issue. Si está ambiguo, elige la lectura
+               más conservadora, déjala escrita en el commit y sigue: no te
+               quedes esperando respuesta.
+            3. Escribe los tests del cambio. `npm run typecheck` y `npm test`
+               tienen que pasar antes de cada commit; las dependencias ya están
+               instaladas.
+            4. Commitea en el estilo del repositorio: minúscula, castellano y
+               contando qué gana quien usa la app, no qué archivo tocaste.
+            5. Empuja la rama. El pull request lo abre el paso siguiente del
+               workflow; no lo abras tú.
+
+            Los límites:
+
+            - El repositorio es público. Nunca commitees nada de `reference/`
+              ni nombres, patrimonios o tenencias de clientes reales. Ante la
+              duda, no entra.
+            - No toques `.github/workflows/` salvo que el issue lo pida.
+            - Si el issue depende de una decisión de la mesa (qué instrumento
+              implementa el oro, si la regla de flujos se enciende sola), no la
+              tomes tú: déjalo explicado en el comentario del issue y no
+              empujes código a medias.
+            - Si el cambio toca el motor, corre el golden test de Ana Tumi y
+              deja escrito en el commit si el resultado se movió y por qué.
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
+
+      - name: Abrir el pull request
+        if: steps.claude.outputs.branch_name != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RAMA: ${{ steps.claude.outputs.branch_name }}
+          BASE: ${{ github.event.repository.default_branch }}
+          TITULO: ${{ github.event.issue.title }}
+          NUMERO: ${{ github.event.issue.number }}
+          CORRIDA: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          CUERPO=$(cat <<'TXT'
+          Closes #NUMERO_ISSUE
+
+          Lo escribió Claude solo, en la corrida que disparó la asignación del
+          issue. Nadie lo revisó todavía.
+
+          Antes de mergear: lee el diff, mira el CI y confirma que la regla de
+          negocio que toca el cambio sigue siendo la que la mesa quiere.
+
+          Bitácora de la corrida: URL_CORRIDA
+          TXT
+          )
+          CUERPO=${CUERPO//NUMERO_ISSUE/$NUMERO}
+          CUERPO=${CUERPO//URL_CORRIDA/$CORRIDA}
+          export CUERPO
+          bash .github/scripts/abrir-pr.sh

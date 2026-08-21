@@ -26,9 +26,23 @@ fi
 
 cd "${CLAUDE_PROJECT_DIR:-.}"
 
-# `install` y no `ci`: el contenedor se cachea despues de que el hook termina, y
-# `ci` borra `node_modules` cada vez, que es justo lo que el cache evita.
-npm install --no-audit --no-fund
+# `ci` y no `install`, aunque `install` aproveche mejor el cache del contenedor.
+# La razon es que `install` reescribe el lockfile cuando el npm que corre aca es
+# mas viejo que el que lo genero: le borra la metadata `libc` de los paquetes
+# opcionales por plataforma, noventa lineas que despues aparecen como cambios
+# sin commitear en cada sesion. Eso termina en uno de dos finales malos — o
+# alguien commitea la degradacion, o todos aprenden a ignorar un arbol sucio.
+# `ci` lee el lockfile y no lo escribe nunca. Medido, la diferencia es de
+# segundos: 11s contra 8s.
+#
+# Si el lockfile y el package.json no coinciden, `ci` falla a proposito. Ahi si
+# vale `install`, que los reconcilia: es preferible una sesion que arranca con
+# un aviso a una que no arranca.
+if ! npm ci --no-audit --no-fund; then
+  echo "npm ci fallo — el lockfile y el package.json no coinciden. Cayendo a npm install." >&2
+  echo "Revisa 'git status': el lockfile puede haber quedado modificado." >&2
+  npm install --no-audit --no-fund
+fi
 
 # Los paquetes compilados son lo que consume la app de Next. La suite no los
 # necesita, pero `npm run typecheck` y `next build` si, y compilarlos aca cuesta

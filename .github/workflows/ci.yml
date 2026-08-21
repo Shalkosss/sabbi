@@ -1,0 +1,45 @@
+name: CI
+
+# Corre en master, en cualquier PR y en las ramas que abre Claude. Lo tercero
+# importa: un pull request abierto con el token de Actions no dispara el evento
+# `pull_request`, así que sin el `push` a `claude/**` las ramas automáticas
+# quedarían sin revisar.
+on:
+  push:
+    branches: [master, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: typecheck, tests y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # `next build` falla al arrancar si faltan. No apuntan a ninguna base
+      # real: son relleno para que la compilación pase sin tocar Supabase.
+      NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: clave-de-relleno-para-ci
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar
+        run: npm ci
+
+      - name: TypeScript estricto
+        run: npm run typecheck
+
+      - name: Vitest, con los golden tests del motor
+        run: npm test
+
+      - name: Build de la app
+        run: npm run build --workspace apps/web

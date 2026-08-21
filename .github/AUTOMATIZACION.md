@@ -15,9 +15,12 @@ estado apagada toda la noche.
 
 ## Lo que falta hacer una vez
 
-Los workflows ya están en el repositorio, pero no arrancan hasta que hagas
-estas tres cosas. Las tres piden permisos de administrador y ninguna se puede
-automatizar desde acá.
+GitHub corre los workflows tal como están en la rama por defecto, no en la rama
+donde se escribieron. Mientras estos archivos vivan en una rama aparte, no se
+dispara nada: el primer paso es mergearlos a `master`.
+
+Después quedan tres cosas, las tres con permisos de administrador y ninguna
+automatizable desde acá.
 
 **1. Instalar la app de Claude.** Entra a
 [github.com/apps/claude](https://github.com/apps/claude), instálala y dale

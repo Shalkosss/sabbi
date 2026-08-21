@@ -73,7 +73,12 @@ export async function prepararDescarga(propuestaId: string): Promise<Preparada> 
  * Los nombres de clientes traen tildes, comas y a veces una barra. La barra en
  * particular no es cosmética: parte la ruta al guardar.
  */
-export function nombreDeArchivo(cliente: string, sufijo: string, fecha: Date): string {
+export function nombreDeArchivo(
+  cliente: string,
+  sufijo: string,
+  fecha: Date,
+  extension: 'pptx' | 'xlsx' = 'pptx',
+): string {
   const limpio = cliente
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -81,18 +86,26 @@ export function nombreDeArchivo(cliente: string, sufijo: string, fecha: Date): s
     .trim()
     .replace(/\s+/g, '-')
   const dia = fecha.toISOString().slice(0, 10)
-  return `Sabbi-${limpio === '' ? 'propuesta' : limpio}${sufijo}-${dia}.pptx`
+  return `Sabbi-${limpio === '' ? 'propuesta' : limpio}${sufijo}-${dia}.${extension}`
 }
 
 export const TIPO_PPTX =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
+export const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 /** La respuesta de descarga, con el nombre que el navegador va a usar. */
-export const comoDescarga = (bytes: Uint8Array, archivo: string): Response =>
+const descarga = (bytes: Uint8Array, archivo: string, tipo: string): Response =>
   new Response(new Uint8Array(bytes), {
     headers: {
-      'content-type': TIPO_PPTX,
+      'content-type': tipo,
       'content-length': String(bytes.byteLength),
       'content-disposition': `attachment; filename="${archivo}"; filename*=UTF-8''${encodeURIComponent(archivo)}`,
     },
   })
+
+export const comoDescarga = (bytes: Uint8Array, archivo: string): Response =>
+  descarga(bytes, archivo, TIPO_PPTX)
+
+export const comoDescargaXlsx = (bytes: Uint8Array, archivo: string): Response =>
+  descarga(bytes, archivo, TIPO_XLSX)

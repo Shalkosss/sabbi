@@ -74,6 +74,19 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
             llena a mano antes de la reunión, una lámina ausente no se ve. El
             título del enlace dice cuántas van así.
           */}
+          {/*
+            El Excel primero: es el documento de trabajo de la mesa —el que se
+            anota y se manda por correo— y el que más veces se baja. Los dos
+            decks son para la reunión.
+          */}
+          <a
+            href={`/propuestas/${cargada.propuestaId}/xlsx`}
+            className="secundario"
+            title="Las siete secciones en una hoja, del inventario de hoy al blotter"
+            download
+          >
+            Descargar el Excel
+          </a>
           <a href={`/propuestas/${cargada.propuestaId}/deck`} className="secundario" download>
             Descargar el deck
           </a>

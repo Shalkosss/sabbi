@@ -233,6 +233,15 @@ export interface FilaComparativo {
 
 export interface ParametrosVisibles {
   readonly ticketFinancieroTotalUsd: number
+  /**
+   * El ticket minimo con el que se corrio.
+   *
+   * Es el unico numero de la macro que el asesor mueve propuesta por
+   * propuesta, asi que explica por si solo por que una linea salio y otra no.
+   * Va con los parametros visibles y no solo en la macro: quien lee el Excel
+   * un mes despues no tiene la pantalla al lado.
+   */
+  readonly ticketMinimoUsd: number
   readonly montoAReinvertirUsd: number
   readonly fxPenUsd: number
   readonly colchonLiquidezUsd: number

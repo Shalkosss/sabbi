@@ -1,5 +1,9 @@
 export { armarDeckRediseno } from './pptx/rediseno/deck.js'
 export type { OpcionesDeck } from './pptx/rediseno/deck.js'
+export { armarXlsxPropuesta } from './xlsx/propuesta.js'
+export type { OpcionesXlsx } from './xlsx/propuesta.js'
+export { escribirLibro, nombreDeHoja } from './xlsx/libro.js'
+export type { Celda, Entrada, Formato, Hoja, Valor } from './xlsx/libro.js'
 export { COLOR, COLOR_CLASE, TIPOGRAFIA, TIPOGRAFIA_MARCA } from './pptx/rediseno/marca.js'
 export {
   laminasDe,

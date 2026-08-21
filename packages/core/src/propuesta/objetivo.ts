@@ -89,6 +89,7 @@ export function armarParametros(
 ): ParametrosVisibles {
   return {
     ticketFinancieroTotalUsd: plan.totalObjetivoUsd,
+    ticketMinimoUsd: parametros.ticketMinimoUsd,
     montoAReinvertirUsd: plan.dineroNuevoUsd,
     fxPenUsd: parametros.fxPenUsd,
     colchonLiquidezUsd: parametros.colchonLiquidezUsd,

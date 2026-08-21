@@ -188,6 +188,28 @@ Si la base no tiene ninguna macro guardada —o la que tiene no valida contra
 `macroSchema`— el motor corre con la de fábrica, que es la v4 de pesos con la
 v8 de umbrales, y la pantalla lo dice. Nunca se calcula con media macro.
 
+## El Excel
+
+Es el documento de trabajo de la mesa: el que se anota, se filtra y se manda
+por correo. Reproduce el libro que se venía armando a mano — una sola hoja con
+las siete secciones apiladas, de la foto actual al blotter — y sale del mismo
+objeto `Propuesta` que pinta la pantalla y arma los dos decks.
+
+**Sin una sola fórmula.** Una celda con `=SUMA(...)` sería una cuenta que el
+motor ya hizo, escrita otra vez y libre de divergir en cuanto alguien inserte
+una fila. Lo que va son los totales y los dos cuadres: que la sección 7 diga
+que compras menos ventas da cero es lo que hace que la propuesta se pueda
+publicar, y esa cifra tiene que viajar con el archivo. El pie deja escrito con
+qué macro se calculó.
+
+El escritor de `.xlsx` está a mano, como el lector de `@sabbi/io` del otro
+lado: un xlsx es un zip con XML adentro y hacen falta seis partes. Se valida
+leyéndolo con el lector del propio repo — si el archivo que sale no se puede
+volver a leer, no es un xlsx, y comparar bytes del zip no lo notaría.
+
+Se descarga desde la propuesta y se genera en el momento, por la misma razón
+que los decks: un archivo guardado en disco es una copia que envejece sola.
+
 ## Los dos decks
 
 El **rediseñado** se arma desde el objeto `Propuesta` y solo desde ahí: portada,
@@ -230,7 +252,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 2 | Parser de ficha y pantalla de revisión | hecho |
 | 3 | Motor `generarPlan()` y golden test | hecho |
 | 4 | Vista web de la propuesta | hecho |
-| 5 | Export a Excel | sin empezar; el dato está, falta escribir el archivo |
+| 5 | Export a Excel | hecho |
 | 6 | PPT réplica | motor hecho, 8 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |

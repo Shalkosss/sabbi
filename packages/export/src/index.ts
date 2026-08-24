@@ -13,6 +13,17 @@ export {
 export { armarDeckReplica, avanceReplica } from './pptx/replica/deck.js'
 export { CABECERA, MODELO, filasDelAnexo, sinEscribir } from './pptx/replica/anexo.js'
 export { leerPlantillaReplica, rutaDePlantilla } from './pptx/replica/desde-disco.js'
+export {
+  ANCHO_BARRA,
+  BARRAS,
+  BASE_EMU,
+  PASOS,
+  PASO_EMU,
+  escalonPara,
+  redibujarGrafico,
+} from './pptx/replica/grafico.js'
+export type { ResultadoGrafico } from './pptx/replica/grafico.js'
+export { clasesDelGrafico, sharesDelGrafico } from './pptx/replica/mapa.js'
 export type { OpcionesDeckReplica } from './pptx/replica/deck.js'
 export {
   LAMINAS_INCOMPLETAS,

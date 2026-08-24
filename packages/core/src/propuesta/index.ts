@@ -22,6 +22,7 @@ import {
   armarParametros,
   armarVentas,
 } from './objetivo.js'
+import { TOLERANCIA_CUADRE } from './publicacion.js'
 import type { DatosProducto, EntradaPropuesta, Propuesta } from './tipos.js'
 import {
   armarAntesYDespues,
@@ -30,9 +31,6 @@ import {
   armarVistaHoy,
   cuentanEnElCalculo,
 } from './vistas.js'
-
-/** Un centavo. Debajo de eso, un cuadre es ruido de coma flotante. */
-export const TOLERANCIA_CUADRE = 0.01
 
 const SIN_CATALOGO: ReadonlyMap<string, DatosProducto> = new Map()
 
@@ -120,6 +118,8 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 }
 
 export * from './tipos.js'
+export { TOLERANCIA_CUADRE, reparosParaPublicar, sePuedePublicar } from './publicacion.js'
+export type { CodigoReparo, ReparoPublicacion } from './publicacion.js'
 export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './foto.js'
 export {
   armarVistaHoy,

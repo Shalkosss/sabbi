@@ -1,3 +1,4 @@
+import { reparosParaPublicar } from '@sabbi/core'
 import { LAMINAS_INCOMPLETAS, LAMINAS_TODAS } from '@sabbi/export'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -8,58 +9,48 @@ import { Blotter } from '../../../componentes/propuesta/Blotter'
 import { Distribucion } from '../../../componentes/propuesta/Distribucion'
 import { FotoActual } from '../../../componentes/propuesta/FotoActual'
 import { Objetivo } from '../../../componentes/propuesta/Objetivo'
+import { Publicacion } from '../../../componentes/propuesta/Publicacion'
 import { Vistas } from '../../../componentes/propuesta/Vistas'
-import { construirPropuesta } from '../../../lib/armar-propuesta'
-import { macroParaCalcular } from '../../../lib/datos/macro'
+import { cadenaDeVersiones } from '../../../lib/datos/biblioteca'
+import { propuestaVigente } from '../../../lib/propuesta-vigente'
 import vistas from '../../../componentes/propuesta/Vistas.module.css'
-import {
-  anotacionesDeLinea,
-  cargarPropuesta,
-  catalogoDeAssetClass,
-  catalogoDeProductos,
-} from '../../../lib/datos/propuestas'
 import { asesorActual } from '../../../lib/supabase/servidor'
 import estilos from '../../../componentes/propuesta/Propuesta.module.css'
 
 /**
  * La propuesta, entera y sin descargar nada.
  *
- * Se arma en el servidor en cada lectura, a partir de la revisión guardada y
- * del mismo motor que corrió el asesor: la propuesta no guarda cifras propias
- * que puedan quedar viejas. Los pesos del modelo no bajan al navegador, solo
- * los resultados.
+ * Un borrador se arma en el servidor en cada lectura, a partir de la revisión
+ * guardada y del mismo motor que corrió el asesor: no guarda cifras propias
+ * que puedan quedar viejas. Una propuesta publicada hace lo contrario y por la
+ * misma razón — es la que el cliente ya tiene — y se lee de su snapshot. Cuál
+ * de las dos cosas está pasando lo decide `propuestaVigente`, y el panel de
+ * arriba lo dice antes de que se lea una sola cifra.
+ *
+ * Los pesos del modelo no bajan al navegador, solo los resultados.
  */
 export default async function Pagina({ params }: { params: Promise<{ id: string }> }) {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
   const { id } = await params
-  const cargada = await cargarPropuesta(id)
-  if (cargada === null) notFound()
+  const resultado = await propuestaVigente(id)
+  if (resultado === null) notFound()
 
-  const [catalogo, assetClassCatalogo, anotaciones, macro] = await Promise.all([
-    catalogoDeProductos(),
-    catalogoDeAssetClass(),
-    anotacionesDeLinea(id),
-    macroParaCalcular(),
-  ])
-
-  const resultado = construirPropuesta(cargada.revision, {
-    mandato: cargada.mandato,
-    catalogo,
-    assetClassCatalogo,
-    anotaciones,
-    macro,
-  })
+  const { cargada } = resultado
+  const cadena = await cadenaDeVersiones(cargada.fichaId)
 
   const marco = (contenido: React.ReactNode) => (
     <Marco
       asesor={asesor}
-      activo="fichas"
+      activo="propuestas"
       migas={[
-        { texto: 'Fichas', ruta: '/' },
-        { texto: cargada.revision.cliente.nombre ?? cargada.revision.archivo, ruta: `/fichas/${cargada.revision.fichaId}` },
-        { texto: 'Propuesta' },
+        { texto: 'Propuestas', ruta: '/propuestas' },
+        {
+          texto: cargada.revision.cliente.nombre ?? cargada.revision.archivo,
+          ruta: `/fichas/${cargada.revision.fichaId}`,
+        },
+        { texto: `v${cargada.version}` },
       ]}
       acciones={
         <>
@@ -125,7 +116,16 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
     )
   }
 
-  const { propuesta } = resultado
+  const { propuesta, congelada } = resultado
+
+  // Los reparos se evalúan acá y no en el navegador: son la misma función que
+  // corre al publicar, y tenerla de un solo lado es lo que garantiza que el
+  // botón esté apagado exactamente cuando la acción va a fallar.
+  //
+  // Quién manda acá es el estado en la base, no si el snapshot se pudo leer:
+  // una publicada con el snapshot ilegible sigue estando publicada, y lo que
+  // hay que ofrecerle es la versión nueva, no volver a publicarla.
+  const reparos = cargada.publicada ? [] : reparosParaPublicar(propuesta)
 
   return marco(
     <div className={estilos.documento}>
@@ -147,6 +147,33 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
           Versión <b>{cargada.version}</b>
         </span>
       </div>
+
+      {/*
+        Una publicada cuyo snapshot no se puede leer se recalcula, pero eso no
+        puede pasar en silencio: lo que se está viendo no es lo que salió.
+      */}
+      {resultado.snapshotIlegible !== null && (
+        <p className={estilos.avisoFuerte} role="alert">
+          {resultado.snapshotIlegible}
+        </p>
+      )}
+
+      <Publicacion
+        propuestaId={cargada.propuestaId}
+        version={cargada.version}
+        publicada={cargada.publicada}
+        publicadaEn={congelada?.congeladaEn ?? cargada.publicadaEn}
+        publicadaPor={cargada.publicadaPor}
+        macroVersion={congelada?.macroVersion ?? cargada.macroVersion}
+        motor={congelada?.motor ?? null}
+        reparos={reparos.map((reparo) => reparo.mensaje)}
+        cadena={cadena.map((vecina) => ({
+          id: vecina.id,
+          version: vecina.version,
+          publicada: vecina.publicada,
+          fecha: vecina.publicadaEn ?? vecina.creadaEn,
+        }))}
+      />
 
       {propuesta.avisos.length > 0 && (
         <ul className={estilos.avisos}>
@@ -171,7 +198,11 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         </summary>
         <FotoActual propuesta={propuesta} />
         <Distribucion propuesta={propuesta} />
-        <Objetivo propuesta={propuesta} propuestaId={cargada.propuestaId} />
+        <Objetivo
+          propuesta={propuesta}
+          propuestaId={cargada.propuestaId}
+          congelada={cargada.publicada}
+        />
         <Blotter propuesta={propuesta} />
       </details>
     </div>,

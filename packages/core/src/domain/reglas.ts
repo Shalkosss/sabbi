@@ -83,6 +83,16 @@ export interface ReglasMotor {
 }
 
 /**
+ * Version del motor.
+ *
+ * No es la version de la macro ni la del paquete: identifica el codigo que
+ * convierte un reparto en lineas ejecutables. Una propuesta publicada la
+ * guarda junto a sus cifras, porque el mismo reparto corrido por otro motor
+ * puede dar otras lineas y eso hay que poder verlo un ano despues.
+ */
+export const VERSION_MOTOR = 'v8'
+
+/**
  * La macro v8: la que el motor reproduce y la que fija el golden test.
  *
  * Es el punto de partida de todo. Una macro guardada que se aparte de estos

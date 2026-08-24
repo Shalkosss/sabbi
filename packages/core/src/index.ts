@@ -2,6 +2,7 @@ export * from './domain/tipos.js'
 export {
   CAMPOS_DE_MACRO,
   REGLAS_V8,
+  VERSION_MOTOR,
   conValorDeMacro,
   valorDeMacro,
 } from './domain/reglas.js'
@@ -78,6 +79,19 @@ export type {
 } from './entrada.js'
 export type { EntradaPlan, PesosProductos, Plan } from './plan.js'
 export { armarPropuesta, TOLERANCIA_CUADRE } from './propuesta/index.js'
+export { reparosParaPublicar, sePuedePublicar } from './propuesta/publicacion.js'
+export type { CodigoReparo, ReparoPublicacion } from './propuesta/publicacion.js'
+export {
+  congelarPropuesta,
+  leerSnapshot,
+  FORMATO_SNAPSHOT,
+} from './propuesta/snapshot.js'
+export type {
+  LecturaSnapshot,
+  MacroDelSnapshot,
+  MetaSnapshot,
+  SnapshotPropuesta,
+} from './propuesta/snapshot.js'
 export { SIN_CLASIFICAR, seConservaUsd, seVendeUsd } from './propuesta/foto.js'
 export {
   camposFaltantes,

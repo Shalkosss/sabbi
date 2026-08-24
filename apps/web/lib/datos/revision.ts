@@ -49,9 +49,21 @@ export async function guardarParametros(
 
   const { data: previa } = await supabase
     .from('proposals')
-    .select('institucional_override')
+    .select('institucional_override, estado')
     .eq('id', propuestaId)
-    .maybeSingle<{ institucional_override: string }>()
+    .maybeSingle<{ institucional_override: string; estado: string }>()
+
+  // Una propuesta publicada no acepta parámetros nuevos: sus cifras ya están
+  // congeladas y moverle el perfil o el ticket no cambiaría ninguna. La base
+  // lo rechaza con una excepción; acá se dice antes y en castellano, porque
+  // esto llega por el autoguardado y el asesor lo ve mientras escribe.
+  if (previa?.estado === 'publicada') {
+    return {
+      error:
+        'Esta propuesta ya está publicada y no se edita. Generá una versión nueva desde la ' +
+        'propuesta para seguir trabajando.',
+    }
+  }
 
   const { error: errorPropuesta } = await supabase
     .from('proposals')

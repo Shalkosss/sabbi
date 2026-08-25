@@ -30,6 +30,7 @@ import type {
 import { CLASES } from './domain/tipos.js'
 import type { EntradaPlan, PesosProductos } from './plan.js'
 import type { EstadoInstitucional } from './rules/institucional.js'
+import { CLASES_BLINDADAS } from './rules/reparto.js'
 
 const EPS = 1e-6
 const TOL = 0.01
@@ -524,13 +525,30 @@ function sobranteSinDestino(
   const ultimo = new Map<ClaseModelo, AjusteClase>()
   for (const ajuste of ajustes) ultimo.set(ajuste.clase, ajuste)
 
-  const libres = CLASES.filter((clase) => benchmark[clase] > EPS && !ultimo.has(clase))
+  // Una clase blindada NO es destino del prorrateo: el solver la cierra en su
+  // peso antes de la primera vuelta. Contarla como libre era el hueco por el
+  // que este gate dejaba pasar un caso que el motor no puede calcular — con
+  // Cash blindado y todas las demas fijadas, la derivacion decia que si y
+  // `repartirPorClase` tiraba despues, del lado del servidor, donde el mensaje
+  // no llega a nadie.
+  const libres = CLASES.filter(
+    (clase) => !CLASES_BLINDADAS.has(clase) && benchmark[clase] > EPS && !ultimo.has(clase),
+  )
   if (libres.length > 0) return 0
+
+  const escala = CLASES.reduce((total, clase) => total + benchmark[clase], 0)
 
   const cerrado = CLASES.reduce((total, clase) => {
     const ajuste = ultimo.get(clase)
     const pedido = ajuste === undefined ? 0 : ajuste.modo === 'excluir' ? 0 : ajuste.montoUsd
-    return total + Math.max(Math.max(0, pedido), pisoDe(clase))
+    // Y una blindada sin ajuste se queda con su peso de benchmark, no con su
+    // piso: si el sobrante se contara contra el piso, el mensaje diria un
+    // numero que no es el que el asesor tiene que mover.
+    const porBenchmark =
+      !CLASES_BLINDADAS.has(clase) || ajuste !== undefined || escala <= EPS
+        ? 0
+        : (patrimonioTotalUsd * benchmark[clase]) / escala
+    return total + Math.max(Math.max(0, pedido), pisoDe(clase), porBenchmark)
   }, 0)
 
   return patrimonioTotalUsd - cerrado

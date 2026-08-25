@@ -50,12 +50,23 @@ const MAX_ITERACIONES = 50
  * @param ajustes  montos clavados por el asesor, por clase
  * @param blindadas  clases que conservan su peso y no ceden al prorrateo
  */
+/**
+ * Las clases que el motor blinda cuando el llamador no dice otra cosa.
+ *
+ * Se exporta porque no es un detalle del solver: quien quiera anticipar lo que
+ * el solver va a hacer —el gate de `armarEntradaPlan`, sin ir mas lejos— tiene
+ * que saber que Cash no es destino del prorrateo. Dos ideas distintas de que
+ * clases pueden recibir es exactamente como un caso imposible pasa el gate y
+ * revienta despues.
+ */
+export const CLASES_BLINDADAS: ReadonlySet<ClaseModelo> = new Set(['cash'])
+
 export function repartirPorClase(
   benchmark: Benchmark,
   patrimonioTotalUsd: number,
   pisos: readonly Piso[],
   ajustes: readonly AjusteClase[] = [],
-  blindadas: ReadonlySet<ClaseModelo> = new Set(['cash']),
+  blindadas: ReadonlySet<ClaseModelo> = CLASES_BLINDADAS,
 ): ResultadoReparto {
   if (!Number.isFinite(patrimonioTotalUsd) || patrimonioTotalUsd <= 0) {
     throw new Error(

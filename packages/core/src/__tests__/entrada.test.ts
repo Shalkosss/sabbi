@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Benchmark, Restriccion } from '../domain/tipos.js'
 import { armarEntradaPlan, evaluarRevision, redistribuirInmobiliario } from '../entrada.js'
 import type { DecisionesPropuesta, PosicionRevisada } from '../entrada.js'
+import { generarPlan } from '../plan.js'
 
 const BENCHMARK: Benchmark = {
   inm: 0.24,
@@ -294,6 +295,83 @@ describe('gate del ticket minimo', () => {
     expect(d.ok).toBe(false)
     if (d.ok) return
     expect(d.bloqueos.map((b) => b.codigo)).toContain('ticket_invalido')
+  })
+})
+
+describe('gate de las clases fijadas, con Cash blindado', () => {
+  /**
+   * El caso: todas las clases con peso fijadas por un ajuste, salvo Cash.
+   *
+   * Desde la v4 el solver blinda Cash: lo cierra en su peso de benchmark antes
+   * de la primera vuelta y no vuelve a mirarlo, asi que NO es destino del
+   * prorrateo. El gate seguia contandolo como una clase libre donde poner lo
+   * que sobra, decia que si, y `repartirPorClase` tiraba despues — del lado del
+   * servidor, donde el mensaje no llega a nadie.
+   *
+   * No hace falta nada raro para llegar: la macro de fabrica, cualquier perfil,
+   * y un asesor que fijo las clases que le importaban.
+   */
+  const TODAS_FIJADAS = {
+    ...DECISIONES,
+    benchmark: {
+      inm: 0,
+      fijo: 0.9,
+      variable: 0,
+      privados: 0,
+      club: 0,
+      otros: 0,
+      cash: 0.1,
+    },
+    ajustes: [{ clase: 'fijo' as const, modo: 'fijar' as const, montoUsd: 400_000 }],
+  }
+
+  const soloCash = [posicion({ claseModelo: 'cash', valorUsd: 1_000_000, cta: 'venta_total' })]
+
+  it('bloquea en vez de dejar que el motor tire', () => {
+    const d = armarEntradaPlan(soloCash, TODAS_FIJADAS)
+
+    expect(d.ok).toBe(false)
+    if (d.ok) return
+    expect(d.bloqueos.map((b) => b.codigo)).toContain('ajuste_invalido')
+  })
+
+  it('y el monto que nombra es el que el motor se habria quedado sin colocar', () => {
+    // Cash se lleva su peso de benchmark —100,000— y el ajuste 400,000. Los
+    // 500,000 que quedan son los que el asesor tiene que mover. Contarlos
+    // contra el piso de Cash, que aca es cero, diria 900,000: un numero que no
+    // le sirve a nadie.
+    const d = armarEntradaPlan(soloCash, TODAS_FIJADAS)
+
+    expect(d.ok).toBe(false)
+    if (d.ok) return
+    expect(d.bloqueos[0]?.mensaje).toContain('500000.00')
+  })
+
+  it('con una sola clase libre que no sea Cash, sigue pasando', () => {
+    // La contraprueba: el gate no puede volverse mas estricto de la cuenta.
+    const d = armarEntradaPlan(soloCash, {
+      ...TODAS_FIJADAS,
+      benchmark: { ...TODAS_FIJADAS.benchmark, fijo: 0.5, variable: 0.4 },
+    })
+
+    expect(d.ok).toBe(true)
+    if (!d.ok) return
+    expect(() => generarPlan(d.entrada)).not.toThrow()
+  })
+
+  it('y el gate y el motor no se contradicen en ningun caso de los tres', () => {
+    // Lo que de verdad hay que fijar no es un mensaje sino el acuerdo: si la
+    // derivacion dice que si, el motor tiene que poder calcular.
+    const casos = [
+      TODAS_FIJADAS,
+      { ...TODAS_FIJADAS, benchmark: { ...TODAS_FIJADAS.benchmark, fijo: 0.5, variable: 0.4 } },
+      { ...TODAS_FIJADAS, ajustes: [] },
+    ]
+
+    for (const decisiones of casos) {
+      const d = armarEntradaPlan(soloCash, decisiones)
+      if (d.ok) expect(() => generarPlan(d.entrada)).not.toThrow()
+    }
   })
 })
 

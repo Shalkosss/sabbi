@@ -23,23 +23,46 @@ interface FilaPropuesta {
   mandato: string | null
   estado: string
   version: number
+  reemplaza_a: string | null
+  macro_version: number | null
+  published_at: string | null
+  snapshot: unknown
   created_at: string
+  advisors: { nombre: string } | null
 }
 
 export interface PropuestaCargada {
   readonly propuestaId: string
+  readonly fichaId: string
   readonly mandato: string | null
   readonly estado: string
+  readonly publicada: boolean
   readonly version: number
+  /** La version que esta reemplaza, si nacio de otra. */
+  readonly reemplazaA: string | null
+  readonly publicadaEn: string | null
+  readonly publicadaPor: string | null
+  readonly macroVersion: number | null
+  /**
+   * Lo que se congelo al publicar, sin validar todavia.
+   *
+   * Llega crudo porque viene de un `jsonb` y de una version de la aplicacion
+   * que puede no ser esta. Quien lo use lo pasa por `leerSnapshot`.
+   */
+  readonly snapshot: unknown
   readonly revision: EstadoRevision
 }
+
+const COLUMNAS_PROPUESTA =
+  'id, ficha_id, mandato, estado, version, reemplaza_a, macro_version, ' +
+  'published_at, snapshot, created_at, advisors:published_by (nombre)'
 
 export async function cargarPropuesta(propuestaId: string): Promise<PropuestaCargada | null> {
   const supabase = await clienteServidor()
 
   const { data } = await supabase
     .from('proposals')
-    .select('id, ficha_id, mandato, estado, version, created_at')
+    .select(COLUMNAS_PROPUESTA)
     .eq('id', propuestaId)
     .maybeSingle<FilaPropuesta>()
 
@@ -50,9 +73,16 @@ export async function cargarPropuesta(propuestaId: string): Promise<PropuestaCar
 
   return {
     propuestaId: data.id,
+    fichaId: data.ficha_id,
     mandato: data.mandato,
     estado: data.estado,
+    publicada: data.estado === 'publicada',
     version: data.version,
+    reemplazaA: data.reemplaza_a,
+    publicadaEn: data.published_at,
+    publicadaPor: data.advisors?.nombre ?? null,
+    macroVersion: data.macro_version,
+    snapshot: data.snapshot,
     revision,
   }
 }

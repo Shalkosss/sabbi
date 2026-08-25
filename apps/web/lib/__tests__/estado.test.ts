@@ -37,6 +37,7 @@ const posicion = (parche: Partial<PosicionEditada> = {}): PosicionEditada => ({
 const revision = (posiciones: readonly PosicionEditada[]): EstadoRevision => ({
   fichaId: 'f1',
   propuestaId: 'pr1',
+  propuestaPublicada: false,
   clienteId: 'c1',
   archivo: 'ficha.xlsx',
   hoja: 'Ficha',

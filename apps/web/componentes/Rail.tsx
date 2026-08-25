@@ -1,3 +1,4 @@
+import { VERSION_MOTOR } from '@sabbi/core'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -28,7 +29,7 @@ interface Item {
 
 const SECCIONES: readonly Item[] = [
   { clave: 'fichas', texto: 'Fichas', icono: 'M2 4h12M2 8h12M2 12h8', ruta: '/' },
-  { clave: 'propuestas', texto: 'Propuestas', icono: 'M3 2h7l3 3v9H3z', ruta: null },
+  { clave: 'propuestas', texto: 'Propuestas', icono: 'M3 2h7l3 3v9H3z', ruta: '/propuestas' },
   {
     clave: 'clientes',
     texto: 'Clientes',
@@ -118,7 +119,7 @@ export function Rail({ asesor, activo }: Props) {
         <span className={estilos.identidad}>
           <span className={estilos.nombre}>{asesor.nombre}</span>
           <span className={estilos.detalle}>
-            {asesor.rol === 'admin' ? 'Admin' : 'Asesor'} · motor v8
+            {asesor.rol === 'admin' ? 'Admin' : 'Asesor'} · motor {VERSION_MOTOR}
           </span>
         </span>
       </div>

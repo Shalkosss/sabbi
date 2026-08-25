@@ -24,9 +24,16 @@ interface Props {
   readonly propuesta: Propuesta
   /** Sin propuesta abierta no hay donde guardar lo que el asesor escriba. */
   readonly propuestaId: string
+  /**
+   * Publicada: las dos columnas del asesor se leen pero no se escriben.
+   *
+   * Salieron impresas en el anexo del deck que el cliente ya tiene. Dejarlas
+   * editables ofreceria cambiar un texto que no va a cambiar en ningun lado.
+   */
+  readonly congelada?: boolean
 }
 
-export function Objetivo({ propuesta, propuestaId }: Props) {
+export function Objetivo({ propuesta, propuestaId, congelada = false }: Props) {
   const { seccion6 } = propuesta
   const { parametros } = seccion6
 
@@ -124,8 +131,9 @@ export function Objetivo({ propuesta, propuestaId }: Props) {
                       <input
                         className={estilos.campoAnotacion}
                         value={anotacionDe(linea.instrumento, linea).descripcion}
-                        placeholder="Descripción — qué es"
+                        placeholder={congelada ? '' : 'Descripción — qué es'}
                         aria-label={`Descripción de ${linea.instrumento}`}
+                        readOnly={congelada}
                         onChange={(e) =>
                           anotar(linea.instrumento, linea, { descripcion: e.target.value })
                         }
@@ -133,8 +141,9 @@ export function Objetivo({ propuesta, propuestaId }: Props) {
                       <input
                         className={estilos.campoAnotacion}
                         value={anotacionDe(linea.instrumento, linea).proposito}
-                        placeholder="Propósito — para qué está"
+                        placeholder={congelada ? '' : 'Propósito — para qué está'}
                         aria-label={`Propósito de ${linea.instrumento}`}
+                        readOnly={congelada}
                         onChange={(e) =>
                           anotar(linea.instrumento, linea, { proposito: e.target.value })
                         }
@@ -166,9 +175,12 @@ export function Objetivo({ propuesta, propuestaId }: Props) {
       <div className={estilos.pieAnotaciones}>
         <p className={estilos.bajada}>
           Descripción y propósito los escribe el asesor: son las dos columnas del anexo del
-          deck que ningún dato puede llenar. Se guardan solas.
+          deck que ningún dato puede llenar.{' '}
+          {congelada
+            ? 'Estas son las que salieron publicadas; para cambiarlas hay que abrir una versión nueva.'
+            : 'Se guardan solas.'}
         </p>
-        <Guardado estado={guardado} sinGuardar={0} />
+        {!congelada && <Guardado estado={guardado} sinGuardar={0} />}
       </div>
 
       <Cuadre

@@ -219,6 +219,7 @@ interface FilaFicha {
 
 interface FilaPropuesta {
   id: string
+  estado: string
   perfil: string | null
   institucional_override: string
   toggle_inm_seccion_propia: boolean
@@ -246,7 +247,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
   const { data: propuesta } = await supabase
     .from('proposals')
     .select(
-      'id, perfil, institucional_override, toggle_inm_seccion_propia, fx, ' +
+      'id, estado, perfil, institucional_override, toggle_inm_seccion_propia, fx, ' +
         'colchon_liquidez_usd, ticket_minimo_etf_usd',
     )
     .eq('ficha_id', fichaId)
@@ -279,6 +280,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
   return {
     fichaId: ficha.id,
     propuestaId: propuesta?.id ?? '',
+    propuestaPublicada: propuesta?.estado === 'publicada',
     clienteId: ficha.client_id,
     archivo: ficha.archivo_nombre ?? 'ficha.xlsx',
     hoja: ficha.hoja ?? '',

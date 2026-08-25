@@ -65,6 +65,15 @@ export interface AjustesObjetivo {
 export interface EstadoRevision extends AjustesObjetivo {
   readonly fichaId: string
   readonly propuestaId: string
+  /**
+   * La propuesta de esta ficha ya salió hacia un cliente.
+   *
+   * Sus cifras están congeladas y sus parámetros no aceptan cambios: la base
+   * rechaza la escritura y el autoguardado devolvería un error por cada tecla.
+   * La pantalla lo dice arriba y ofrece el único camino que queda, que es
+   * abrir una versión nueva desde la propuesta.
+   */
+  readonly propuestaPublicada: boolean
   readonly clienteId: string
   readonly archivo: string
   readonly hoja: string

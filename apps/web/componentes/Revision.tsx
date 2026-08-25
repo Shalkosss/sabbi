@@ -257,6 +257,22 @@ export function Revision({ inicial, asesor, productos }: Props) {
         resumen={revision.resumen}
       />
 
+      {/*
+        Publicada, esta pantalla ya no manda sobre nada: los parámetros no se
+        pueden guardar y las cifras que el cliente tiene son las congeladas.
+        Decirlo acá arriba evita que el asesor descubra el corte de a un error
+        por tecla, y deja a un clic el único camino que queda.
+      */}
+      {estado.propuestaPublicada && (
+        <p className={estilos.publicada} role="status">
+          La propuesta de esta ficha ya está publicada, así que sus cifras están congeladas y los
+          parámetros no aceptan cambios.{' '}
+          <a href={`/propuestas/${estado.propuestaId}`}>
+            Abrila para generar una versión nueva →
+          </a>
+        </p>
+      )}
+
       <BarraParametros
         parametros={parametros}
         cambiar={cambiarParametros}

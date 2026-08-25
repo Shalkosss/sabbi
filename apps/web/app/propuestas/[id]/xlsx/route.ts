@@ -1,6 +1,5 @@
 import { armarXlsxPropuesta } from '@sabbi/export'
 
-import { macroActiva } from '../../../../lib/datos/macro'
 import { comoDescargaXlsx, nombreDeArchivo, prepararDescarga } from '../../../../lib/descarga'
 
 /**
@@ -11,6 +10,10 @@ import { comoDescargaXlsx, nombreDeArchivo, prepararDescarga } from '../../../..
  * objeto `Propuesta` que pinta la pantalla y los dos decks — por la misma
  * razón que ellos: un archivo guardado en disco es una copia que envejece
  * sola, y la primera vez que alguien corrige la ficha ya está mintiendo.
+ *
+ * En el momento no quiere decir recalculado siempre: de una propuesta
+ * publicada sale el snapshot con el que se publicó. El archivo se escribe
+ * ahora, las cifras son las de entonces.
  *
  * Pasa por la sesión del asesor y por RLS, igual que la página: quien no
  * puede ver la propuesta tampoco puede bajar su Excel.
@@ -27,15 +30,15 @@ export async function GET(
   const preparada = await prepararDescarga(id)
   if (!preparada.ok) return preparada.respuesta
 
-  // La misma macro con la que se calculó, escrita en el pie: un Excel que
-  // circula por correo tiene que poder explicar de dónde salen sus cifras.
-  const activa = await macroActiva()
-
+  // La macro con la que se calculó esta propuesta, escrita en el pie: un Excel
+  // que circula por correo tiene que poder explicar de dónde salen sus cifras.
+  // Publicada, es la que quedó congelada, no la que esté activa hoy — si no,
+  // el pie diría una macro que nunca tocó estas cifras.
   const fecha = new Date()
   const bytes = armarXlsxPropuesta(preparada.propuesta, {
     fecha,
     asesor: preparada.asesor,
-    versionMacro: activa.esDeFabrica ? null : activa.macro.version,
+    versionMacro: preparada.versionMacro,
   })
 
   return comoDescargaXlsx(

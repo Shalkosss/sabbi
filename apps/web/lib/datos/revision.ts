@@ -1,5 +1,7 @@
 import 'server-only'
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+
 import type { Parametros, PosicionEditada } from '../estado'
 import { asesorActual, clienteServidor } from '../supabase/servidor'
 import { COLUMNA_DE_CAMPO } from './mapeo'
@@ -29,9 +31,69 @@ export async function guardarPosicion(
 
   const supabase = await clienteServidor()
   const { error } = await supabase.from('ficha_positions').update(columnas).eq('id', posicionId)
+  if (error !== null) return { error: error.message }
 
-  return error === null ? {} : { error: error.message }
+  return propagarAlCatalogo(supabase, posicionId, cambios)
 }
+
+/**
+ * Lo que se escribe en la ficha viaja al catálogo.
+ *
+ * La mesa pidió no tener que entrar al catálogo a completar lo mismo dos
+ * veces: la rentabilidad y la comisión se escriben donde se está trabajando
+ * —la fila de la posición— y el producto queda actualizado para la próxima
+ * propuesta. Cada posición financiera ya tiene su producto desde que se subió
+ * la ficha, así que no hay nada que crear: solo escribirle.
+ *
+ * Dos cosas que conviene tener presentes, y que la pantalla dice:
+ *
+ *  - El catálogo guarda la rentabilidad como una banda —«7.5% a 9.5%»— y la
+ *    ficha guarda un solo número. Escribirla desde acá la deja en un punto:
+ *    mínimo y máximo iguales. Es lo que la mesa pidió y es una pérdida real de
+ *    información cuando el producto tenía una banda cargada a mano.
+ *  - Las columnas del catálogo van en puntos porcentuales y la ficha en
+ *    fracción. Confundirlas daría un producto con 450% de retorno.
+ *
+ * Un fallo acá no puede tumbar el guardado de la posición, que ya se escribió:
+ * se devuelve como error para que la barra de guardado lo muestre, sin
+ * deshacer nada.
+ */
+async function propagarAlCatalogo(
+  supabase: SupabaseClient,
+  posicionId: string,
+  cambios: Partial<PosicionEditada>,
+): Promise<{ readonly error?: string }> {
+  const tocaAlCatalogo = 'rendimientoEst' in cambios || 'feePct' in cambios
+  if (!tocaAlCatalogo) return {}
+
+  const { data: posicion } = await supabase
+    .from('ficha_positions')
+    .select('producto_id')
+    .eq('id', posicionId)
+    .maybeSingle<{ producto_id: string | null }>()
+
+  const productoId = posicion?.producto_id ?? null
+  // Los inmuebles no tienen producto, y una financiera cuyo alta falló al
+  // subir la ficha tampoco. No es un error: no hay a quién escribirle.
+  if (productoId === null) return {}
+
+  const patch: Record<string, unknown> = {}
+  if ('rendimientoEst' in cambios) {
+    const puntos = aPuntos(cambios.rendimientoEst ?? null)
+    patch['ret_min'] = puntos
+    patch['ret_max'] = puntos
+  }
+  if ('feePct' in cambios) patch['comision_pct'] = aPuntos(cambios.feePct ?? null)
+
+  const { error } = await supabase.from('products').update(patch).eq('id', productoId)
+  return error === null
+    ? {}
+    : { error: `La posición se guardó, pero el catálogo no: ${error.message}` }
+}
+
+/** La ficha trabaja en fracción; las columnas del catálogo, en puntos. */
+const aPuntos = (fraccion: number | null): number | null =>
+  fraccion === null ? null : fraccion * 100
 
 /**
  * Guarda los parámetros.

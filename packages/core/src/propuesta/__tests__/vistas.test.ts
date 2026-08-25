@@ -105,6 +105,54 @@ describe('armarVistaHoy', () => {
   it('la renta anual es la banda por el total', () => {
     expect(vista.rentaAnualUsd?.min).toBeCloseTo(0.04666667 * 1_000_000, 0)
   })
+
+  /**
+   * De donde sale lo que el portafolio gana.
+   *
+   * Es la pregunta que el peso deja a medias, y por eso va en su propia
+   * columna: cash es el 40% del dinero de este caso y aporta el 57% de la
+   * renta; el inmueble es el 40% del dinero y no aporta nada, porque no tiene
+   * retorno cargado.
+   */
+  describe('el aporte a la renta', () => {
+    const renta = { cash: 300_000 * 0.05 + 100_000 * 0.01, fijo: 200_000 * 0.06 }
+    const total = renta.cash + renta.fijo
+
+    it('cada clase aporta su renta sobre la renta del portafolio', () => {
+      expect(vista.filas.find((f) => f.clase === 'cash')?.aporteRenta).toBeCloseTo(
+        renta.cash / total,
+        10,
+      )
+      expect(vista.filas.find((f) => f.clase === 'fijo')?.aporteRenta).toBeCloseTo(
+        renta.fijo / total,
+        10,
+      )
+    })
+
+    it('lo que no tiene retorno cargado aporta cero, no se le supone uno', () => {
+      // El inmueble pesa 40% del patrimonio y aporta 0% de la renta. Es la
+      // diferencia que la columna existe para mostrar.
+      const inm = vista.filas.find((f) => f.clase === 'inm')
+      expect(inm?.share).toBeCloseTo(0.4, 10)
+      expect(inm?.aporteRenta).toBe(0)
+    })
+
+    it('los aportes de las clases suman uno', () => {
+      const suma = vista.filas.reduce((acc, f) => acc + (f.aporteRenta ?? 0), 0)
+      expect(suma).toBeCloseTo(1, 10)
+    })
+
+    it('las subfilas de una clase suman su aporte', () => {
+      const cash = vista.filas.find((f) => f.clase === 'cash')
+      const suma = (cash?.subfilas ?? []).reduce((acc, s) => acc + (s.aporteRenta ?? 0), 0)
+      expect(suma).toBeCloseTo(cash?.aporteRenta ?? 0, 10)
+    })
+
+    it('sin nada con retorno, el aporte no se afirma en vez de valer cero', () => {
+      const vacia = armarVistaHoy([posicion({ valorUsd: 100_000, rendimientoEst: null })])
+      expect(vacia.filas[0]?.aporteRenta).toBeNull()
+    })
+  })
 })
 
 describe('armarComparativa', () => {

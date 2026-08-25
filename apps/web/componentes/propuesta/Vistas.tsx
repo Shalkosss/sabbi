@@ -60,6 +60,16 @@ export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
 }
 
 /** La banda anual, con su cobertura al lado cuando no es total. */
+/**
+ * De donde sale lo que el portafolio gana.
+ *
+ * Se muestra al lado del peso, y la gracia es justamente la diferencia entre
+ * los dos: una clase puede ser el 16% del dinero y el 2% de la renta. Sin
+ * dato no se escribe un cero — un aporte que no se puede calcular no es un
+ * aporte nulo.
+ */
+const aporte = (parte: number | null): string => (parte === null ? '—' : pct1(parte))
+
 function rent(rentabilidad: RentabilidadPonderada | null): string {
   if (rentabilidad === null) return '—'
   return rangoPct(rentabilidad.rango)
@@ -143,6 +153,7 @@ function PanelLadoALado({
             clase: f.clase,
             usd: f.antesUsd,
             share: f.antesShare,
+            aporteRenta: f.aporteRentaAntes,
           }))}
           esObjetivo={false}
         />
@@ -155,6 +166,7 @@ function PanelLadoALado({
             clase: f.clase,
             usd: f.despuesUsd,
             share: f.despuesShare,
+            aporteRenta: f.aporteRentaDespues,
           }))}
           esObjetivo
           movimientos={vista.filas.map((f) => f.despuesUsd - f.antesUsd)}
@@ -174,6 +186,8 @@ interface FilaLado {
   readonly clase: FilaVistaClase['clase']
   readonly usd: number
   readonly share: number
+  /** Parte de la renta anual del portafolio que sale de esta clase. */
+  readonly aporteRenta: number | null
 }
 
 function ColumnaPortafolio({
@@ -216,6 +230,12 @@ function ColumnaPortafolio({
               <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
               <span className={estilos.montoClase}>{usdTabla(fila.usd)}</span>
               <span className={estilos.shareClase}>{pct1(fila.share)}</span>
+              <span
+                className={estilos.aporteClase}
+                title="Parte de la renta anual del portafolio que sale de esta clase"
+              >
+                {aporte(fila.aporteRenta)}
+              </span>
               {movimientos !== undefined && (
                 <Movimiento usd={movimientos[i] ?? 0} mayor={mayorMovimiento} />
               )}
@@ -367,6 +387,12 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
           <span className={`${estilos.delta} ${sinCambio ? estilos.deltaIgual : ''}`}>
             {textoDelta}
           </span>
+          <span
+            className={estilos.aporteClase}
+            title="Parte de la renta anual del portafolio propuesto que sale de esta clase"
+          >
+            {aporte(fila.aporteRentaDespues)}
+          </span>
           <span className={estilos.rentClase} title="Rentabilidad estimada con Sabbi">
             {rent(fila.rentabilidadDespues)}
           </span>
@@ -426,6 +452,9 @@ function Subfilas({ subfilas }: { readonly subfilas: readonly SubfilaVista[] }) 
           </span>
           <span className={estilos.subMonto}>{usdTabla(sub.usd)}</span>
           <span className={estilos.subShare}>{pct1(sub.share)}</span>
+          <span className={estilos.subAporte} title="Parte de la renta que sale de esta línea">
+            {aporte(sub.aporteRenta)}
+          </span>
           <span className={estilos.subRent}>{rent(sub.rentabilidad)}</span>
         </div>
       ))}

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { aRevisadas, camposTrasEditar, cambiosDeCta, reducir, ventaParcialInvalida } from '../estado'
+import {
+  aRevisadas,
+  avisosVigentes,
+  camposTrasEditar,
+  cambiosDeCta,
+  reducir,
+  ventaParcialInvalida,
+} from '../estado'
 import type { EstadoRevision, PosicionEditada } from '../estado'
 
 const posicion = (parche: Partial<PosicionEditada> = {}): PosicionEditada => ({
@@ -185,5 +192,77 @@ describe('ventaParcialInvalida', () => {
 
   it('no molesta cuando la decision es otra', () => {
     expect(ventaParcialInvalida(posicion({ cta: 'conservar', montoVentaParcial: 999_999 }))).toBe(false)
+  })
+})
+
+describe('avisosVigentes', () => {
+  /**
+   * El caso que la mesa reporto: se le asigna la clase a «AMX» y el cartel de
+   * «no pude clasificar AMX» sigue ahi, pidiendo que hagan lo que acaban de
+   * hacer. `parse_warnings` es una foto del momento de subir la ficha y no se
+   * vuelve a escribir nunca: si la pantalla la muestra tal cual, cada aviso es
+   * permanente.
+   */
+  const sinClase = {
+    codigo: 'clase_sin_resolver' as const,
+    mensaje: 'No pude clasificar "AMX" (Acciones en bolsa).',
+    fila: 23,
+  }
+
+  it('el aviso de clase se va en cuanto la posicion tiene clase', () => {
+    const conClase = posicion({ fila: 23, claseModelo: 'variable' })
+
+    expect(avisosVigentes([sinClase], [conClase])).toStrictEqual([])
+  })
+
+  it('y sigue mientras la posicion no la tenga', () => {
+    const sinResolver = posicion({ fila: 23, claseModelo: null })
+
+    expect(avisosVigentes([sinClase], [sinResolver])).toStrictEqual([sinClase])
+  })
+
+  it('no le importa quien puso la clase, solo que este puesta', () => {
+    // Una segunda pasada del parser vale igual que una persona: lo que el
+    // aviso pide es que la clase exista.
+    const conClase = posicion({ fila: 23, claseModelo: 'variable', camposEditados: [] })
+
+    expect(avisosVigentes([sinClase], [conClase])).toStrictEqual([])
+  })
+
+  it('los que piden revisar se van cuando alguien reviso, no cuando el valor cambia', () => {
+    const dudoso = { codigo: 'rendimiento_dudoso' as const, mensaje: 'Rendimiento raro', fila: 5 }
+    const sinRevisar = posicion({ fila: 5, rendimientoEst: 0.9, camposEditados: [] })
+    const revisado = posicion({ fila: 5, rendimientoEst: 0.9, camposEditados: ['rendimientoEst'] })
+
+    expect(avisosVigentes([dudoso], [sinRevisar])).toStrictEqual([dudoso])
+    expect(avisosVigentes([dudoso], [revisado])).toStrictEqual([])
+  })
+
+  it('la clase inferida se confirma tocando la clase o el asset class', () => {
+    const inferida = { codigo: 'clase_inferida' as const, mensaje: 'Inferi la clase', fila: 8 }
+
+    expect(avisosVigentes([inferida], [posicion({ fila: 8 })])).toStrictEqual([inferida])
+    expect(
+      avisosVigentes([inferida], [posicion({ fila: 8, camposEditados: ['assetClass'] })]),
+    ).toStrictEqual([])
+  })
+
+  it('un aviso sin fila, o de una fila que ya no esta, se muestra igual', () => {
+    // Callar un aviso que no sabemos si se resolvio es peor que repetir uno
+    // resuelto: el segundo molesta, el primero esconde.
+    const general = { codigo: 'bloque_ausente' as const, mensaje: 'Falta el bloque de inmuebles' }
+    const deOtraFila = { ...sinClase, fila: 99 }
+
+    expect(avisosVigentes([general, deOtraFila], [posicion({ fila: 23 })])).toStrictEqual([
+      general,
+      deOtraFila,
+    ])
+  })
+
+  it('no toca los codigos que no sabe comprobar', () => {
+    const nuevo = { codigo: 'producto_nuevo' as const, mensaje: 'Di de alta AMX', fila: 23 }
+    const conClase = posicion({ fila: 23, claseModelo: 'variable' })
+
+    expect(avisosVigentes([nuevo], [conClase])).toStrictEqual([nuevo])
   })
 })

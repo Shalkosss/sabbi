@@ -16,6 +16,7 @@ import { useAutoguardado } from '../lib/autoguardado'
 import type { ActivoAgregado, ProductoOfrecible } from '../lib/catalogo'
 import {
   aRevisadas,
+  avisosVigentes,
   cambiosDeCta,
   camposTrasEditar,
   reducir,
@@ -193,8 +194,10 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
   const bloqueado = bloqueos.length > 0
   const aMostrar = [...bloqueos, ...rechazo]
-  const hayAvisos =
-    aMostrar.length > 0 || estado.avisos.length > 0 || estado.ignoradas.length > 0
+  // Los del parser, filtrados contra el estado de ahora: un aviso que ya se
+  // resolvió no puede seguir pidiendo que lo resuelvan.
+  const avisos = avisosVigentes(estado.avisos, posiciones)
+  const hayAvisos = aMostrar.length > 0 || avisos.length > 0 || estado.ignoradas.length > 0
 
   const alCalcular = () => {
     calcular(async () => {
@@ -277,7 +280,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
       {hayAvisos && (
         <div className={estilos.avisos}>
-          <Avisos bloqueos={aMostrar} avisos={estado.avisos} ignoradas={estado.ignoradas} />
+          <Avisos bloqueos={aMostrar} avisos={avisos} ignoradas={estado.ignoradas} />
         </div>
       )}
 

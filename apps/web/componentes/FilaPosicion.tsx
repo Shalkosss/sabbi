@@ -17,6 +17,8 @@ interface Props {
   readonly productos: readonly ProductoOfrecible[]
   readonly abierta: boolean
   readonly alternar: () => void
+  readonly seleccionada: boolean
+  readonly alSeleccionar: (elegida: boolean) => void
   readonly editar: (cambios: Partial<PosicionEditada>) => void
   readonly marcar: (cta: Cta) => void
 }
@@ -65,6 +67,8 @@ export function FilaPosicion({
   productos,
   abierta,
   alternar,
+  seleccionada,
+  alSeleccionar,
   editar,
   marcar,
 }: Props) {
@@ -84,7 +88,19 @@ export function FilaPosicion({
 
   return (
     <>
-      <tr className={`${estilos.fila} ${posicion.esInvertible ? '' : estilos.fueraDeCalculo}`}>
+      <tr
+        className={`${estilos.fila} ${posicion.esInvertible ? '' : estilos.fueraDeCalculo} ${
+          seleccionada ? estilos.filaElegida : ''
+        }`}
+      >
+        <td className={estilos.celdaSel}>
+          <input
+            type="checkbox"
+            checked={seleccionada}
+            aria-label={`Elegir ${posicion.institucionProducto === '' ? `la fila ${posicion.orden}` : posicion.institucionProducto}`}
+            onChange={(e) => alSeleccionar(e.target.checked)}
+          />
+        </td>
         <td className={`${estilos.indice} mono`}>{posicion.orden}</td>
 
         <td className={estilos.celdaNombre}>
@@ -165,6 +181,7 @@ export function FilaPosicion({
                 posicion.camposEditados.includes('rendimientoEst'),
               )}
               aria-label="Rendimiento anual estimado, en porcentaje"
+              title="Se guarda también en el catálogo, como la rentabilidad de este producto"
               alCambiar={(valor) =>
                 editar({ rendimientoEst: valor === null ? null : valor / 100 })
               }
@@ -240,7 +257,7 @@ export function FilaPosicion({
       */}
       {posicion.cta === 'venta_condicionada' && posicion.esInvertible && (
         <tr>
-          <td colSpan={7} className={estilos.celdaDetalle}>
+          <td colSpan={8} className={estilos.celdaDetalle}>
             <DestinosVenta
               destinos={posicion.destinos ?? []}
               valorUsd={posicion.valorUsd}
@@ -253,7 +270,7 @@ export function FilaPosicion({
 
       {abierta && (
         <tr>
-          <td colSpan={7} className={estilos.celdaDetalle}>
+          <td colSpan={8} className={estilos.celdaDetalle}>
             <DetallePosicion posicion={posicion} editar={editar} />
           </td>
         </tr>

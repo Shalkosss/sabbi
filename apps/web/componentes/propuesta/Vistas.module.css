@@ -539,3 +539,94 @@
 .filaLado .encabezado {
   grid-template-columns: auto 1fr auto auto;
 }
+
+/* ── El pie de cada columna ─────────────────────────────────────────────── */
+
+/* De que sirve ese reparto. Las filas de arriba dicen como esta repartido el
+   dinero; sin esto, comparar las dos columnas es comparar formas. */
+.pieColumna {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 12px 16px;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+}
+
+.pieColumna dt {
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tinta-4);
+  margin-bottom: 3px;
+}
+
+.pieColumna dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .pieColumna {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Lo que hay que mover para llegar ───────────────────────────────────── */
+
+/* La columna del objetivo lleva una celda mas. El ancho fijo es lo que
+   mantiene las dos columnas alineadas fila contra fila, que es lo unico que
+   esta vista aporta sobre leerlas por separado. */
+.conMovimiento {
+  grid-template-columns: auto 1fr auto auto auto;
+}
+
+.movimiento {
+  min-width: 96px;
+  text-align: right;
+  padding: 2px 8px;
+  border-radius: var(--radio-control);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+ * El fondo es un degradado de intensidad, no de matiz: `--fuerza` va de 0 a 1
+ * con el tamano del movimiento contra el mayor del plan.
+ *
+ * Se arma con `color-mix` contra `transparent` y no con un color fijo por
+ * tramo, asi que hay un solo valor por direccion y el juego oscuro sale del
+ * mismo token que ya cambia con el tema. Un degradado escrito a mano en
+ * hexadecimal habria necesitado dos escalas y se habria desincronizado la
+ * primera vez que alguien tocara el acento.
+ */
+.compra {
+  color: var(--acento-texto);
+  background: color-mix(
+    in srgb,
+    var(--acento) calc(var(--fuerza, 0) * 32%),
+    transparent
+  );
+}
+
+.venta {
+  color: var(--atencion-texto);
+  background: color-mix(
+    in srgb,
+    var(--atencion) calc(var(--fuerza, 0) * 32%),
+    transparent
+  );
+}
+
+/* Debajo de mil dolares no hay orden que dar: es el resto de un prorrateo. */
+.sinMovimiento {
+  color: var(--tinta-4);
+  font-weight: 400;
+}

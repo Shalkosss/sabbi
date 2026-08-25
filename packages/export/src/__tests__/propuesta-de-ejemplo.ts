@@ -88,13 +88,10 @@ export function propuestaDeEjemplo(ajustes: readonly AjusteClase[] = []): Propue
   const derivacion = armarEntradaPlan(POSICIONES, { ...comunes, ajustes })
   if (!derivacion.ok) throw new Error(derivacion.bloqueos.map((b) => b.mensaje).join(' · '))
 
-  const base = ajustes.length === 0 ? null : armarEntradaPlan(POSICIONES, comunes)
-
   return armarPropuesta({
     cliente: { nombre: 'Cliente de Prueba', perfil: 'Moderado', mandato: 'Discrecional' },
     posiciones: POSICIONES,
     plan: generarPlan(derivacion.entrada),
-    planSistema: base !== null && base.ok ? generarPlan(base.entrada) : null,
     modeloPuro: generarPlan({ ...derivacion.entrada, pisos: [], ajustes: [] }),
     pisos: derivacion.entrada.pisos,
     benchmark: derivacion.entrada.benchmark,

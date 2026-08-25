@@ -150,10 +150,11 @@ Sacar una **posición** del cálculo es otra cosa y vive en la ficha: el toggle
 "fuera del cálculo" de cada fila, que es el mismo `es_invertible` con el que
 llega un inmueble de uso propio.
 
-Cuando hay ajustes, la propuesta calcula **dos portafolios** con el mismo motor
-— el que sale del modelo y el que sale de los ajustes — y los muestra contra la
-foto de la ficha en una tercera mirada. Sin esa columna un ajuste no se puede
-explicar, solo creer.
+La propuesta se abre en las dos fotos juntas —hoy y el objetivo, fila contra
+fila— y a la derecha del objetivo va lo único que no describe un portafolio
+sino el camino entre los dos: cuánto comprar o vender en cada clase. Es la
+columna que se pinta, y el color no juzga: dice la dirección, y la intensidad
+del fondo dice el tamaño del movimiento contra el mayor del plan.
 
 Los pesos de benchmark salen de la hoja `Data` del archivo Portfolio Modificado,
 a precisión completa. Redondearlos a cuatro decimales desplaza la base de

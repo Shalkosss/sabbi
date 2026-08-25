@@ -25,19 +25,6 @@
   color: var(--tinta-3);
 }
 
-.columnas {
-  display: grid;
-  grid-template-columns: minmax(340px, 1.4fr) minmax(260px, 1fr);
-  gap: 28px;
-  align-items: start;
-}
-
-@media (max-width: 860px) {
-  .columnas {
-    grid-template-columns: 1fr;
-  }
-}
-
 .tabla {
   border-collapse: collapse;
   width: 100%;
@@ -145,4 +132,75 @@
   color: var(--alerta-texto);
   max-width: 34ch;
   line-height: 1.4;
+}
+
+/* ── Las tres miradas ───────────────────────────────────────────────────── */
+
+.selector {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 12px;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+}
+
+.pestana {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--tinta-3);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.pestana:hover {
+  color: var(--tinta);
+}
+
+.pestana:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--anillo);
+}
+
+.pestanaActiva {
+  background: var(--superficie);
+  color: var(--tinta);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--sombra-tinte);
+}
+
+/* ── Clase y sus instrumentos, en una sola tabla ────────────────────────── */
+
+/* La clase es la decision del benchmark; el instrumento es como se ejecuta.
+   El peso visual dice cual es cual sin una columna de mas. */
+.filaClase th,
+.filaClase td {
+  font-weight: 700;
+  color: var(--tinta);
+  background: var(--hundido);
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.filaClase th {
+  border-top: 1px solid var(--borde-fuerte);
+}
+
+.filaLinea td {
+  color: var(--tinta-2);
+}
+
+.filaLinea td:first-child {
+  padding-left: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
 }

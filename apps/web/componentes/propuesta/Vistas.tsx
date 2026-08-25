@@ -4,13 +4,11 @@ import { useState } from 'react'
 
 import type {
   FilaComparativa,
-  FilaDosPortafolios,
   FilaVistaClase,
   Propuesta,
   RentabilidadPonderada,
   SubfilaVista,
   VistaComparativa,
-  VistaDosPortafolios,
   VistaHoy,
 } from '@sabbi/core'
 
@@ -30,15 +28,9 @@ import estilos from './Vistas.module.css'
  * La segunda sí resta: el antes contra el después con su delta en puntos, el
  * detalle por subclase y la rentabilidad de cada lado. Es la que se usa para
  * explicar, no para mirar.
- *
- * La tercera solo existe cuando el asesor ajustó algo, y es para él: los dos
- * portafolios objetivo lado a lado — el que sale del modelo y el que sale de
- * sus ajustes — contra la foto de la ficha. Sin ella un ajuste no se puede
- * explicar, solo creer.
  */
 export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
-  const [mirada, setMirada] = useState<'lado' | 'comparativo' | 'ajuste'>('lado')
-  const dos = propuesta.dosPortafolios
+  const [mirada, setMirada] = useState<'lado' | 'comparativo'>('lado')
 
   const pestana = (valor: typeof mirada, texto: string) => (
     <button
@@ -57,14 +49,12 @@ export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
       <div className={estilos.selector} role="tablist" aria-label="Elegir mirada">
         {pestana('lado', 'Hoy y objetivo')}
         {pestana('comparativo', 'Hoy contra Sabbi')}
-        {dos !== null && pestana('ajuste', 'Los dos portafolios')}
       </div>
 
       {mirada === 'lado' && (
         <PanelLadoALado vista={propuesta.comparativa} hoy={propuesta.vistaHoy} />
       )}
       {mirada === 'comparativo' && <PanelComparativo vista={propuesta.comparativa} />}
-      {mirada === 'ajuste' && dos !== null && <PanelDosPortafolios vista={dos} />}
     </section>
   )
 }
@@ -147,6 +137,8 @@ function PanelLadoALado({
         <ColumnaPortafolio
           titulo="Tu portafolio hoy"
           totalUsd={vista.totalAntesUsd}
+          rentabilidad={vista.rentabilidadAntes}
+          rentaAnualUsd={vista.rentaAnualAntesUsd}
           filas={vista.filas.map((f) => ({
             clase: f.clase,
             usd: f.antesUsd,
@@ -157,12 +149,15 @@ function PanelLadoALado({
         <ColumnaPortafolio
           titulo="El portafolio objetivo"
           totalUsd={vista.totalDespuesUsd}
+          rentabilidad={vista.rentabilidadDespues}
+          rentaAnualUsd={vista.rentaAnualDespuesUsd}
           filas={vista.filas.map((f) => ({
             clase: f.clase,
             usd: f.despuesUsd,
             share: f.despuesShare,
           }))}
           esObjetivo
+          movimientos={vista.filas.map((f) => f.despuesUsd - f.antesUsd)}
         />
       </div>
 
@@ -184,14 +179,26 @@ interface FilaLado {
 function ColumnaPortafolio({
   titulo,
   totalUsd,
+  rentabilidad,
+  rentaAnualUsd,
   filas,
   esObjetivo,
+  movimientos,
 }: {
   readonly titulo: string
   readonly totalUsd: number
+  readonly rentabilidad: RentabilidadPonderada | null
+  readonly rentaAnualUsd: Parameters<typeof rangoUsd>[0]
   readonly filas: readonly FilaLado[]
   readonly esObjetivo: boolean
+  /** Lo que hay que mover en cada clase para llegar. Solo el objetivo lo trae. */
+  readonly movimientos?: readonly number[]
 }) {
+  // El fondo de la columna de movimiento se mide contra el mayor de todos y no
+  // contra el patrimonio: lo que hay que ver es cuál es el movimiento grande
+  // de este plan, y contra el total todos se verían igual de pálidos.
+  const mayorMovimiento = Math.max(1, ...(movimientos ?? []).map((m) => Math.abs(m)))
+
   return (
     <section className={estilos.columna}>
       <header className={estilos.columnaCabecera}>
@@ -200,13 +207,18 @@ function ColumnaPortafolio({
       </header>
 
       <div className={estilos.lista}>
-        {filas.map((fila) => (
+        {filas.map((fila, i) => (
           <div key={fila.clase} className={estilos.filaLado}>
-            <div className={estilos.encabezado}>
+            <div
+              className={`${estilos.encabezado} ${movimientos === undefined ? '' : estilos.conMovimiento}`}
+            >
               <span className={`${estilos.punto} ${estilos[`punto_${fila.clase}`] ?? ''}`} />
               <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
               <span className={estilos.montoClase}>{usdTabla(fila.usd)}</span>
               <span className={estilos.shareClase}>{pct1(fila.share)}</span>
+              {movimientos !== undefined && (
+                <Movimiento usd={movimientos[i] ?? 0} mayor={mayorMovimiento} />
+              )}
             </div>
             <div className={estilos.pista}>
               <div
@@ -221,7 +233,60 @@ function ColumnaPortafolio({
           </div>
         ))}
       </div>
+
+      {/*
+        El pie de la columna: de qué sirve ese reparto. Hasta acá se leyó cómo
+        está repartido el dinero; sin la rentabilidad al lado, comparar las dos
+        columnas es comparar formas y nada más.
+      */}
+      <dl className={estilos.pieColumna}>
+        <div>
+          <dt>Total</dt>
+          <dd className="mono">{usdTabla(totalUsd)}</dd>
+        </div>
+        <div>
+          <dt>Rentabilidad estimada</dt>
+          <dd>{rent(rentabilidad)}</dd>
+        </div>
+        <div>
+          <dt>Renta anual estimada</dt>
+          <dd>{rangoUsd(rentaAnualUsd)}</dd>
+        </div>
+      </dl>
     </section>
+  )
+}
+
+/**
+ * Lo que hay que mover en una clase para llegar al objetivo.
+ *
+ * Comprar y vender no son mejor y peor —bajar el cash es la mejora y bajar el
+ * inmobiliario también— así que el color no juzga: dice la dirección. Son los
+ * dos colores que la aplicación ya usa para «lo que se propone» y «la cifra
+ * que importa», no un semáforo.
+ *
+ * La intensidad del fondo es el tamaño del movimiento contra el mayor del
+ * plan. Es lo que hace que los dos o tres que de verdad importan salten sin
+ * tener que leer siete cifras y compararlas a mano.
+ */
+function Movimiento({ usd, mayor }: { readonly usd: number; readonly mayor: number }) {
+  // Un movimiento por debajo de mil dólares no es una orden: es el resto de un
+  // prorrateo, y pintarlo haría ruido en cada fila.
+  if (Math.abs(usd) < 1_000) {
+    return <span className={`${estilos.movimiento} ${estilos.sinMovimiento}`}>—</span>
+  }
+
+  const compra = usd > 0
+
+  return (
+    <span
+      className={`${estilos.movimiento} ${compra ? estilos.compra : estilos.venta}`}
+      style={{ '--fuerza': Math.min(1, Math.abs(usd) / mayor).toFixed(3) } as React.CSSProperties}
+      title={`${compra ? 'Comprar' : 'Vender'} ${usdTabla(Math.abs(usd))} para llegar al objetivo`}
+    >
+      {compra ? '+' : '−'}
+      {usdTabla(Math.abs(usd))}
+    </span>
   )
 }
 
@@ -338,165 +403,6 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
               <Subfilas subfilas={fila.despuesSub} />
             ) : (
               <p className={estilos.vacio}>El modelo no asigna nada acá.</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </details>
-  )
-}
-
-// ── Mirada 3: los dos portafolios ─────────────────────────────────────────
-
-/**
- * El portafolio que salió del modelo y el que salió de los ajustes.
- *
- * Tres columnas a la misma altura: la ficha, el sistema y el ajustado. La
- * pregunta que contesta es una sola —qué cambió por lo que el asesor tocó— y
- * por eso el chip de cada fila lleva dólares y no puntos porcentuales: un
- * ajuste se pide en dinero y se tiene que poder leer en dinero.
- */
-function PanelDosPortafolios({ vista }: { readonly vista: VistaDosPortafolios }) {
-  const notas = [
-    notaCobertura(vista.sistema.rentabilidad, 'el portafolio del modelo'),
-    notaCobertura(vista.ajustado.rentabilidad, 'el portafolio ajustado'),
-  ].filter((n): n is string => n !== null)
-
-  return (
-    <div role="tabpanel" aria-label="Los dos portafolios">
-      <div className={estilos.cifras}>
-        <div className={`${estilos.cifra} ${estilos.cifraAcento}`}>
-          <span>Rentabilidad estimada</span>
-          <div className={estilos.transicion}>
-            <span className={`mono ${estilos.antes}`}>{rent(vista.hoy.rentabilidad)}</span>
-            <span className={estilos.flecha} aria-hidden="true">
-              →
-            </span>
-            <span className={`mono ${estilos.antes}`}>{rent(vista.sistema.rentabilidad)}</span>
-            <span className={estilos.flecha} aria-hidden="true">
-              →
-            </span>
-            <b>{rent(vista.ajustado.rentabilidad)}</b>
-          </div>
-          <span className={estilos.cifraNota}>ficha → modelo → ajustado</span>
-        </div>
-        <div className={estilos.cifra}>
-          <span>Renta anual estimada</span>
-          <div className={estilos.transicion}>
-            <span className={`mono ${estilos.antes}`}>{rangoUsd(vista.sistema.rentaAnualUsd)}</span>
-            <span className={estilos.flecha} aria-hidden="true">
-              →
-            </span>
-            <b>{rangoUsd(vista.ajustado.rentaAnualUsd)}</b>
-          </div>
-          <span className={estilos.cifraNota}>modelo → ajustado</span>
-        </div>
-        <div className={estilos.cifra}>
-          <span>Movido por los ajustes</span>
-          <b className="mono">{usdTabla(vista.movidoUsd)}</b>
-          <span className={estilos.cifraNota}>
-            {vista.movidoUsd < 1
-              ? 'los ajustes no cambiaron el reparto'
-              : `${pct1(vista.movidoUsd / (vista.ajustado.totalUsd || 1))} del portafolio cambió de clase`}
-          </span>
-        </div>
-      </div>
-
-      <div className={estilos.leyendaPista}>
-        <span>Ficha</span>
-        <span>Modelo</span>
-        <span>Ajustado</span>
-      </div>
-
-      <div className={estilos.lista}>
-        {vista.filas.map((fila) => (
-          <FilaDosPlanes key={fila.clase} fila={fila} />
-        ))}
-      </div>
-
-      {notas.map((nota) => (
-        <p key={nota} className={estilos.notaCobertura}>
-          {nota}
-        </p>
-      ))}
-    </div>
-  )
-}
-
-function FilaDosPlanes({ fila }: { readonly fila: FilaDosPortafolios }) {
-  // Un dólar de diferencia sobre cientos de miles es coma flotante, no una
-  // decisión: por debajo del dólar la fila dice que quedó igual.
-  const sinCambio = Math.abs(fila.deltaUsd) < 1
-  const textoDelta = sinCambio
-    ? 'igual'
-    : `${fila.deltaUsd > 0 ? '↑' : '↓'} ${usdTabla(Math.abs(fila.deltaUsd))}`
-
-  return (
-    <details className={estilos.fila}>
-      <summary>
-        <div className={estilos.encabezado}>
-          <span className={`${estilos.punto} ${estilos[`punto_${fila.clase}`] ?? ''}`} />
-          <span className={estilos.nombreClase}>
-            {NOMBRE_CLASE_CORTO[fila.clase]}
-            {fila.fijada && (
-              <span className={estilos.marcaFijada} title="El asesor clavó esta clase">
-                fijada
-              </span>
-            )}
-          </span>
-          <span className={estilos.montoClase} title="Modelo → ajustado">
-            {pct1(fila.sistemaShare)} → <b>{pct1(fila.ajustadoShare)}</b>
-          </span>
-          <span
-            className={`${estilos.delta} ${sinCambio ? estilos.deltaIgual : ''}`}
-            title={`${fila.deltaPp > 0 ? '+' : ''}${fila.deltaPp.toFixed(1)} pp sobre el portafolio`}
-          >
-            {textoDelta}
-          </span>
-          <span className={estilos.rentClase} title="Rentabilidad estimada del ajustado">
-            {rent(fila.rentabilidadAjustado)}
-          </span>
-          <Chevron />
-        </div>
-        <div className={estilos.pistaTriple}>
-          <div className={estilos.pista} title={`Ficha: ${pct1(fila.hoyShare)}`}>
-            <div className={estilos.barraAntes} style={{ width: `${fila.hoyShare * 100}%` }} />
-          </div>
-          <div className={estilos.pista} title={`Modelo: ${pct1(fila.sistemaShare)}`}>
-            <div className={estilos.barraSistema} style={{ width: `${fila.sistemaShare * 100}%` }} />
-          </div>
-          <div className={estilos.pista} title={`Ajustado: ${pct1(fila.ajustadoShare)}`}>
-            <div
-              className={`${estilos.barra} ${estilos[`barra_${fila.clase}`] ?? ''}`}
-              style={{ width: `${fila.ajustadoShare * 100}%` }}
-            />
-          </div>
-        </div>
-      </summary>
-      <div className={estilos.detalle}>
-        <div className={estilos.lados3}>
-          <div className={estilos.lado}>
-            <span>En la ficha · {usdTabla(fila.hoyUsd)}</span>
-            {fila.hoySub.length > 0 ? (
-              <Subfilas subfilas={fila.hoySub} />
-            ) : (
-              <p className={estilos.vacio}>Hoy no hay nada en esta clase.</p>
-            )}
-          </div>
-          <div className={estilos.lado}>
-            <span>Modelo · {usdTabla(fila.sistemaUsd)}</span>
-            {fila.sistemaSub.length > 0 ? (
-              <Subfilas subfilas={fila.sistemaSub} />
-            ) : (
-              <p className={estilos.vacio}>El modelo no asigna nada acá.</p>
-            )}
-          </div>
-          <div className={estilos.lado}>
-            <span>Ajustado · {usdTabla(fila.ajustadoUsd)}</span>
-            {fila.ajustadoSub.length > 0 ? (
-              <Subfilas subfilas={fila.ajustadoSub} />
-            ) : (
-              <p className={estilos.vacio}>Con los ajustes, esta clase queda en cero.</p>
             )}
           </div>
         </div>

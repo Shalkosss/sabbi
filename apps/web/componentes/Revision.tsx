@@ -286,6 +286,9 @@ export function Revision({ inicial, asesor, productos }: Props) {
         productos={productos}
         editar={editar}
         marcar={marcar}
+        agregados={agregados}
+        cambiarActivo={cambiarActivo}
+        quitarActivo={quitarActivo}
       />
 
       {cliente.observaciones.length > 0 && (

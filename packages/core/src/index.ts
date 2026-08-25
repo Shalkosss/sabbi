@@ -87,7 +87,6 @@ export {
   armarVistaHoy,
   armarAntesYDespues,
   armarComparativa,
-  armarDosPortafolios,
   cuentanEnElCalculo,
   SUBCLASE_SIN_DATO,
 } from './propuesta/vistas.js'
@@ -95,13 +94,10 @@ export type {
   ClaseAntesDespues,
   FilaAntesDespues,
   FilaComparativa,
-  FilaDosPortafolios,
   FilaVistaClase,
-  LadoPortafolio,
   RentabilidadPonderada,
   SubfilaVista,
   VistaComparativa,
-  VistaDosPortafolios,
   VistaHoy,
 } from './propuesta/vistas.js'
 export type {

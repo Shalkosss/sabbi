@@ -28,8 +28,6 @@ const texto = (xml: string): string =>
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&')
 
-const numero = (nombre: string): number => Number(/slide(\d+)\.xml/.exec(nombre)?.[1] ?? 0)
-
 describe('armarDeckRediseno', () => {
   const propuesta = propuestaDe()
 
@@ -79,23 +77,6 @@ describe('armarDeckRediseno', () => {
     const otro = abrir(await armarDeckRediseno(propuesta, { fecha: FECHA }))
 
     expect([...otro.entries()]).toStrictEqual([...uno.entries()])
-  })
-
-  describe('con ajustes del asesor', () => {
-    it('suma la lamina de los dos portafolios', async () => {
-      const conAjuste = propuestaDe([{ clase: 'inm', modo: 'fijar', montoUsd: 220_000 }])
-      expect(conAjuste.dosPortafolios).not.toBeNull()
-
-      const laminas = abrir(await armarDeckRediseno(conAjuste, { fecha: FECHA }))
-      expect(laminas.size).toBe(8)
-
-      const todo = [...laminas.entries()]
-        .sort((a, b) => numero(a[0]) - numero(b[0]))
-        .map(([, xml]) => texto(xml))
-        .join(' ')
-      expect(todo).toContain('Los dos portafolios')
-      expect(todo).toContain('fijada')
-    })
   })
 
   it('el asesor sale en la portada solo cuando se lo pasa', async () => {

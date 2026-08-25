@@ -435,3 +435,69 @@
     position: static;
   }
 }
+
+/* ── Activos agregados al objetivo ──────────────────────────────────────── */
+
+/* No son posiciones de la ficha y la banda lo dice: el cliente no los tiene,
+   los sumo el asesor. Sin el corte se leerian como una tenencia mas. */
+.bandaAgregados th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--atencion-texto);
+  background: var(--atencion-suave);
+  border-top: 1px solid var(--borde-fuerte);
+}
+
+.bandaNota {
+  margin-left: 10px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--tinta-3);
+}
+
+.filaAgregado td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--borde-suave);
+  vertical-align: middle;
+}
+
+.texto,
+.selector {
+  width: 100%;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--tinta);
+}
+
+.texto:focus,
+.selector:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+  outline: none;
+}
+
+.quitar {
+  background: transparent;
+  border: none;
+  color: var(--tinta-4);
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: var(--radio-control);
+}
+
+.quitar:hover {
+  color: var(--alerta-texto);
+  background: var(--alerta-suave);
+}

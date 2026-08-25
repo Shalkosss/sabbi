@@ -4,7 +4,7 @@ import { NOMBRE_CLASE } from '@sabbi/core'
 import type { ClaseModelo, GrupoObjetivo, Propuesta } from '@sabbi/core'
 
 import { COLOR, COLOR_CLASE, HOJA, TAMANO, TIPOGRAFIA } from './marca.js'
-import { delta, fechaLarga, pct1, rangoUsd, rent, usd, usdCorto } from './formato.js'
+import { delta, fechaLarga, pct1, rangoUsd, rent, usd } from './formato.js'
 
 /**
  * El deck redisenado: la propuesta contada en laminas.
@@ -52,7 +52,6 @@ export async function armarDeckRediseno(
   comparativo(pptx, propuesta)
   rentabilidad(pptx, propuesta)
   objetivo(pptx, propuesta)
-  dosPortafolios(pptx, propuesta)
   ejecucion(pptx, propuesta)
   notas(pptx, propuesta)
 
@@ -645,97 +644,6 @@ function objetivo(pptx: PptxGenJS, propuesta: Propuesta): void {
 }
 
 // ── Los dos portafolios, solo cuando el asesor ajusto algo ──────────────────
-
-function dosPortafolios(pptx: PptxGenJS, propuesta: Propuesta): void {
-  const vista = propuesta.dosPortafolios
-  if (vista === null) return
-
-  const slide = lamina(
-    pptx,
-    'Los dos portafolios',
-    'El que sale del modelo y el que sale de los ajustes, contra tu portafolio de hoy.',
-  )
-
-  cifra(
-    slide,
-    HOJA.margen,
-    1.2,
-    HOJA.contenido / 2,
-    'Dinero que cambió de clase por los ajustes',
-    usd(vista.movidoUsd),
-    // Un ajuste que coincide con lo que el modelo ya daba no mueve nada, y eso
-    // tambien es una respuesta: conviene que la lamina lo diga en vez de dejar
-    // un cero sin explicacion.
-    vista.movidoUsd < 1 ? 'los ajustes no cambiaron el reparto' : 'USD',
-  )
-  cifra(
-    slide,
-    HOJA.margen + HOJA.contenido / 2,
-    1.2,
-    HOJA.contenido / 2,
-    'Rentabilidad: modelo → ajustado',
-    `${rent(vista.sistema.rentabilidad)}  →  ${rent(vista.ajustado.rentabilidad)}`,
-    'anual',
-  )
-
-  slide.addText('HOY          MODELO          AJUSTADO', {
-    x: HOJA.margen + 3.3,
-    y: 2.3,
-    w: 5.6,
-    h: 0.2,
-    fontFace: TIPOGRAFIA,
-    fontSize: TAMANO.pie,
-    bold: true,
-    align: 'right',
-    charSpacing: 0.8,
-    color: COLOR.tinta4,
-  })
-
-  let y = 2.6
-  for (const fila of vista.filas) {
-    slide.addText(NOMBRE_CLASE[fila.clase] + (fila.fijada ? '  · fijada' : ''), {
-      x: HOJA.margen,
-      y,
-      w: 3.3,
-      h: 0.2,
-      fontFace: TIPOGRAFIA,
-      fontSize: TAMANO.cuerpo,
-      color: COLOR.tinta,
-    })
-    const columnas: readonly [string, number][] = [
-      [usdCorto(fila.hoyUsd), 3.4],
-      [usdCorto(fila.sistemaUsd), 4.7],
-      [usdCorto(fila.ajustadoUsd), 6.0],
-    ]
-    for (const [texto, x] of columnas) {
-      slide.addText(texto, {
-        x: HOJA.margen + x,
-        y,
-        w: 1.2,
-        h: 0.2,
-        fontFace: TIPOGRAFIA,
-        fontSize: TAMANO.cuerpo,
-        align: 'right',
-        color: COLOR.tinta2,
-      })
-    }
-    slide.addText(Math.abs(fila.deltaUsd) < 1 ? 'igual' : `${fila.deltaUsd > 0 ? '▲' : '▼'} ${usdCorto(Math.abs(fila.deltaUsd))}`, {
-      x: HOJA.margen + 7.4,
-      y,
-      w: 1.5,
-      h: 0.2,
-      fontFace: TIPOGRAFIA,
-      fontSize: TAMANO.cuerpo,
-      align: 'right',
-      color: COLOR.tinta3,
-    })
-    y += 0.34
-  }
-
-  pie(slide, 'La última columna es la diferencia entre el portafolio ajustado y el del modelo.')
-}
-
-// ── Que se ejecuta ──────────────────────────────────────────────────────────
 
 function ejecucion(pptx: PptxGenJS, propuesta: Propuesta): void {
   const { ventas, compras, totalVentasUsd, totalComprasUsd } = propuesta.seccion7

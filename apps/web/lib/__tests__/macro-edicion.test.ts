@@ -210,7 +210,7 @@ describe('los umbrales', () => {
     const despues = conTexto(base(), 'inmobiliario.destino', 'alternativos')
 
     expect(despues.reglas.inmobiliario.destino).toBe('alternativos')
-    expect(despues.reglas.inmobiliario.umbralUsd).toBe(500_000)
+    expect(despues.reglas.inmobiliario.umbralUsd).toBe(100_000)
   })
 
   it('conTexto llega a los campos que no son numeros ni enumeraciones', () => {

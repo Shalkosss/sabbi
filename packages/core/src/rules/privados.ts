@@ -15,14 +15,17 @@
  *  - Check institucional. `auto` reproduce v8: abre el split en los tres FM y
  *    estampa la nota que traslada la decision al asesor. Solo un forzado a
  *    `no` lo cierra.
- *  - Todo o nada. Si algun subfondo activo no llega a 50,000, no se abre
- *    ninguno: todo va al Fondo Oportunidad. Media apertura no existe.
+ *  - El minimo por subfondo. Que pasa con el que no llega lo decide la macro:
+ *    en la v8 es todo o nada —si uno falla no se abre ninguno y el bloque
+ *    entero queda en el Fondo Oportunidad—; en la v4 se miden uno por uno y
+ *    los que pasan se reparten tambien el monto de los que no.
  *
  * El Fondo Oportunidad no tiene minimo de inversion: es el destino residual de
  * la clase y de los montos de Club Deals y Otros que no llegan a su umbral.
  */
 
 import { REGLAS_V8 } from '../domain/reglas.js'
+import type { ReglaSubfondos } from '../domain/reglas.js'
 import type { Perfil } from '../domain/tipos.js'
 import { aperturaFm } from './institucional.js'
 import type { EstadoInstitucional } from './institucional.js'
@@ -81,6 +84,11 @@ export interface OpcionesPrivados {
   readonly minSubfondoUsd?: number
   /** Ticket de Vision Dividendos Global. Sale de la macro. */
   readonly minDividendosGlobalUsd?: number
+  /**
+   * Que pasa con el subfondo que no llega a su minimo. Sale de la macro; por
+   * defecto, el todo o nada de la v8.
+   */
+  readonly subfondos?: ReglaSubfondos
 }
 
 /** Split del Fondo Oportunidad entre los tres institucionales, por perfil. */
@@ -114,9 +122,8 @@ function lineaOportunidad(
  *
  * Tres compuertas, en orden. Los flujos mandan: con el toggle activo los FM
  * quedan fuera por iliquidos y el split ni se evalua. Despues el check
- * institucional, que solo cierra si el asesor lo forzo a `no`. Y al final la
- * regla de todo o nada: basta con que un subfondo activo no llegue a 50,000
- * para que no se abra ninguno.
+ * institucional, que solo cierra si el asesor lo forzo a `no`. Y al final el
+ * minimo por subfondo, con la regla que la macro haya elegido.
  */
 export function repartirPrivados(
   montoUsd: number,
@@ -128,6 +135,7 @@ export function repartirPrivados(
     institucional = 'auto',
     minSubfondoUsd = MIN_SUBFONDO,
     minDividendosGlobalUsd = MIN_DIVIDENDOS_GLOBAL,
+    subfondos = 'todo_o_nada',
   } = opciones
   if (montoUsd <= EPS) return []
 
@@ -146,16 +154,28 @@ export function repartirPrivados(
     { instrumento: FONDO_PE_VC, usd: montoUsd * split.pevc },
   ].filter((c) => c.usd > EPS)
 
-  const todosPasan =
-    candidatos.length > 0 && candidatos.every((c) => c.usd >= minSubfondoUsd - TOL)
+  const pasan = candidatos.filter((c) => c.usd >= minSubfondoUsd - TOL)
 
-  if (!todosPasan) {
+  // Todo o nada (v8): basta con que uno no llegue para que no se abra ninguno.
+  // Uno por uno (v4): con que uno califique alcanza, y el monto de los que no
+  // se reparte entre los que si, en proporcion a lo que ya les tocaba. El que
+  // fallo por su cuenta no resucita por la redistribucion — se mide contra el
+  // split original, igual que en la macro.
+  const abren = subfondos === 'todo_o_nada' && pasan.length < candidatos.length ? [] : pasan
+
+  if (abren.length === 0) {
     return [lineaOportunidad(montoUsd, false, minDividendosGlobalUsd)]
   }
 
-  return candidatos.map((c) => ({
+  // Si abren todos no hay nada que redistribuir, y se devuelven los montos tal
+  // cual salieron del split. Reescalarlos por un factor que vale uno meteria
+  // ruido de coma flotante en las cifras que fija el golden test.
+  const base = abren.reduce((acc, c) => acc + c.usd, 0)
+  const redistribuye = abren.length < candidatos.length && base > EPS
+
+  return abren.map((c) => ({
     instrumento: c.instrumento,
-    usd: c.usd,
+    usd: redistribuye ? montoUsd * (c.usd / base) : c.usd,
     // Confirmado por el asesor, el disclaimer sobra.
     ...(apertura === 'con-nota' ? { nota: NOTA_INSTITUCIONAL } : {}),
   }))

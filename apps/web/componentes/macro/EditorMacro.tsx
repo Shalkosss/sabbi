@@ -148,8 +148,8 @@ export function EditorMacro(props: Props) {
         <p className={estilos.procedencia}>
           {props.esDeFabrica ? (
             <>
-              Corriendo la <b>macro de fábrica</b>: los pesos de la hoja <i>Data</i> v4 y los
-              umbrales de la <i>Benchmark Sabbi</i> v8. Todavía nadie guardó una en esta base.
+              Corriendo la <b>macro de fábrica</b>: los pesos y las reglas de la{' '}
+              <i>Benchmark Sabbi</i> v4. Todavía nadie guardó una en esta base.
             </>
           ) : (
             <>
@@ -166,7 +166,7 @@ export function EditorMacro(props: Props) {
 
       {/*
         La barra de guardado se pega arriba. Los pesos son treinta y cinco
-        celdas y los umbrales diecinueve: sin ella, cambiar el último obliga a
+        celdas y los umbrales veinticinco: sin ella, cambiar el último obliga a
         volver hasta el principio para que el cambio exista.
       */}
       <div className={estilos.barra} data-cambiado={cambiado ? '' : undefined}>
@@ -214,7 +214,7 @@ export function EditorMacro(props: Props) {
             setMacro({ ...deFabrica, version: macro.version })
             setTocados(new Set(['fabrica']))
           }}
-          title="Trae los pesos v4 y los umbrales v8. No guarda: hay que revisarlos y guardar."
+          title="Trae los pesos y las reglas de la Benchmark Sabbi v4. No guarda: hay que revisarlos y guardar."
         >
           Cargar la de fábrica
         </button>
@@ -652,11 +652,12 @@ function conLasPropuestas(base: Macro, propuestas: Props['propuestas']): Macro {
   if (etf !== null) macro = conRegla(macro, 'ticketEtfUsd', etf)
   const umbral = numero('umbral')
   if (umbral !== null) macro = conRegla(macro, 'inmobiliario.umbralUsd', umbral)
-  if (propuestas['inm'] === 'alternativos') {
-    macro = conTexto(macro, 'inmobiliario.destino', 'alternativos')
-  }
-  if (propuestas['inm'] === 'prorratear') {
-    macro = conTexto(macro, 'inmobiliario.destino', 'prorratear')
+  // Solo los destinos que el motor conoce. Uno inventado dejaria la macro con
+  // un valor que el esquema rechaza al guardar, y el mensaje llegaria despues
+  // de teclear la nota.
+  const inm = propuestas['inm']
+  if (inm === 'alternativos' || inm === 'prorratear' || inm === 'publicos') {
+    macro = conTexto(macro, 'inmobiliario.destino', inm)
   }
 
   return macro

@@ -1,6 +1,7 @@
 export * from './domain/tipos.js'
 export {
   CAMPOS_DE_MACRO,
+  REGLAS_V4,
   REGLAS_V8,
   conTextoDeMacro,
   conValorDeMacro,
@@ -10,9 +11,13 @@ export {
 export type {
   CampoDeMacro,
   ClaseResiduo,
+  MotorPublico,
   OpcionDeCampo,
   ReglaInmobiliario,
+  ReglaPrivados,
+  ReglaSubfondos,
   ReglasCascada,
+  ReglasCash,
   ReglasClub,
   ReglasInmobiliario,
   ReglasMotor,
@@ -25,6 +30,11 @@ export type {
 export { repartirPorClase } from './rules/reparto.js'
 export { repartirEtfs } from './rules/cascada.js'
 export type { AsignacionEtf, OpcionesCascada } from './rules/cascada.js'
+export { repartirPoda } from './rules/poda.js'
+export type { OpcionesPoda } from './rules/poda.js'
+export { recortarCash, PERFIL_DEL_RECORTE } from './rules/cash.js'
+export { repartirPorTramos } from './rules/tramos.js'
+export type { OpcionesTramos, RepartoTramos } from './rules/tramos.js'
 export { repartirVariable } from './rules/variable.js'
 export type { OpcionesVariable } from './rules/variable.js'
 export { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'

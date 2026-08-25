@@ -61,6 +61,16 @@ const TOL = 0.01
 /** Las clases del bloque alternativo, que es quien recibe con `alternativos`. */
 const ALTERNATIVAS: ReadonlySet<ClaseModelo> = new Set(['privados', 'club', 'otros'])
 
+/**
+ * Los dos mercados publicos, que es quien recibe con `publicos`.
+ *
+ * Es la regla de la v4 y su argumento es el tamano del ticket: por debajo del
+ * umbral, meterle mas dinero a Mercados Privados solo lo deja atrapado en los
+ * minimos del Fondo Oportunidad y del club deal, y termina volviendo a
+ * publicos por la cascada. Mandarlo directo se ahorra la vuelta.
+ */
+const PUBLICOS: ReadonlySet<ClaseModelo> = new Set(['fijo', 'variable'])
+
 export interface OpcionesInmobiliario {
   /** Ticket de la propuesta: el patrimonio invertible total. */
   readonly patrimonioTotalUsd: number
@@ -95,10 +105,22 @@ export function prorratearInmobiliario(
   if (!inm || inm.objetivoUsd <= EPS) return reparto
   if (inmFijado || inm.fijada || inm.pisoUsd > EPS) return reparto
 
-  const receptoras = regla === 'alternativos' ? ALTERNATIVAS : RECEPTORAS
+  const receptoras =
+    regla === 'alternativos' ? ALTERNATIVAS : regla === 'publicos' ? PUBLICOS : RECEPTORAS
   const recibe = (c: RepartoClase) => receptoras.has(c.clase) && !c.fijada
 
-  const base = reparto.porClase.reduce((acc, c) => (recibe(c) ? acc + c.objetivoUsd : acc), 0)
+  let base = reparto.porClase.reduce((acc, c) => (recibe(c) ? acc + c.objetivoUsd : acc), 0)
+
+  // Un perfil sin mercados publicos, o con los dos fijados por el asesor, deja
+  // a `publicos` sin a quien darle. Antes que disolver la clase contra nadie y
+  // perder el dinero, cae al bloque alternativo, que es lo que hace la macro.
+  const conRespaldo =
+    regla === 'publicos' && base <= EPS
+      ? (c: RepartoClase) => ALTERNATIVAS.has(c.clase) && !c.fijada
+      : recibe
+  if (conRespaldo !== recibe) {
+    base = reparto.porClase.reduce((acc, c) => (conRespaldo(c) ? acc + c.objetivoUsd : acc), 0)
+  }
   if (base <= EPS) return reparto
 
   const factor = (base + inm.objetivoUsd) / base
@@ -107,7 +129,7 @@ export function prorratearInmobiliario(
     if (c.clase === 'inm') {
       return { ...c, objetivoUsd: 0, dineroNuevoUsd: 0, cerrada: true }
     }
-    if (!recibe(c)) return c
+    if (!conRespaldo(c)) return c
 
     const objetivoUsd = c.objetivoUsd * factor
     return {

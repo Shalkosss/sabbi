@@ -16,6 +16,7 @@
  * quien conoce `@sabbi/config`.
  */
 
+import { REGLAS_V8 } from './domain/reglas.js'
 import type { ReglasMotor } from './domain/reglas.js'
 import type {
   AjusteClase,
@@ -29,6 +30,7 @@ import type {
 } from './domain/tipos.js'
 import { CLASES } from './domain/tipos.js'
 import type { EntradaPlan, PesosProductos } from './plan.js'
+import { recortarCash } from './rules/cash.js'
 import type { EstadoInstitucional } from './rules/institucional.js'
 
 const EPS = 1e-6
@@ -460,7 +462,17 @@ export function armarEntradaPlan(
   // El solver reparte lo que sobra entre las clases que quedaron libres. Si no
   // queda ninguna con peso, ese dinero no tiene adonde ir y el motor tira. El
   // corte va aca, donde el mensaje llega a la pantalla.
-  const sobrante = sobranteSinDestino(benchmarkEfectivo, resumen.patrimonioInvertibleUsd, pisos, ajustes)
+  // El mismo benchmark con el que va a calcular `generarPlan`: el recorte de
+  // cash del conservador puede dejar esa clase en cero, y entonces "queda una
+  // clase abierta donde prorratear" deja de ser cierto. Comprobarlo sobre el
+  // benchmark sin recortar dejaria pasar un caso que revienta despues, del
+  // lado del servidor, donde el mensaje no llega a nadie.
+  const conRecorte = recortarCash(
+    benchmarkEfectivo,
+    perfil,
+    (reglas ?? REGLAS_V8).cash.recorteConservador,
+  )
+  const sobrante = sobranteSinDestino(conRecorte, resumen.patrimonioInvertibleUsd, pisos, ajustes)
   if (sobrante > TOL) {
     return {
       ok: false,

@@ -161,14 +161,18 @@ cuando hay que calibrarlo. Dos mitades:
   clases y no los treinta y cinco pesos sueltos — el reparto interno se conserva
   solo, y al guardar se multiplica por el peso de la clase, que es como lo
   guarda la hoja.
-- **Los umbrales.** Los diecinueve números que convierten ese reparto en líneas
+- **Los umbrales.** Los veinticinco campos que convierten ese reparto en líneas
   ejecutables, ordenados como los aplica el motor: el ticket mínimo de ETF y los
-  dos que cada motor de mercados públicos puede tener propio, las tolerancias de
-  la cascada de Renta Fija, el núcleo y el rescate de Renta Variable, el umbral
-  del inmobiliario y a dónde va su capital cuando se disuelve, el mínimo por
-  subfondo, el de Club Deals con su frontera Edifica A/B, los dos de Otros —el
-  de la clase y el de cada línea— y a dónde cae el dinero que no llegó a
-  ninguno.
+  dos que cada motor de mercados públicos puede tener propio, el recorte de cash
+  del perfil conservador, con qué algoritmo se reparte cada clase de mercados
+  públicos y las tolerancias de cada uno, el umbral del inmobiliario y a dónde
+  va su capital cuando se disuelve, cómo se reparten Privados y Club Deals con
+  sus dos mínimos y cómo se miden los subfondos, la frontera Edifica A/B, los
+  dos de Otros —el de la clase y el de cada línea— y a dónde cae el dinero que
+  no llegó a ninguno.
+
+  Cinco de esos campos no son números sino elecciones entre algoritmos: la macro
+  no solo calibra el motor, también decide cuál corre.
 
 Vivían como un JSON versionado y doce constantes de módulo repartidas por
 `packages/core/src/rules/`. Ahora son un argumento: `generarPlan` recibe
@@ -204,8 +208,31 @@ redistribución en 6,502.88 USD sobre el caso Ana Tumi; el editor marca cada
 celda editada y solo esas viajan.
 
 Si la base no tiene ninguna macro guardada —o la que tiene no valida contra
-`macroSchema`— el motor corre con la de fábrica, que es la v4 de pesos con la
-v8 de umbrales, y la pantalla lo dice. Nunca se calcula con media macro.
+`macroSchema`— el motor corre con la de fábrica, que es la **Benchmark Sabbi
+v4** entera: sus pesos y sus reglas. La pantalla lo dice. Nunca se calcula con
+media macro.
+
+### La v4 contra la v8
+
+`REGLAS_V8` sigue en el motor porque es la que reproduce el caso Ana Tumi al
+centavo, y es la que corre cuando `generarPlan` no recibe macro. `REGLAS_V4` es
+la de fábrica del producto y difiere en seis decisiones, cada una expuesta como
+un campo editable para poder volver atrás sin desplegar:
+
+| Decisión | v8 | v4 |
+| --- | --- | --- |
+| Cash del perfil Conservador | intacto | cede 5 puntos a las demás clases |
+| El inmobiliario se ejecuta desde | 500,000 | 100,000 |
+| Cuando se disuelve, su capital | se prorratea entre las cinco | va a Renta Fija y Variable |
+| Privados y Club Deals | cada uno con su peso | comparten monto, por tramos (25,000 / 5,000) |
+| Los subfondos | todo o nada | uno por uno, y el que abre se lleva lo del que no |
+| Renta Fija y Renta Variable | cascada y núcleo-satélites | los dos con poda pro rata |
+
+Una macro ya guardada gana sobre la de fábrica, así que adoptar la v4 en una
+base que ya tiene la suya es abrir `/macro`, **Cargar la de fábrica** y guardar.
+Los campos que llegaron después de la v8 entran con `default` en el esquema, y
+hay un test que lo fija: un payload con la forma vieja sigue validando y sigue
+calculando exactamente igual que antes.
 
 ## Las decisiones sobre una posición
 

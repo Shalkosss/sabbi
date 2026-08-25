@@ -150,4 +150,35 @@ describe('las dos maneras de repartir el inmobiliario disuelto', () => {
     })
     expect(objetivo(conUmbralBajo, 'inm')).toBeCloseTo(100_000, 2)
   })
+
+  describe('a mercados publicos, la regla de la v4', () => {
+    const aPublicos = prorratearInmobiliario(repartoDe(BASE), { ...bajo, regla: 'publicos' })
+
+    it('solo reciben Renta Fija y Renta Variable', () => {
+      // 100,000 repartidos entre 100,000 de Fijo y 50,000 de Variable: dos
+      // tercios y un tercio.
+      expect(objetivo(aPublicos, 'fijo')).toBeCloseTo(100_000 * (250 / 150), 2)
+      expect(objetivo(aPublicos, 'variable')).toBeCloseTo(50_000 * (250 / 150), 2)
+      expect(objetivo(aPublicos, 'privados')).toBeCloseTo(50_000, 2)
+      expect(objetivo(aPublicos, 'inm')).toBe(0)
+    })
+
+    it('el cash sigue afuera y el total cuadra', () => {
+      expect(objetivo(aPublicos, 'cash')).toBeCloseTo(40_000, 2)
+      expect(aPublicos.porClase.reduce((acc, c) => acc + c.objetivoUsd, 0)).toBeCloseTo(340_000, 2)
+    })
+
+    it('sin mercados publicos cae al bloque alternativo en vez de perderse', () => {
+      // Un perfil que no tiene ni Fijo ni Variable dejaria a `publicos` sin a
+      // quien darle. El dinero no puede desaparecer: va a privados.
+      const sinPublicos = prorratearInmobiliario(
+        repartoDe({ inm: 100_000, privados: 50_000, cash: 40_000 }),
+        { patrimonioTotalUsd: 190_000, regla: 'publicos' },
+      )
+
+      expect(objetivo(sinPublicos, 'inm')).toBe(0)
+      expect(objetivo(sinPublicos, 'privados')).toBeCloseTo(150_000, 2)
+      expect(objetivo(sinPublicos, 'cash')).toBeCloseTo(40_000, 2)
+    })
+  })
 })

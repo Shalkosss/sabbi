@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CAMPOS_DE_MACRO,
+  REGLAS_V4,
   REGLAS_V8,
   conTextoDeMacro,
   conValorDeMacro,
@@ -319,28 +320,52 @@ describe('leer y escribir un campo de la macro por su ruta', () => {
     expect(cambiada.variable.separacion).toBe(REGLAS_V8.variable.separacion)
   })
 
-  it('cada campo declarado existe de verdad en la macro', () => {
+  it('cada campo declarado existe de verdad en las dos macros', () => {
     // La pantalla de Macro construye sus campos desde esta lista. Una ruta que
     // no resuelve saldria como un input vacio que no guarda nada.
-    for (const campo of CAMPOS_DE_MACRO) {
-      if (campo.unidad === 'usd' || campo.unidad === 'pct') {
-        expect(valorDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBeNaN()
-      } else {
-        expect(textoDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBe('')
+    for (const reglas of [REGLAS_V8, REGLAS_V4]) {
+      for (const campo of CAMPOS_DE_MACRO) {
+        if (campo.unidad === 'usd' || campo.unidad === 'pct') {
+          expect(valorDeMacro(reglas, campo.ruta), campo.ruta).not.toBeNaN()
+        } else {
+          expect(textoDeMacro(reglas, campo.ruta), campo.ruta).not.toBe('')
+        }
       }
     }
   })
 
   it('cada opcion declarada es una que el motor acepta', () => {
     // Un valor de mas en el desplegable seria una eleccion que el esquema
-    // rechaza al guardar, y el mensaje llegaria despues de teclear la nota.
-    for (const campo of CAMPOS_DE_MACRO) {
-      if (campo.unidad !== 'opcion') continue
-      expect(campo.opciones, campo.ruta).toBeDefined()
-      expect(
-        campo.opciones?.map((o) => o.valor),
-        campo.ruta,
-      ).toContain(textoDeMacro(REGLAS_V8, campo.ruta))
+    // rechaza al guardar, y el mensaje llegaria despues de teclear la nota. Y
+    // uno de menos dejaria a la v4 con un valor que la pantalla no sabe
+    // mostrar: los dos sentidos importan.
+    for (const reglas of [REGLAS_V8, REGLAS_V4]) {
+      for (const campo of CAMPOS_DE_MACRO) {
+        if (campo.unidad !== 'opcion') continue
+        expect(campo.opciones, campo.ruta).toBeDefined()
+        expect(
+          campo.opciones?.map((o) => o.valor),
+          campo.ruta,
+        ).toContain(textoDeMacro(reglas, campo.ruta))
+      }
+    }
+  })
+
+  it('la v4 no trae ninguna palanca que la pantalla no pueda editar', () => {
+    // Es la promesa entera de la pantalla de Macro: lo que decide el
+    // portafolio se puede cambiar sin desplegar. Un campo de `ReglasMotor` que
+    // no este en la lista es un numero que solo se toca en el codigo.
+    const rutas = new Set(CAMPOS_DE_MACRO.map((c) => c.ruta))
+
+    const recorrer = (nodo: unknown, prefijo: string): string[] => {
+      if (typeof nodo !== 'object' || nodo === null) return [prefijo]
+      return Object.entries(nodo).flatMap(([clave, valor]) =>
+        recorrer(valor, prefijo === '' ? clave : `${prefijo}.${clave}`),
+      )
+    }
+
+    for (const ruta of recorrer(REGLAS_V4, '')) {
+      expect(rutas.has(ruta), ruta).toBe(true)
     }
   })
 })

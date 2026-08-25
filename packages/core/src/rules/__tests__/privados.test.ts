@@ -175,4 +175,52 @@ describe('repartirPrivados', () => {
       expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBeCloseTo(MONTO, 4)
     })
   })
+
+  describe('los subfondos uno por uno, la regla de la v4', () => {
+    // Arriesgado parte 30/70. Con 100,000 le tocan 30,000 a PC —corto— y
+    // 70,000 a PE VC, que si llega a los 50,000.
+    const ARRIESGADO = { perfil: 'Arriesgado' as const }
+
+    it('con que uno califique se abre, aunque el otro no llegue', () => {
+      const r = repartirPrivados(100_000, { ...ARRIESGADO, subfondos: 'uno_a_uno' })
+
+      expect(r.map((x) => x.instrumento)).toStrictEqual([FONDO_PE_VC])
+    })
+
+    it('el que abre se lleva tambien el monto del que no llego', () => {
+      const r = repartirPrivados(100_000, { ...ARRIESGADO, subfondos: 'uno_a_uno' })
+
+      expect(monto(r, FONDO_PE_VC)).toBeCloseTo(100_000, 4)
+    })
+
+    it('con todo o nada, ese mismo monto se queda entero en el fondo', () => {
+      const r = repartirPrivados(100_000, { ...ARRIESGADO, subfondos: 'todo_o_nada' })
+
+      expect(r.map((x) => x.instrumento)).toStrictEqual([FONDO_OPORTUNIDAD])
+      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(100_000, 4)
+    })
+
+    it('si ninguno califica, todo al fondo aunque se midan uno por uno', () => {
+      const r = repartirPrivados(40_000, { ...ARRIESGADO, subfondos: 'uno_a_uno' })
+
+      expect(r.map((x) => x.instrumento)).toStrictEqual([FONDO_OPORTUNIDAD])
+    })
+
+    it('si califican todos, los montos salen tal cual del split', () => {
+      // Sin nada que redistribuir, las dos reglas tienen que dar lo mismo al
+      // centavo: reescalar por un factor que vale uno meteria ruido.
+      const holgado = 163_344.2160641878
+      const uno = repartirPrivados(holgado, { ...OPC, subfondos: 'uno_a_uno' })
+      const todo = repartirPrivados(holgado, { ...OPC, subfondos: 'todo_o_nada' })
+
+      expect(uno).toStrictEqual(todo)
+      expect(monto(uno, FONDO_RE_INFRA)).toBe(holgado * 0.5)
+    })
+
+    it('el default sigue siendo el todo o nada de la v8', () => {
+      expect(repartirPrivados(100_000, ARRIESGADO)).toStrictEqual(
+        repartirPrivados(100_000, { ...ARRIESGADO, subfondos: 'todo_o_nada' }),
+      )
+    })
+  })
 })

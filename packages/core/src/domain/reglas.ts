@@ -24,7 +24,7 @@
  * Tumi. `alternativos` lo manda entero al bloque de Privados, Club y Otros,
  * que es lo que hace la hoja con la que la mesa venia trabajando.
  */
-export type ReglaInmobiliario = 'prorratear' | 'alternativos'
+export type ReglaInmobiliario = 'prorratear' | 'alternativos' | 'publicos'
 
 export interface ReglasInmobiliario {
   /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
@@ -32,11 +32,64 @@ export interface ReglasInmobiliario {
   readonly destino: ReglaInmobiliario
 }
 
+export interface ReglasCash {
+  /**
+   * Puntos porcentuales del portafolio que se le quitan a Cash en el perfil
+   * Conservador, y que se reparten pro rata entre las otras seis clases.
+   *
+   * Son PUNTOS, no una fraccion del cash: 0.05 lleva un 16.47% de Cash a un
+   * 11.47%, no a un 15.65%. La v4 de la mesa lo pone en 0.05 con el argumento
+   * de que el benchmark conservador carga mas liquidez de la que un cliente
+   * que ya vino a invertir necesita; la v8 no lo tenia, y por eso su valor
+   * neutro es cero.
+   *
+   * Solo el perfil Conservador. Los demas ya traen el cash que les toca.
+   */
+  readonly recorteConservador: number
+}
+
+/**
+ * Que pasa cuando un subfondo institucional no llega a su minimo.
+ *
+ * `todo_o_nada` es la v8: basta con que uno no llegue para que no se abra
+ * ninguno y el bloque entero quede en el Fondo Oportunidad. `uno_a_uno` es la
+ * v4: cada subfondo se mide por separado y los que pasan se reparten tambien
+ * el monto de los que no. Con que uno califique, se abre.
+ */
+export type ReglaSubfondos = 'todo_o_nada' | 'uno_a_uno'
+
+/**
+ * Como se reparte el dinero nuevo entre Mercados Privados y Club Deals.
+ *
+ * `benchmark` es la v8: cada clase se queda con lo que su peso le dio, y lo
+ * que no llega al minimo de Club Deals cae al destino de residuos.
+ *
+ * `tramos` es la v4: las dos clases comparten un solo monto y los minimos
+ * deciden que vehiculo existe. Debajo del minimo del Fondo Oportunidad no hay
+ * fondo y todo va al club; entre ese minimo y la suma de los dos no entra el
+ * club y todo va al fondo; por encima conviven, cada uno toma su minimo y el
+ * sobrante se parte segun el peso de benchmark de cada uno. Si no alcanza ni
+ * para el club, el dinero se devuelve a mercados publicos.
+ */
+export type ReglaPrivados = 'benchmark' | 'tramos'
+
 export interface ReglasPrivados {
   /** Minimo por subfondo institucional. Debajo no se abre ninguno. */
   readonly minSubfondoUsd: number
   /** Ticket minimo de Vision Dividendos Global, el destino de flujos. */
   readonly minDividendosGlobalUsd: number
+  /** Todo o nada, o cada subfondo por su cuenta. */
+  readonly subfondos: ReglaSubfondos
+  /**
+   * Minimo para que el Fondo Oportunidad exista, en la cascada por tramos.
+   *
+   * Solo lo mira `tramos`. En la v8 el Fondo Oportunidad es el destino sin
+   * minimo de todo lo que no llego a ningun lado, y por eso su valor neutro
+   * es cero.
+   */
+  readonly minOportunidadUsd: number
+  /** Como se reparten Privados y Club Deals el dinero nuevo. */
+  readonly reparto: ReglaPrivados
 }
 
 export interface ReglasClub {
@@ -56,7 +109,23 @@ export interface ReglasOtros {
   readonly minLineaUsd: number
 }
 
+/**
+ * Con que algoritmo se reparte una clase de mercados publicos.
+ *
+ * `cascada` es la v8: poda por costo, cadena de pisos escalonados y limite de
+ * sacrificio. `nucleo_satelites` es el motor propio que la v8 le dio a Renta
+ * Variable, con un instrumento que financia los rescates de rango.
+ *
+ * `poda` es la v4, y es la mas simple de las tres: se saca el instrumento mas
+ * chico, su monto se reparte pro rata entre los que quedan, y se repite hasta
+ * que el mas chico llegue al ticket. Sin factor de descarte, sin cadena y sin
+ * limite de sacrificio — los tres campos de la cascada quedan sin mirar.
+ */
+export type MotorPublico = 'cascada' | 'nucleo_satelites' | 'poda'
+
 export interface ReglasCascada {
+  /** Con que algoritmo se reparte la clase. */
+  readonly motor: MotorPublico
   /** Por debajo de esta fraccion del ticket minimo, el ETF se descarta. */
   readonly factorDescarte: number
   /** Un ETF no puede perder mas de esta fraccion de su objetivo por los pisos. */
@@ -66,6 +135,8 @@ export interface ReglasCascada {
 }
 
 export interface ReglasVariable {
+  /** Con que algoritmo se reparte la clase. */
+  readonly motor: MotorPublico
   /** Piso del rescate de rango. Debajo de esto el satelite se descarta. */
   readonly pisoRescateUsd: number
   /** El salto del rescate se redondea a un multiplo de este bloque. */
@@ -109,6 +180,8 @@ export interface ReglasMotor {
   /** Ticket propio de Renta Variable. En cero manda el general. */
   readonly ticketVariableUsd: number
   readonly inmobiliario: ReglasInmobiliario
+  /** El recorte de liquidez del perfil conservador. */
+  readonly cash: ReglasCash
   readonly privados: ReglasPrivados
   readonly club: ReglasClub
   readonly otros: ReglasOtros
@@ -136,11 +209,76 @@ export const REGLAS_V8: ReglasMotor = {
   ticketFijoUsd: 0,
   ticketVariableUsd: 0,
   inmobiliario: { umbralUsd: 500_000, destino: 'prorratear' },
-  privados: { minSubfondoUsd: 50_000, minDividendosGlobalUsd: 80_000 },
+  cash: { recorteConservador: 0 },
+  privados: {
+    minSubfondoUsd: 50_000,
+    minDividendosGlobalUsd: 80_000,
+    subfondos: 'todo_o_nada',
+    minOportunidadUsd: 0,
+    reparto: 'benchmark',
+  },
   club: { minUsd: 10_000, umbralClaseAUsd: 70_000 },
   otros: { minUsd: 10_000, minLineaUsd: 0 },
-  fijo: { factorDescarte: 0.5, maxSacrificio: 0.2, separacion: 0.15 },
+  fijo: { motor: 'cascada', factorDescarte: 0.5, maxSacrificio: 0.2, separacion: 0.15 },
   variable: {
+    motor: 'nucleo_satelites',
+    pisoRescateUsd: 14_500,
+    bloqueRescateUsd: 1_000,
+    separacion: 0.1,
+    nucleo: 'S&P 500',
+  },
+  residuos: { destino: 'privados' },
+}
+
+/**
+ * La macro v4: la que la mesa escribio en «BENCHMARK SABBI - MACROS v4».
+ *
+ * Es la de fabrica desde que la mesa la trajo, y difiere de la v8 en seis
+ * decisiones que mueven dinero. Ninguna es un numero suelto: cada una es una
+ * palanca de esta misma lista, asi que se puede volver a la v8 campo por campo
+ * sin desplegar nada.
+ *
+ *  1. **El conservador lleva menos liquidez.** Cinco puntos de Cash pasan a
+ *     las otras clases, pro rata. Los otros cuatro perfiles no se tocan.
+ *  2. **El inmobiliario se ejecuta desde 100,000, no desde 500,000**, y cuando
+ *     no se puede ejecutar su capital va a mercados publicos y no al bloque
+ *     alternativo: con ticket chico, meterle mas a privados solo lo deja
+ *     atrapado en los minimos del fondo y del club.
+ *  3. **Privados y Club Deals comparten un solo monto**, y los minimos deciden
+ *     que vehiculo existe: el Fondo Oportunidad desde 25,000 y el club desde
+ *     5,000. Si no alcanza para ninguno, el dinero vuelve a mercados publicos.
+ *  4. **Los subfondos se miden uno por uno.** Con que uno llegue a 50,000 se
+ *     abre, y se reparte tambien lo de los que no llegaron.
+ *  5. **Renta Fija y Renta Variable usan el mismo motor simple**: sacar el mas
+ *     chico y repartirlo pro rata. La v4 no tiene nucleo ni satelites.
+ *  6. **Otros abre desde 20,000** y no desde los 10,000 de la v8. En la hoja
+ *     el minimo es el ticket de la propuesta, que aca el asesor puede mover
+ *     ficha por ficha; como campo de la macro es un numero fijo, y 20,000 es
+ *     el ticket con el que la mesa trabaja.
+ *
+ * Los tres campos de la cascada y los cuatro del motor de variable siguen con
+ * los valores de la v8 aunque `poda` no los mire: son los que vuelven a valer
+ * en cuanto alguien cambie el motor, y ponerlos en cero seria perder la
+ * calibracion de la v8 sin decirlo.
+ */
+export const REGLAS_V4: ReglasMotor = {
+  ticketEtfUsd: 20_000,
+  ticketFijoUsd: 0,
+  ticketVariableUsd: 0,
+  inmobiliario: { umbralUsd: 100_000, destino: 'publicos' },
+  cash: { recorteConservador: 0.05 },
+  privados: {
+    minSubfondoUsd: 50_000,
+    minDividendosGlobalUsd: 80_000,
+    subfondos: 'uno_a_uno',
+    minOportunidadUsd: 25_000,
+    reparto: 'tramos',
+  },
+  club: { minUsd: 5_000, umbralClaseAUsd: 70_000 },
+  otros: { minUsd: 20_000, minLineaUsd: 0 },
+  fijo: { motor: 'poda', factorDescarte: 0.5, maxSacrificio: 0.2, separacion: 0.15 },
+  variable: {
+    motor: 'poda',
     pisoRescateUsd: 14_500,
     bloqueRescateUsd: 1_000,
     separacion: 0.1,
@@ -232,7 +370,35 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     ceroEs: 'usa el ticket general',
   },
 
-  // ── 2. Renta Fija: la cascada pro rata ───────────────────────────────────
+  // ── 2. Cash: lo primero que toca el motor ────────────────────────────────
+  {
+    ruta: 'cash.recorteConservador',
+    etiqueta: 'Recorte de Cash del conservador',
+    unidad: 'pct',
+    explica:
+      'Puntos porcentuales del portafolio que se le sacan a Cash en el perfil Conservador y se ' +
+      'reparten entre las otras clases según su peso. Son puntos, no una parte del cash: 5 ' +
+      'puntos llevan un 16.47% a un 11.47%. Los otros cuatro perfiles no se tocan.',
+    grupo: 'Cash · la liquidez del conservador',
+    rango: { min: 0, max: 0.2, paso: 0.005 },
+    ceroEs: 'el conservador se queda con todo su cash',
+  },
+
+  // ── 3. Renta Fija ────────────────────────────────────────────────────────
+  {
+    ruta: 'fijo.motor',
+    etiqueta: 'Motor de Renta Fija',
+    unidad: 'opcion',
+    explica:
+      'Con qué algoritmo se reparten los ETFs. La poda pro rata saca el más chico y lo reparte ' +
+      'entre los que quedan, y no mira ninguno de los tres campos de abajo. La cascada sí: es ' +
+      'la de la v8, con rescate por costo y pisos escalonados.',
+    grupo: 'Renta Fija · cómo se reparte',
+    opciones: [
+      { valor: 'poda', etiqueta: 'poda pro rata — saca el más chico y reparte' },
+      { valor: 'cascada', etiqueta: 'cascada v8 — rescate por costo y cadena de pisos' },
+    ],
+  },
   {
     ruta: 'fijo.factorDescarte',
     etiqueta: 'Poda por costo',
@@ -240,7 +406,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     explica:
       'La cascada solo descarta lo que quedaría por debajo de esta fracción del ticket mínimo. ' +
       'Un ETF que llega al 60% del mínimo se rescata en vez de tirarse.',
-    grupo: 'Renta Fija · la cascada',
+    grupo: 'Renta Fija · cómo se reparte',
     rango: { min: 0, max: 1, paso: 0.05 },
   },
   {
@@ -250,7 +416,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     explica:
       'Ningún ETF puede perder más de esta parte de su objetivo para que otros lleguen a su ' +
       'piso. Si la combinación no cierra, se descarta el más chico y se reintenta.',
-    grupo: 'Renta Fija · la cascada',
+    grupo: 'Renta Fija · cómo se reparte',
     rango: { min: 0, max: 1, paso: 0.05 },
   },
   {
@@ -260,11 +426,25 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     explica:
       'Los ETFs sobrevivientes no quedan todos pegados al mínimo: cada uno recibe un piso un ' +
       'tanto por ciento más alto que el anterior.',
-    grupo: 'Renta Fija · la cascada',
+    grupo: 'Renta Fija · cómo se reparte',
     rango: { min: 0, max: 1, paso: 0.05 },
   },
 
-  // ── 3. Renta Variable: nucleo y satelites ────────────────────────────────
+  // ── 4. Renta Variable ────────────────────────────────────────────────────
+  {
+    ruta: 'variable.motor',
+    etiqueta: 'Motor de Renta Variable',
+    unidad: 'opcion',
+    explica:
+      'La poda pro rata es el mismo motor simple de Renta Fija y deja sin efecto los cuatro ' +
+      'campos de abajo. Núcleo y satélites es el motor propio de la v8: un instrumento financia ' +
+      'los rescates de rango y la separación de los demás.',
+    grupo: 'Renta Variable · cómo se reparte',
+    opciones: [
+      { valor: 'poda', etiqueta: 'poda pro rata — saca el más chico y reparte' },
+      { valor: 'nucleo_satelites', etiqueta: 'núcleo y satélites — el motor v8' },
+    ],
+  },
   {
     ruta: 'variable.nucleo',
     etiqueta: 'Cómo se reconoce el núcleo',
@@ -273,7 +453,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
       'El instrumento cuyo nombre contenga este texto es el núcleo: el que financia los ' +
       'rescates y la separación de los satélites. Se compara sin mayúsculas ni símbolos, así ' +
       'que «S&P 500» reconoce también «SP500».',
-    grupo: 'Renta Variable · núcleo y satélites',
+    grupo: 'Renta Variable · cómo se reparte',
   },
   {
     ruta: 'variable.pisoRescateUsd',
@@ -282,7 +462,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     explica:
       'Un satélite que queda entre este piso y el ticket mínimo no se mata: se le compra el ' +
       'salto y lo financian el núcleo y los demás satélites.',
-    grupo: 'Renta Variable · núcleo y satélites',
+    grupo: 'Renta Variable · cómo se reparte',
     rango: { min: 0, max: 100_000, paso: 500 },
   },
   {
@@ -290,7 +470,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     etiqueta: 'Bloque del rescate',
     unidad: 'usd',
     explica: 'El salto del rescate se redondea hacia arriba a un múltiplo de este bloque.',
-    grupo: 'Renta Variable · núcleo y satélites',
+    grupo: 'Renta Variable · cómo se reparte',
     rango: { min: 100, max: 10_000, paso: 100 },
   },
   {
@@ -300,18 +480,19 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     explica:
       'Cada satélite tiene que superar al anterior en al menos esta proporción. El ajuste lo ' +
       'paga el núcleo, no el satélite de al lado.',
-    grupo: 'Renta Variable · núcleo y satélites',
+    grupo: 'Renta Variable · cómo se reparte',
     rango: { min: 0, max: 1, paso: 0.05 },
   },
 
-  // ── 4. Inmobiliario Directo: la clase que puede no existir ───────────────
+  // ── 5. Inmobiliario Directo: la clase que puede no existir ───────────────
   {
     ruta: 'inmobiliario.umbralUsd',
     etiqueta: 'Umbral del inmobiliario',
     unidad: 'usd',
     explica:
       'Debajo de este ticket la clase Inmobiliario Directo se disuelve y su capital engorda a ' +
-      'las demás. Un inmueble conservado la salva.',
+      'las demás: es el monto a partir del cual un inmueble se puede ejecutar de verdad. Un ' +
+      'inmueble conservado, o una restricción sobre la clase, la salvan igual.',
     grupo: 'Inmobiliario Directo',
     rango: { min: 0, max: 2_000_000, paso: 25_000 },
   },
@@ -320,23 +501,67 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     etiqueta: 'Cuando se disuelve, su capital',
     unidad: 'opcion',
     explica:
-      'Es la regla en la que difieren las dos hojas con las que la mesa venía trabajando. ' +
-      'Sobre un Moderado la diferencia son casi siete puntos en Renta Fija.',
+      'Es la regla en la que difieren las hojas con las que la mesa viene trabajando; sobre un ' +
+      'Moderado la diferencia son casi siete puntos en Renta Fija. Con ticket chico, mandarlo a ' +
+      'Privados solo lo deja atrapado en los mínimos del fondo y del club: por eso la v4 lo ' +
+      'manda a mercados públicos.',
     grupo: 'Inmobiliario Directo',
     opciones: [
+      { valor: 'publicos', etiqueta: 'se reparte entre Renta Fija y Renta Variable' },
       { valor: 'prorratear', etiqueta: 'se prorratea entre las cinco clases' },
       { valor: 'alternativos', etiqueta: 'pasa entero a Privados, Club y Otros' },
     ],
   },
 
-  // ── 5. Mercados Privados ─────────────────────────────────────────────────
+  // ── 6. Mercados Privados ─────────────────────────────────────────────────
+  {
+    ruta: 'privados.reparto',
+    etiqueta: 'Privados y Club Deals se reparten',
+    unidad: 'opcion',
+    explica:
+      'Por tramos, las dos clases comparten un solo monto y los mínimos deciden qué vehículo ' +
+      'existe; si no alcanza ni para el club, el dinero vuelve a mercados públicos. Por ' +
+      'benchmark, cada una se queda con lo que su peso le dio y lo que no llega al mínimo cae ' +
+      'al destino de residuos.',
+    grupo: 'Mercados Privados',
+    opciones: [
+      { valor: 'tramos', etiqueta: 'por tramos — los mínimos deciden qué se abre' },
+      { valor: 'benchmark', etiqueta: 'por benchmark — cada clase con su peso' },
+    ],
+  },
+  {
+    ruta: 'privados.minOportunidadUsd',
+    etiqueta: 'Mínimo del Fondo Oportunidad',
+    unidad: 'usd',
+    explica:
+      'Debajo de esto el fondo no existe y su dinero va al club deal. Solo lo mira el reparto ' +
+      'por tramos: por benchmark el Fondo Oportunidad es el destino sin mínimo de todo lo que ' +
+      'no llegó a ningún lado.',
+    grupo: 'Mercados Privados',
+    rango: { min: 0, max: 200_000, paso: 5_000 },
+    ceroEs: 'el fondo no tiene mínimo',
+  },
+  {
+    ruta: 'privados.subfondos',
+    etiqueta: 'Los subfondos se miden',
+    unidad: 'opcion',
+    explica:
+      'Uno por uno, con que un subfondo llegue a su mínimo se abre, y se reparte también el ' +
+      'monto de los que no llegaron. Todo o nada, basta con que uno no llegue para que no se ' +
+      'abra ninguno y el bloque entero quede en el Fondo Oportunidad.',
+    grupo: 'Mercados Privados',
+    opciones: [
+      { valor: 'uno_a_uno', etiqueta: 'uno por uno — el que califica se abre' },
+      { valor: 'todo_o_nada', etiqueta: 'todo o nada — o los tres, o ninguno' },
+    ],
+  },
   {
     ruta: 'privados.minSubfondoUsd',
     etiqueta: 'Mínimo por subfondo',
     unidad: 'usd',
     explica:
-      'Todo o nada: basta con que un subfondo institucional no llegue para que no se abra ' +
-      'ninguno y el bloque entero quede en el Fondo Oportunidad.',
+      'El ticket que un subfondo institucional tiene que alcanzar para abrirse. Qué pasa con el ' +
+      'que no llega lo decide el campo de arriba.',
     grupo: 'Mercados Privados',
     rango: { min: 0, max: 500_000, paso: 5_000 },
   },
@@ -351,7 +576,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     rango: { min: 0, max: 500_000, paso: 5_000 },
   },
 
-  // ── 6. Club Deals ────────────────────────────────────────────────────────
+  // ── 7. Club Deals ────────────────────────────────────────────────────────
   {
     ruta: 'club.minUsd',
     etiqueta: 'Mínimo de Club Deals',
@@ -371,7 +596,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     rango: { min: 0, max: 500_000, paso: 5_000 },
   },
 
-  // ── 7. Otros: BTC y Oro ──────────────────────────────────────────────────
+  // ── 8. Otros: BTC y Oro ──────────────────────────────────────────────────
   {
     ruta: 'otros.minUsd',
     etiqueta: 'Mínimo de la clase',
@@ -394,7 +619,7 @@ export const CAMPOS_DE_MACRO: readonly CampoDeMacro[] = [
     ceroEs: 'usa el mínimo de la clase',
   },
 
-  // ── 8. Lo que no llego a ningun lado ─────────────────────────────────────
+  // ── 9. Lo que no llego a ningun lado ─────────────────────────────────────
   {
     ruta: 'residuos.destino',
     etiqueta: 'El dinero que no abrió línea va a',

@@ -1,4 +1,4 @@
-import { REGLAS_V8 } from '@sabbi/core'
+import { REGLAS_V4 } from '@sabbi/core'
 import type { ReglasMotor } from '@sabbi/core'
 import { z } from 'zod'
 
@@ -59,11 +59,21 @@ export const reglasSchema = z.object({
   ticketVariableUsd: noNegativo('El ticket de Renta Variable').default(0),
   inmobiliario: z.object({
     umbralUsd: noNegativo('El umbral del inmobiliario'),
-    destino: z.enum(['prorratear', 'alternativos']),
+    destino: z.enum(['prorratear', 'alternativos', 'publicos']),
   }),
+  cash: z
+    .object({
+      /** Puntos del portafolio, no una fraccion del cash. En cero no recorta. */
+      recorteConservador: fraccion('El recorte de Cash del conservador').default(0),
+    })
+    .default({ recorteConservador: 0 }),
   privados: z.object({
     minSubfondoUsd: noNegativo('El minimo por subfondo'),
     minDividendosGlobalUsd: noNegativo('El minimo de Vision Dividendos Global'),
+    subfondos: z.enum(['todo_o_nada', 'uno_a_uno']).default('todo_o_nada'),
+    /** Solo lo mira el reparto por tramos. En cero, el fondo no tiene minimo. */
+    minOportunidadUsd: noNegativo('El minimo del Fondo Oportunidad').default(0),
+    reparto: z.enum(['benchmark', 'tramos']).default('benchmark'),
   }),
   club: z.object({
     minUsd: noNegativo('El minimo de Club Deals'),
@@ -74,11 +84,13 @@ export const reglasSchema = z.object({
     minLineaUsd: noNegativo('El minimo de cada linea de Otros').default(0),
   }),
   fijo: z.object({
+    motor: z.enum(['cascada', 'nucleo_satelites', 'poda']).default('cascada'),
     factorDescarte: fraccion('La poda por costo'),
     maxSacrificio: fraccion('El sacrificio maximo'),
     separacion: fraccion('La separacion de la cadena'),
   }),
   variable: z.object({
+    motor: z.enum(['cascada', 'nucleo_satelites', 'poda']).default('nucleo_satelites'),
     pisoRescateUsd: noNegativo('El piso de rescate'),
     bloqueRescateUsd: positivo('El bloque del rescate'),
     separacion: fraccion('La separacion de satelites'),
@@ -107,19 +119,25 @@ export const macroSchema = z.object({
 export type Macro = z.infer<typeof macroSchema>
 
 /**
- * La macro de fabrica: los pesos de la v4 y los umbrales de la v8.
+ * La macro de fabrica: los pesos y las reglas de la v4.
  *
  * Es el punto de partida y la red de seguridad. Si la base no tiene ninguna
- * macro guardada —o la que tiene no valida— el motor corre con esta, que es la
- * que reproduce el caso Ana Tumi al centavo. Nunca se calcula con una macro a
- * medias: o la guardada entera, o esta entera.
+ * macro guardada —o la que tiene no valida— el motor corre con esta. Nunca se
+ * calcula con una macro a medias: o la guardada entera, o esta entera.
+ *
+ * Hasta que la mesa trajo la v4, aca vivian los umbrales de la v8, que son los
+ * que reproducen el caso Ana Tumi al centavo. Ese caso sigue fijado por
+ * `REGLAS_V8` en el motor y no se movio; lo que cambio es cual de las dos es
+ * la que corre cuando nadie eligio. Una macro ya guardada gana sobre esta, asi
+ * que adoptar la v4 en una base que ya tiene la suya es abrir la pantalla de
+ * Macro, cargar la de fabrica y guardar.
  */
 export function macroDeFabrica(pesos: Benchmarks): Macro {
   return {
     version: 1,
-    nota: 'Macro de fábrica: pesos de la hoja Data v4 y umbrales de la Benchmark Sabbi v8.',
+    nota: 'Macro de fábrica: pesos y reglas de la Benchmark Sabbi v4.',
     pesos,
-    reglas: REGLAS_V8,
+    reglas: REGLAS_V4,
   }
 }
 

@@ -331,13 +331,14 @@ export function reglasDeLaUrl(
   const inm = parametros['inm']
   const destino = Array.isArray(inm) ? inm[0] : inm
 
+  // Cada valor se compara contra el nombre que el motor conoce, y lo que no
+  // coincide deja la regla de la macro: un parametro tecleado a mano no puede
+  // cambiar el modelo por un valor que el esquema despues rechaza.
+  const conocidos: readonly ReglaInmobiliario[] = ['prorratear', 'alternativos', 'publicos']
+
   return {
     inmobiliario:
-      destino === 'alternativos'
-        ? 'alternativos'
-        : destino === 'prorratear'
-          ? 'prorratear'
-          : base.inmobiliario,
+      conocidos.find((r) => r === destino) ?? base.inmobiliario,
     umbralInmobiliarioUsd: numero('umbral', base.umbralInmobiliarioUsd),
     ticketEtfUsd: numero('etf', base.ticketEtfUsd),
   }

@@ -1,4 +1,4 @@
-import { REGLAS_V8 } from '@sabbi/core'
+import { REGLAS_V4, REGLAS_V8 } from '@sabbi/core'
 import { describe, expect, it } from 'vitest'
 
 import { MACRO_DE_FABRICA, benchmarks } from '../index.js'
@@ -16,9 +16,9 @@ import { macroDeFabrica, validarMacro } from '../macro.js'
 const valida = () => JSON.parse(JSON.stringify(MACRO_DE_FABRICA)) as Record<string, unknown>
 
 describe('la macro de fabrica', () => {
-  it('es la v4 de pesos con la v8 de umbrales', () => {
+  it('es la v4 entera: sus pesos y sus reglas', () => {
     expect(MACRO_DE_FABRICA.pesos).toEqual(benchmarks)
-    expect(MACRO_DE_FABRICA.reglas).toEqual(REGLAS_V8)
+    expect(MACRO_DE_FABRICA.reglas).toEqual(REGLAS_V4)
   })
 
   it('valida contra su propio esquema', () => {
@@ -34,7 +34,7 @@ describe('validarMacro', () => {
   it('acepta una macro completa', () => {
     const salida = validarMacro(valida())
     expect(salida.ok).toBe(true)
-    if (salida.ok) expect(salida.macro.reglas.club.minUsd).toBe(10_000)
+    if (salida.ok) expect(salida.macro.reglas.club.minUsd).toBe(REGLAS_V4.club.minUsd)
   })
 
   it('rechaza un perfil cuyas clases no suman 1', () => {
@@ -80,19 +80,32 @@ describe('validarMacro', () => {
   })
 
   it('acepta una macro guardada antes de las palancas nuevas', () => {
-    // Es el caso que de verdad pasa: en la base hay payloads con la forma
-    // vieja. Si el esquema los rechazara, el motor caeria en la de fabrica y la
-    // mesa veria cambiar todas sus cifras sin haber tocado nada.
-    const vieja = valida() as { reglas: Record<string, unknown> }
+    // Es el caso que de verdad pasa: en la base hay payloads escritos cuando la
+    // de fabrica era la v8, sin ninguna de las palancas que llegaron despues.
+    // Si el esquema los rechazara, el motor caeria en la de fabrica —hoy la
+    // v4— y la mesa veria cambiar todas sus cifras sin haber tocado nada.
+    const vieja = JSON.parse(
+      JSON.stringify({ ...MACRO_DE_FABRICA, reglas: REGLAS_V8 }),
+    ) as { reglas: Record<string, unknown> }
+    const sub = (clave: string) => vieja.reglas[clave] as Record<string, unknown>
+
     delete vieja.reglas['ticketFijoUsd']
     delete vieja.reglas['ticketVariableUsd']
     delete vieja.reglas['residuos']
-    delete (vieja.reglas['otros'] as Record<string, unknown>)['minLineaUsd']
-    delete (vieja.reglas['variable'] as Record<string, unknown>)['nucleo']
+    delete vieja.reglas['cash']
+    delete sub('otros')['minLineaUsd']
+    delete sub('variable')['nucleo']
+    delete sub('variable')['motor']
+    delete sub('fijo')['motor']
+    delete sub('privados')['subfondos']
+    delete sub('privados')['minOportunidadUsd']
+    delete sub('privados')['reparto']
 
     const salida = validarMacro(vieja)
     expect(salida.ok).toBe(true)
     // Y los defectos son los neutros: la macro vieja calcula igual que antes.
+    // Ninguna palanca nueva entra encendida, ni siquiera ahora que la de
+    // fabrica las trae todas prendidas.
     if (salida.ok) expect(salida.macro.reglas).toEqual(REGLAS_V8)
   })
 

@@ -123,16 +123,14 @@ export type ResultadoGuardarMacro =
 /**
  * Guarda una macro nueva y la activa.
  *
- * La puede guardar cualquier asesor con sesión. Es la herramienta con la que la
- * mesa calibra el modelo, y un permiso que obliga a pedirle a otro que teclee
- * un número no protege el modelo: hace que se calibre en una hoja suelta que
- * después nadie puede auditar.
+ * La toca cualquier asesor con ficha en `advisors`, no solo un admin: quien
+ * calibra el modelo es la mesa, y pedirle permiso a alguien por cada prueba es
+ * como se termina calibrando en una hoja aparte. Lo que protege el modelo no
+ * es el candado sino el rastro.
  *
- * Lo que lo hace seguro no es el permiso sino que nunca sobreescribe: la
- * anterior queda con su autor y su fecha, y volver a ella es guardar otra vez.
- * Una cifra que salió en la propuesta de un cliente real se explica por la
- * macro con la que se calculó, y esa explicación tiene que seguir estando el
- * mes que viene.
+ * Nunca sobreescribe: la anterior queda con su autor y su fecha. Una cifra que
+ * salió en la propuesta de un cliente real se explica por la macro con la que
+ * se calculó, y esa explicación tiene que seguir estando el mes que viene.
  *
  * La validación es la misma que usa la lectura. Escribir algo que después no
  * se puede leer dejaría el modelo corriendo de fábrica en silencio.
@@ -182,8 +180,8 @@ export async function guardarMacro(
 function traducir(crudo: string): string {
   if (crudo.includes('row-level security')) {
     return (
-      'Tu cuenta no tiene permiso para cambiar la macro. Si esta base todavía corre la política ' +
-      'vieja, hay que aplicar la migración 0011, que la abre a toda la mesa.'
+      'Tu usuario no tiene ficha de asesor, así que no hay a quién atribuirle esta versión. ' +
+      'Pedile a un admin que te dé de alta.'
     )
   }
   if (crudo.includes('does not exist') || crudo.includes('relation')) {

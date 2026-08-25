@@ -1,4 +1,4 @@
-import type { ClaseModelo, Perfil } from '@sabbi/core'
+import type { Perfil } from '@sabbi/core'
 
 import type { Matriz, Portafolio } from '../lib/benchmark'
 import { PERFILES_PARA_ROTULAR } from '../lib/benchmark'
@@ -29,7 +29,15 @@ import estilos from './GraficoBenchmark.module.css'
  * entre ellas; con dos hay sitio, y ahí leer el valor sin bajar la vista a la
  * tabla es justamente lo que uno quiere. En todos los casos cada punto lleva
  * su valor en el `title`, que es lo que aparece al pasar el mouse.
+ *
+ * En la mirada de liquidez el eje tiene dos categorías en vez de siete y cada
+ * perfil queda dibujado como una pendiente: sube de líquido a ilíquido o baja,
+ * y cuánto. Con dos puntos la etiqueta entra siempre, así que ahí se rotula
+ * sin importar cuántos perfiles haya.
  */
+
+/** Las dos categorías de la mirada de liquidez, en su orden de lectura. */
+const CATEGORIAS_LIQUIDEZ = ['Líquidos', 'Ilíquidos'] as const
 
 const ANCHO = 420
 const ALTO = 250
@@ -41,27 +49,43 @@ const UTIL = {
 } as const
 
 export function GraficoBenchmark({ matriz }: { readonly matriz: Matriz }) {
+  const porLiquidez = matriz.mirada === 'liquidez'
+
   // Una clase que queda en cero en toda la matriz no merece una columna del
-  // eje: agregaria una categoria para decir que no hay nada.
+  // eje: agregaria una categoria para decir que no hay nada. La liquidez no se
+  // filtra: cero iliquido es un dato, y ademas es el caso interesante.
   const clases = ORDEN_CLASES.filter((clase) =>
     matriz.portafolios.some((p) => p.porClase[clase] / (p.totalUsd || 1) > 0.0005),
   )
-  if (clases.length === 0) return null
+  if (!porLiquidez && clases.length === 0) return null
 
-  const rotular = matriz.perfiles.length < PERFILES_PARA_ROTULAR
+  const categorias: readonly string[] = porLiquidez
+    ? CATEGORIAS_LIQUIDEZ
+    : clases.map((clase) => NOMBRE_CLASE_CORTO[clase])
 
-  const mayor = Math.max(
-    ...matriz.portafolios.flatMap((p) =>
-      clases.map((clase) => p.porClase[clase] / (p.totalUsd || 1)),
-    ),
-  )
+  const valores = (p: Portafolio): readonly number[] =>
+    porLiquidez
+      ? [p.liquidez.liquidoShare, p.liquidez.iliquidoShare]
+      : clases.map((clase) => p.porClase[clase] / (p.totalUsd || 1))
+
+  const nombres: readonly string[] = porLiquidez
+    ? CATEGORIAS_LIQUIDEZ
+    : clases.map((clase) => NOMBRE_CLASE[clase])
+
+  // Con dos categorias las etiquetas no se pisan nunca, asi que la mirada de
+  // liquidez rotula siempre.
+  const rotular = porLiquidez || matriz.perfiles.length < PERFILES_PARA_ROTULAR
+
+  const mayor = Math.max(...matriz.portafolios.flatMap((p) => valores(p)))
   // El techo sube de a diez puntos y deja uno de aire: una curva que toca el
   // borde superior parece cortada.
   const techo = Math.min(1, Math.max(0.1, (Math.floor(mayor * 10) + 2) / 10))
 
   const x = (indice: number) =>
     MARGEN.izquierda +
-    (clases.length === 1 ? UTIL.ancho / 2 : (UTIL.ancho * indice) / (clases.length - 1))
+    (categorias.length === 1
+      ? UTIL.ancho / 2
+      : (UTIL.ancho * indice) / (categorias.length - 1))
   const y = (valor: number) => MARGEN.arriba + UTIL.alto * (1 - valor / techo)
 
   const marcas = Array.from({ length: Math.round(techo * 10) + 1 }, (_, i) => i / 10).filter(
@@ -95,9 +119,9 @@ export function GraficoBenchmark({ matriz }: { readonly matriz: Matriz }) {
                 </g>
               ))}
 
-              {clases.map((clase, indice) => (
-                <text key={clase} x={x(indice)} y={ALTO - 10} className={estilos.marcaX}>
-                  {NOMBRE_CLASE_CORTO[clase]}
+              {categorias.map((categoria, indice) => (
+                <text key={categoria} x={x(indice)} y={ALTO - 10} className={estilos.marcaX}>
+                  {categoria}
                 </text>
               ))}
 
@@ -105,7 +129,8 @@ export function GraficoBenchmark({ matriz }: { readonly matriz: Matriz }) {
                 <Curva
                   key={perfil}
                   perfil={perfil}
-                  clases={clases}
+                  nombres={nombres}
+                  valores={valores}
                   ticket={ticket}
                   matriz={matriz}
                   x={x}
@@ -141,28 +166,44 @@ export function GraficoBenchmark({ matriz }: { readonly matriz: Matriz }) {
 
 interface CurvaProps {
   readonly perfil: Perfil
-  readonly clases: readonly ClaseModelo[]
+  /** Cómo se llama cada punto del eje, para su `title`. */
+  readonly nombres: readonly string[]
+  /** Los valores de un portafolio, en el orden del eje. */
+  readonly valores: (portafolio: Portafolio) => readonly number[]
   readonly ticket: number
   readonly matriz: Matriz
   readonly x: (indice: number) => number
   readonly y: (valor: number) => number
   readonly rotular: boolean
   readonly arriba: boolean
-  /** El borde inferior del area de dibujo, donde empiezan los nombres de clase. */
+  /** El borde inferior del area de dibujo, donde empiezan los nombres del eje. */
   readonly suelo: number
 }
 
-function Curva({ perfil, clases, ticket, matriz, x, y, rotular, arriba, suelo }: CurvaProps) {
+function Curva({
+  perfil,
+  nombres,
+  valores,
+  ticket,
+  matriz,
+  x,
+  y,
+  rotular,
+  arriba,
+  suelo,
+}: CurvaProps) {
   const portafolio = matriz.portafolios.find(
     (p) => p.ticketUsd === ticket && p.perfil === perfil,
   )
   if (portafolio === undefined) return null
 
   const color = colorPerfil(perfil)
-  const puntos = clases.map((clase, indice) => {
-    const valor = participacion(portafolio, clase)
-    return { clase, valor, cx: x(indice), cy: y(valor) }
-  })
+  const puntos = valores(portafolio).map((valor, indice) => ({
+    nombre: nombres[indice] ?? '',
+    valor,
+    cx: x(indice),
+    cy: y(valor),
+  }))
 
   return (
     <g>
@@ -175,10 +216,10 @@ function Curva({ perfil, clases, ticket, matriz, x, y, rotular, arriba, suelo }:
         strokeLinecap="round"
       />
       {puntos.map((p) => (
-        <g key={p.clase}>
+        <g key={p.nombre}>
           <circle cx={p.cx} cy={p.cy} r={3.6} fill={color} className={estilos.punto}>
             <title>
-              {perfil} · {NOMBRE_CLASE[p.clase]}: {pct1(p.valor)}
+              {perfil} · {p.nombre}: {pct1(p.valor)}
             </title>
           </circle>
           {rotular && (
@@ -205,6 +246,3 @@ function desplazamiento(cy: number, arriba: boolean, suelo: number): number {
   return cy > suelo - 14 ? -19 : 15
 }
 
-/** Lo que pesa una clase en el portafolio. La misma cuenta que la tabla. */
-const participacion = (portafolio: Portafolio, clase: ClaseModelo): number =>
-  portafolio.porClase[clase] / (portafolio.totalUsd || 1)

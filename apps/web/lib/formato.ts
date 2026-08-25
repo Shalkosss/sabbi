@@ -29,6 +29,40 @@ export const pct = (fraccion: number | null): string =>
 /** Número tal cual para un input: sin separadores, que rompen el parseo. */
 export const paraInput = (valor: number | null): string => (valor === null ? '' : String(valor))
 
+const MONTO_EDITABLE = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+
+/**
+ * Un monto como se escribe en un campo de dinero: `20,000`.
+ *
+ * Con separador de miles y sin símbolo — el símbolo va al lado del campo, no
+ * adentro, para que nunca entre al parseo. `123250` a secas se lee mal: hay
+ * que contar los dígitos para saber si son ciento veintitrés mil o un millón.
+ *
+ * Solo se muestra cuando el campo no está enfocado; mientras se teclea manda
+ * lo tecleado. Ver `CampoNumero`.
+ */
+export const montoEditable = (valor: number | null): string =>
+  valor === null ? '' : MONTO_EDITABLE.format(valor)
+
+/**
+ * Lee lo que el asesor tecleó en un campo de dinero.
+ *
+ * La coma es separador de miles y el punto es el decimal, que es el formato en
+ * el que la aplicación muestra todos sus montos. `desdeInput` no sirve acá:
+ * convierte la primera coma en punto, así que `20,000` volvía como 20.
+ *
+ * Un campo vacío es `null` y no cero: son cosas distintas — cero es un monto
+ * que el asesor eligió, vacío es uno que todavía no escribió.
+ */
+export function desdeMonto(texto: string): number | null {
+  // Todo lo que no sea digito, punto o signo se va: eso incluye las comas de
+  // miles, el simbolo y los espacios.
+  const limpio = texto.replace(/[^\d.-]/g, '')
+  if (limpio.trim() === '') return null
+  const numero = Number.parseFloat(limpio)
+  return Number.isFinite(numero) ? numero : null
+}
+
 /** Lee lo que el asesor tecleó en un input numérico. Vacío es `null`. */
 export function desdeInput(texto: string): number | null {
   const limpio = texto.replace(/[^\d.,-]/g, '').replace(',', '.')

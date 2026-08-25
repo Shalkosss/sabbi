@@ -1,0 +1,51 @@
+/*
+ * Las dos miradas de la matriz.
+ *
+ * Mismo aspecto que las pestanas de la propuesta: es el mismo gesto —cambiar
+ * de corte sobre el mismo dato— y darle otra forma en cada pantalla obligaria
+ * a aprenderlo dos veces.
+ */
+
+.selector {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 14px;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+}
+
+.selector[data-pendiente] {
+  opacity: 0.55;
+}
+
+.pestana {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--tinta-3);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.pestana:hover {
+  color: var(--tinta);
+}
+
+.pestana:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--anillo);
+}
+
+.activa {
+  background: var(--superficie);
+  color: var(--tinta);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--sombra-tinte);
+}

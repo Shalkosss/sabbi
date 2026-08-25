@@ -21,20 +21,23 @@ import estilos from './Vistas.module.css'
 /**
  * Las miradas de la propuesta, una a la vez.
  *
- * La primera es el portafolio de hoy: qué tiene el cliente y qué rentabilidad
- * ya genera. La segunda es el antes y el después con el portafolio Sabbi —
- * la historia completa sin decirle a nadie qué mover a dónde. El detalle por
- * subclase se abre por fila, para que la primera lectura sea de siete líneas
- * y no de setenta.
+ * La primera es la que se abre: el portafolio de hoy y el objetivo, uno al
+ * lado del otro y fila contra fila. Es la lectura que no pide nada — se ven
+ * las dos formas juntas y el cambio salta sin que nadie tenga que restar. Las
+ * dos columnas comparten las mismas siete clases en el mismo orden, así que
+ * comparar es mirar en horizontal.
+ *
+ * La segunda sí resta: el antes contra el después con su delta en puntos, el
+ * detalle por subclase y la rentabilidad de cada lado. Es la que se usa para
+ * explicar, no para mirar.
  *
  * La tercera solo existe cuando el asesor ajustó algo, y es para él: los dos
  * portafolios objetivo lado a lado — el que sale del modelo y el que sale de
  * sus ajustes — contra la foto de la ficha. Sin ella un ajuste no se puede
- * explicar, solo creer. No es la que se abre primero: la historia del cliente
- * sigue siendo el antes contra el después.
+ * explicar, solo creer.
  */
 export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
-  const [mirada, setMirada] = useState<'hoy' | 'comparativo' | 'ajuste'>('comparativo')
+  const [mirada, setMirada] = useState<'lado' | 'comparativo' | 'ajuste'>('lado')
   const dos = propuesta.dosPortafolios
 
   const pestana = (valor: typeof mirada, texto: string) => (
@@ -52,12 +55,14 @@ export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
   return (
     <section aria-label="Las miradas del portafolio">
       <div className={estilos.selector} role="tablist" aria-label="Elegir mirada">
-        {pestana('hoy', 'Tu portafolio hoy')}
+        {pestana('lado', 'Hoy y objetivo')}
         {pestana('comparativo', 'Hoy contra Sabbi')}
         {dos !== null && pestana('ajuste', 'Los dos portafolios')}
       </div>
 
-      {mirada === 'hoy' && <PanelHoy vista={propuesta.vistaHoy} />}
+      {mirada === 'lado' && (
+        <PanelLadoALado vista={propuesta.comparativa} hoy={propuesta.vistaHoy} />
+      )}
       {mirada === 'comparativo' && <PanelComparativo vista={propuesta.comparativa} />}
       {mirada === 'ajuste' && dos !== null && <PanelDosPortafolios vista={dos} />}
     </section>
@@ -79,76 +84,144 @@ function notaCobertura(
   return `La rentabilidad de ${contexto} se calcula sobre el ${pct1(rentabilidad.cobertura)} del dinero que tiene retorno conocido.`
 }
 
-// ── Mirada 1: hoy ─────────────────────────────────────────────────────────
+// ── Mirada 1: hoy y objetivo, uno al lado del otro ────────────────────────
 
-function PanelHoy({ vista }: { readonly vista: VistaHoy }) {
-  const nota = notaCobertura(vista.rentabilidad, 'tu portafolio actual')
+/**
+ * Las dos fotos juntas, fila contra fila.
+ *
+ * Sale de la misma vista comparativa que la mirada 2 —no de una segunda
+ * cuenta— y solo cambia cómo se dispone: en vez de una fila con los dos
+ * valores y su delta, dos columnas con las mismas siete clases en el mismo
+ * orden. La barra de cada lado se mide contra el 100% de su portafolio, así
+ * que el ancho es comparable de una columna a la otra.
+ *
+ * Sin instrumentos: son setenta líneas y esta es la primera lectura. El
+ * detalle instrumento por instrumento está en la mirada de al lado y en el
+ * bloque de trabajo de más abajo.
+ */
+function PanelLadoALado({
+  vista,
+  hoy,
+}: {
+  readonly vista: VistaComparativa
+  readonly hoy: VistaHoy
+}) {
+  const notas = [
+    notaCobertura(vista.rentabilidadAntes, 'tu portafolio actual'),
+    notaCobertura(vista.rentabilidadDespues, 'el portafolio propuesto'),
+  ].filter((n): n is string => n !== null)
 
   return (
-    <div role="tabpanel" aria-label="Tu portafolio hoy">
+    <div role="tabpanel" aria-label="Tu portafolio hoy y el objetivo">
       <div className={estilos.cifras}>
         <div className={estilos.cifra}>
           <span>Patrimonio invertible</span>
-          <b>{usdTabla(vista.totalUsd)}</b>
+          <b>{usdTabla(hoy.totalUsd)}</b>
+          <span className={estilos.cifraNota}>el mismo dinero en los dos</span>
         </div>
-        <div className={estilos.cifra}>
-          <span>Rentabilidad estimada hoy</span>
-          <b>{rent(vista.rentabilidad)}</b>
-          {vista.rentabilidad !== null && vista.rentabilidad.cobertura < 0.995 && (
-            <span className={estilos.cifraNota}>
-              sobre el {pct1(vista.rentabilidad.cobertura)} con dato
+        <div className={`${estilos.cifra} ${estilos.cifraAcento}`}>
+          <span>Rentabilidad estimada</span>
+          <div className={estilos.transicion}>
+            <span className={`mono ${estilos.antes}`}>{rent(vista.rentabilidadAntes)}</span>
+            <span className={estilos.flecha} aria-hidden="true">
+              →
             </span>
-          )}
+            <b>{rent(vista.rentabilidadDespues)}</b>
+          </div>
+          <span className={estilos.cifraNota}>hoy → objetivo</span>
         </div>
         <div className={estilos.cifra}>
           <span>Renta anual estimada</span>
-          <b>{rangoUsd(vista.rentaAnualUsd)}</b>
+          <div className={estilos.transicion}>
+            <span className={`mono ${estilos.antes}`}>{rangoUsd(vista.rentaAnualAntesUsd)}</span>
+            <span className={estilos.flecha} aria-hidden="true">
+              →
+            </span>
+            <b>{rangoUsd(vista.rentaAnualDespuesUsd)}</b>
+          </div>
+          <span className={estilos.cifraNota}>hoy → objetivo</span>
         </div>
       </div>
 
-      <div className={estilos.lista}>
-        {vista.filas.map((fila) => (
-          <FilaHoy key={fila.clase} fila={fila} />
-        ))}
+      <div className={estilos.columnas}>
+        <ColumnaPortafolio
+          titulo="Tu portafolio hoy"
+          totalUsd={vista.totalAntesUsd}
+          filas={vista.filas.map((f) => ({
+            clase: f.clase,
+            usd: f.antesUsd,
+            share: f.antesShare,
+          }))}
+          esObjetivo={false}
+        />
+        <ColumnaPortafolio
+          titulo="El portafolio objetivo"
+          totalUsd={vista.totalDespuesUsd}
+          filas={vista.filas.map((f) => ({
+            clase: f.clase,
+            usd: f.despuesUsd,
+            share: f.despuesShare,
+          }))}
+          esObjetivo
+        />
       </div>
 
-      {nota !== null && <p className={estilos.notaCobertura}>{nota}</p>}
+      {notas.map((nota) => (
+        <p key={nota} className={estilos.notaCobertura}>
+          {nota}
+        </p>
+      ))}
     </div>
   )
 }
 
-/**
- * La pista siempre vale el 100% del portafolio.
- *
- * Escalar al mayor haría que la clase más grande llenara la barra sea cual sea
- * su peso: un 12% se vería lleno. La proporción tiene que leerse contra el
- * total, no contra la vecina.
- */
-function FilaHoy({ fila }: { readonly fila: FilaVistaClase }) {
+interface FilaLado {
+  readonly clase: FilaVistaClase['clase']
+  readonly usd: number
+  readonly share: number
+}
+
+function ColumnaPortafolio({
+  titulo,
+  totalUsd,
+  filas,
+  esObjetivo,
+}: {
+  readonly titulo: string
+  readonly totalUsd: number
+  readonly filas: readonly FilaLado[]
+  readonly esObjetivo: boolean
+}) {
   return (
-    <details className={estilos.fila}>
-      <summary>
-        <div className={estilos.encabezado}>
-          <span className={`${estilos.punto} ${estilos[`punto_${fila.clase}`] ?? ''}`} />
-          <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
-          <span className={estilos.montoClase}>{usdTabla(fila.usd)}</span>
-          <span className={estilos.shareClase}>{pct1(fila.share)}</span>
-          <span className={estilos.rentClase} title="Rentabilidad estimada de la clase">
-            {rent(fila.rentabilidad)}
-          </span>
-          <Chevron />
-        </div>
-        <div className={estilos.pista}>
-          <div
-            className={`${estilos.barra} ${estilos[`barra_${fila.clase}`] ?? ''}`}
-            style={{ width: `${fila.share * 100}%` }}
-          />
-        </div>
-      </summary>
-      <div className={estilos.detalle}>
-        <Subfilas subfilas={fila.subfilas} />
+    <section className={estilos.columna}>
+      <header className={estilos.columnaCabecera}>
+        <h3>{titulo}</h3>
+        <b className="mono">{usdTabla(totalUsd)}</b>
+      </header>
+
+      <div className={estilos.lista}>
+        {filas.map((fila) => (
+          <div key={fila.clase} className={estilos.filaLado}>
+            <div className={estilos.encabezado}>
+              <span className={`${estilos.punto} ${estilos[`punto_${fila.clase}`] ?? ''}`} />
+              <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
+              <span className={estilos.montoClase}>{usdTabla(fila.usd)}</span>
+              <span className={estilos.shareClase}>{pct1(fila.share)}</span>
+            </div>
+            <div className={estilos.pista}>
+              <div
+                className={
+                  esObjetivo
+                    ? `${estilos.barra} ${estilos[`barra_${fila.clase}`] ?? ''}`
+                    : estilos.barraAntes
+                }
+                style={{ width: `${fila.share * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
       </div>
-    </details>
+    </section>
   )
 }
 

@@ -31,7 +31,22 @@ interface Props {
   readonly quitarActivo: (id: string) => void
 }
 
+/**
+ * Las decisiones que se pueden tomar en lote.
+ *
+ * Vender parte y venta condicionada quedan fuera a propósito: las dos piden un
+ * dato por fila —el monto, el reparto— y aplicarlas a doce posiciones dejaría
+ * doce decisiones a medio llenar que después hay que abrir una por una. Se
+ * marcan donde se completan.
+ */
+const CTAS_EN_LOTE: readonly { readonly valor: Cta; readonly texto: string }[] = [
+  { valor: 'conservar', texto: 'Conservar' },
+  { valor: 'venta_total', texto: 'Vender' },
+  { valor: 'sin_marcar', texto: 'Sin marcar' },
+]
+
 const COLUMNAS = [
+  { texto: '', clase: estilos.colSel, alinea: undefined },
   { texto: '', clase: estilos.colIndice, alinea: estilos.derecha },
   { texto: 'Institución y producto', clase: estilos.colNombre, alinea: undefined },
   { texto: 'Clase', clase: estilos.colClase, alinea: undefined },
@@ -60,6 +75,7 @@ export function TablaPosiciones({
   quitarActivo,
 }: Props) {
   const [abierta, setAbierta] = useState<string | null>(null)
+  const [elegidas, setElegidas] = useState<ReadonlySet<string>>(new Set())
   const listaId = useId()
   const claseDeProducto = new Map(productos.map((producto) => [producto.nombre, producto.clase]))
 
@@ -69,6 +85,39 @@ export function TablaPosiciones({
     const delCatalogo = claseDeProducto.get(nombre) ?? null
     cambiarActivo({ ...activo, nombre, clase: delCatalogo ?? activo.clase })
   }
+
+  // La selección vive en la tabla y no en el estado de la revisión: no se
+  // guarda, no viaja a la base y se pierde al recargar, que es exactamente lo
+  // que uno espera de haber marcado unas filas para hacerles algo.
+  const elegir = (id: string, elegida: boolean) =>
+    setElegidas((previas) => {
+      const siguiente = new Set(previas)
+      if (elegida) siguiente.add(id)
+      else siguiente.delete(id)
+      return siguiente
+    })
+
+  const todas = elegidas.size > 0 && elegidas.size === posiciones.length
+  const alternarTodas = () =>
+    setElegidas(todas ? new Set() : new Set(posiciones.map((posicion) => posicion.id)))
+
+  const enLote = posiciones.filter((posicion) => elegidas.has(posicion.id))
+
+  const asignarClase = (clase: ClaseModelo) => {
+    for (const posicion of enLote) editar(posicion.id, { claseModelo: clase })
+  }
+
+  // Una posición fuera del cálculo no tiene decisión —la fila dice «no
+  // aplica»—, así que el lote la saltea en vez de escribirle una que la
+  // pantalla no muestra.
+  const asignarCta = (cta: Cta) => {
+    for (const posicion of enLote) {
+      if (posicion.esInvertible) marcar(posicion.id, cta)
+    }
+  }
+
+  const sinClase = enLote.filter((posicion) => posicion.claseModelo === null).length
+  const fueraDelCalculo = enLote.filter((posicion) => !posicion.esInvertible).length
 
   const financieras = posiciones.filter((posicion) => posicion.origen === 'financiero').length
   const inmuebles = posiciones.length - financieras
@@ -87,6 +136,62 @@ export function TablaPosiciones({
         </p>
       </div>
 
+      {elegidas.size > 0 && (
+        <div className={estilos.lote} role="group" aria-label="Acciones sobre las filas elegidas">
+          <span className={estilos.loteConteo}>
+            {plural(elegidas.size, 'fila elegida', 'filas elegidas')}
+            {sinClase > 0 && <span className={estilos.loteNota}> · {sinClase} sin clase</span>}
+          </span>
+
+          <select
+            className={estilos.loteSelector}
+            value=""
+            aria-label="Asignar una clase a todas las filas elegidas"
+            onChange={(e) => {
+              if (e.target.value !== '') asignarClase(e.target.value as ClaseModelo)
+            }}
+          >
+            <option value="">Asignar clase…</option>
+            {CLASES.map((clase) => (
+              <option key={clase} value={clase}>
+                {NOMBRE_CLASE_CORTO[clase]}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className={estilos.loteSelector}
+            value=""
+            aria-label="Marcar una decisión en todas las filas elegidas"
+            onChange={(e) => {
+              if (e.target.value !== '') asignarCta(e.target.value as Cta)
+            }}
+          >
+            <option value="">Marcar decisión…</option>
+            {CTAS_EN_LOTE.map((cta) => (
+              <option key={cta.valor} value={cta.valor}>
+                {cta.texto}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className={estilos.loteLimpiar}
+            onClick={() => setElegidas(new Set())}
+          >
+            soltar la selección
+          </button>
+
+          {fueraDelCalculo > 0 && (
+            <span className={estilos.loteNota}>
+              {plural(fueraDelCalculo, 'fila elegida está', 'filas elegidas están')} fuera del
+              cálculo: la clase sí les entra, la decisión no.
+            </span>
+          )}
+        </div>
+      )}
+
       <div className={estilos.envoltorio}>
         <table className={estilos.tabla}>
           <colgroup>
@@ -96,7 +201,15 @@ export function TablaPosiciones({
           </colgroup>
           <thead>
             <tr>
-              {COLUMNAS.map((columna, i) => (
+              <th scope="col" className={estilos.celdaSel}>
+                <input
+                  type="checkbox"
+                  checked={todas}
+                  aria-label={todas ? 'Soltar todas las filas' : 'Elegir todas las filas'}
+                  onChange={alternarTodas}
+                />
+              </th>
+              {COLUMNAS.slice(1).map((columna, i) => (
                 <th key={i} scope="col" className={columna.alinea}>
                   {columna.texto}
                 </th>
@@ -111,6 +224,8 @@ export function TablaPosiciones({
                 productos={productos}
                 abierta={abierta === posicion.id}
                 alternar={() => setAbierta((previa) => (previa === posicion.id ? null : posicion.id))}
+                seleccionada={elegidas.has(posicion.id)}
+                alSeleccionar={(elegida) => elegir(posicion.id, elegida)}
                 editar={(cambios) => editar(posicion.id, cambios)}
                 marcar={(cta) => marcar(posicion.id, cta)}
               />
@@ -130,6 +245,9 @@ export function TablaPosiciones({
 
               {agregados.map((activo) => (
                 <tr key={activo.id} className={estilos.filaAgregado}>
+                  {/* La columna de selección: un activo agregado no es una fila
+                      de la ficha y no entra en las acciones en lote. */}
+                  <td aria-hidden="true" />
                   <td className={estilos.derecha} aria-hidden="true">
                     +
                   </td>

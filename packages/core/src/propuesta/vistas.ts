@@ -46,12 +46,33 @@ export interface RentabilidadPonderada {
   readonly cobertura: number
 }
 
+/**
+ * Cuanto de la renta del portafolio sale de esta parte.
+ *
+ * Es la otra mitad de la pregunta que el peso deja a medias. Cash puede ser el
+ * 16% del dinero y aportar el 2% de la renta; un club deal puede ser el 5% del
+ * dinero y aportar el 15%. Sin esta columna las dos lineas se leen igual de
+ * grandes, y la conversacion con el cliente —de donde viene lo que gana— se
+ * tiene mirando el peso, que no es de donde viene.
+ *
+ * Se calcula sobre el punto medio de cada banda, que es el unico numero con el
+ * que se pueden sumar aportes: una banda no se suma con otra. Y sobre el dinero
+ * que tiene retorno conocido, igual que la rentabilidad de al lado — por eso la
+ * cobertura que ya se muestra vale para las dos.
+ *
+ * `null` cuando nada en el portafolio tiene retorno conocido: sin base, una
+ * parte de la renta no es cero, es una cifra que no se puede afirmar.
+ */
+export type AporteRenta = number | null
+
 export interface SubfilaVista {
   readonly etiqueta: string
   readonly usd: number
   /** Sobre el total del portafolio, no de la clase: se lee contra el 100%. */
   readonly share: number
   readonly rentabilidad: RentabilidadPonderada | null
+  /** Parte de la renta anual del portafolio que sale de esta linea. */
+  readonly aporteRenta: AporteRenta
   /** Solo en el despues: la linea ya la tenia el cliente y se conserva. */
   readonly conservada?: boolean
 }
@@ -61,6 +82,8 @@ export interface FilaVistaClase {
   readonly usd: number
   readonly share: number
   readonly rentabilidad: RentabilidadPonderada | null
+  /** Parte de la renta anual del portafolio que sale de esta clase. */
+  readonly aporteRenta: AporteRenta
   readonly subfilas: readonly SubfilaVista[]
 }
 
@@ -85,6 +108,8 @@ export interface FilaComparativa {
   readonly despuesSub: readonly SubfilaVista[]
   readonly rentabilidadAntes: RentabilidadPonderada | null
   readonly rentabilidadDespues: RentabilidadPonderada | null
+  readonly aporteRentaAntes: AporteRenta
+  readonly aporteRentaDespues: AporteRenta
 }
 
 /** Vista 2: antes contra despues. */
@@ -124,6 +149,25 @@ function ponderar(partes: readonly Ponderable[]): RentabilidadPonderada | null {
 
 const rangoDe = (valor: number | null): Rango | null =>
   valor === null ? null : { min: valor, max: valor }
+
+/**
+ * Renta anual esperada de una parte, en dolares.
+ *
+ * El punto medio de la banda. Es el unico numero de una banda que se puede
+ * sumar con el de otra, y sumarlos es exactamente lo que hace falta para saber
+ * que parte de la renta sale de donde. Lo que no tiene banda no aporta: no se
+ * le supone un retorno para que la cuenta cierre.
+ */
+const rentaDe = (usd: number, rango: Rango | null): number =>
+  rango === null ? 0 : (usd * (rango.min + rango.max)) / 2
+
+/** Un aporte contra la renta total. Sin renta que repartir, no hay aporte. */
+const aporte = (renta: number, rentaTotal: number): AporteRenta =>
+  rentaTotal <= EPS ? null : renta / rentaTotal
+
+/** La renta anual esperada de un conjunto de partes. */
+const rentaTotalDe = (partes: readonly Ponderable[]): number =>
+  partes.reduce((acc, p) => acc + rentaDe(p.usd, p.rango), 0)
 
 const rentaAnual = (
   rentabilidad: RentabilidadPonderada | null,
@@ -166,6 +210,12 @@ export function armarVistaHoy(
   const invertibles = cuentanEnElCalculo(posiciones, incluirInmueblesDeRenta)
   const totalUsd = invertibles.reduce((acc, p) => acc + p.valorUsd, 0)
 
+  const ponderable = (p: PosicionPropuesta) => ({
+    usd: p.valorUsd,
+    rango: rangoDe(p.rendimientoEst),
+  })
+  const rentaTotal = rentaTotalDe(invertibles.map(ponderable))
+
   const filas = ORDEN_CLASES.flatMap((clase): FilaVistaClase[] => {
     const propias = invertibles.filter((p) => p.claseModelo === clase)
     if (propias.length === 0) return []
@@ -185,9 +235,8 @@ export function armarVistaHoy(
           etiqueta,
           usd: usdSub,
           share: share(usdSub, totalUsd),
-          rentabilidad: ponderar(
-            grupo.map((p) => ({ usd: p.valorUsd, rango: rangoDe(p.rendimientoEst) })),
-          ),
+          rentabilidad: ponderar(grupo.map(ponderable)),
+          aporteRenta: aporte(rentaTotalDe(grupo.map(ponderable)), rentaTotal),
         }
       })
       .sort((a, b) => b.usd - a.usd)
@@ -197,17 +246,14 @@ export function armarVistaHoy(
         clase,
         usd,
         share: share(usd, totalUsd),
-        rentabilidad: ponderar(
-          propias.map((p) => ({ usd: p.valorUsd, rango: rangoDe(p.rendimientoEst) })),
-        ),
+        rentabilidad: ponderar(propias.map(ponderable)),
+        aporteRenta: aporte(rentaTotalDe(propias.map(ponderable)), rentaTotal),
         subfilas,
       },
     ]
   })
 
-  const rentabilidad = ponderar(
-    invertibles.map((p) => ({ usd: p.valorUsd, rango: rangoDe(p.rendimientoEst) })),
-  )
+  const rentabilidad = ponderar(invertibles.map(ponderable))
 
   return { filas, totalUsd, rentabilidad, rentaAnualUsd: rentaAnual(rentabilidad, totalUsd) }
 }
@@ -249,6 +295,7 @@ interface LadoDelPlan {
   readonly fijadaEn: (clase: ClaseModelo) => boolean
   readonly subfilasDe: (clase: ClaseModelo) => readonly SubfilaVista[]
   readonly rentabilidadDe: (clase: ClaseModelo) => RentabilidadPonderada | null
+  readonly aporteRentaDe: (clase: ClaseModelo) => AporteRenta
 }
 
 function leerPlan(
@@ -259,9 +306,12 @@ function leerPlan(
   const totalUsd = plan.totalObjetivoUsd
   const lineasDe = (clase: ClaseModelo) => plan.lineas.filter((l) => l.clase === clase)
 
-  const rentabilidad = ponderar(
-    plan.lineas.map((l) => ({ usd: l.usd, rango: rangoDeLinea(l.instrumento) })),
-  )
+  const ponderable = (l: { readonly usd: number; readonly instrumento: string }) => ({
+    usd: l.usd,
+    rango: rangoDeLinea(l.instrumento),
+  })
+  const rentabilidad = ponderar(plan.lineas.map(ponderable))
+  const rentaTotal = rentaTotalDe(plan.lineas.map(ponderable))
 
   return {
     totalUsd,
@@ -278,12 +328,13 @@ function leerPlan(
             usd: l.usd,
             share: share(l.usd, totalUsd),
             rentabilidad: rango === null ? null : { rango, cobertura: 1 },
+            aporteRenta: aporte(rentaDe(l.usd, rango), rentaTotal),
             conservada: conservadas.has(l.instrumento),
           }
         })
         .sort((a, b) => b.usd - a.usd),
-    rentabilidadDe: (clase) =>
-      ponderar(lineasDe(clase).map((l) => ({ usd: l.usd, rango: rangoDeLinea(l.instrumento) }))),
+    rentabilidadDe: (clase) => ponderar(lineasDe(clase).map(ponderable)),
+    aporteRentaDe: (clase) => aporte(rentaTotalDe(lineasDe(clase).map(ponderable)), rentaTotal),
   }
 }
 
@@ -323,6 +374,8 @@ export function armarComparativa(
         despuesSub: despues.subfilasDe(clase),
         rentabilidadAntes: antes?.rentabilidad ?? null,
         rentabilidadDespues: despues.rentabilidadDe(clase),
+        aporteRentaAntes: antes?.aporteRenta ?? null,
+        aporteRentaDespues: despues.aporteRentaDe(clase),
       },
     ]
   })

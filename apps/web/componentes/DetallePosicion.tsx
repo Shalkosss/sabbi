@@ -92,6 +92,9 @@ export function DetallePosicion({ posicion, editar }: Props) {
             />
             {posicion.feePct !== null && <span className={estilos.sufijo}>%</span>}
           </span>
+          <span className={estilos.aclaracion}>
+            se guarda también en el catálogo, para este producto
+          </span>
         </label>
 
         <div className={estilos.campo}>

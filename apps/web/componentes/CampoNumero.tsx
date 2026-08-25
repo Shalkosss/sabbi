@@ -27,6 +27,8 @@ interface Props {
   readonly placeholder?: string
   readonly 'aria-label': string
   readonly 'aria-invalid'?: boolean
+  /** El texto al pasar el mouse. No reemplaza a `aria-label`: lo complementa. */
+  readonly title?: string
 }
 
 export function CampoNumero({ texto, alCambiar, ...resto }: Props) {

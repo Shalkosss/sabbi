@@ -158,10 +158,10 @@
   background: var(--hundido);
 }
 
-/* Cabecera de la fila: punto, nombre, monto, %, rentabilidad, chevron. */
+/* Cabecera de la fila: punto, nombre, monto, %, aporte, rentabilidad, chevron. */
 .encabezado {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto;
+  grid-template-columns: auto 1fr auto auto auto auto auto;
   align-items: baseline;
   gap: 12px;
 }
@@ -193,6 +193,7 @@
 
 .montoClase,
 .shareClase,
+.aporteClase,
 .rentClase {
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
@@ -215,6 +216,14 @@
 .rentClase {
   color: var(--tinta-3);
   min-width: 96px;
+}
+
+/* De donde sale lo que el portafolio gana. Se lee al lado del peso porque la
+   gracia es la diferencia entre los dos: cash puede ser el 16% del dinero y el
+   2% de la renta. */
+.aporteClase {
+  color: var(--tinta-3);
+  min-width: 56px;
 }
 
 .chevron {
@@ -310,7 +319,7 @@
 
 .subfila {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto auto auto;
   gap: 12px;
   align-items: baseline;
   padding: 6px 0;
@@ -331,6 +340,7 @@
 
 .subMonto,
 .subShare,
+.subAporte,
 .subRent {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -340,6 +350,7 @@
 
 .subMonto { color: var(--tinta-2); min-width: 92px; }
 .subShare { color: var(--tinta-3); min-width: 48px; }
+.subAporte { color: var(--tinta-3); min-width: 48px; }
 .subRent { color: var(--tinta-3); min-width: 92px; }
 
 .marcaConservada {
@@ -583,7 +594,7 @@
    mantiene las dos columnas alineadas fila contra fila, que es lo unico que
    esta vista aporta sobre leerlas por separado. */
 .conMovimiento {
-  grid-template-columns: auto 1fr auto auto auto;
+  grid-template-columns: auto 1fr auto auto auto auto;
 }
 
 .movimiento {

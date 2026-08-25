@@ -213,6 +213,55 @@ export const aRevisadas = (posiciones: readonly PosicionEditada[]): readonly Pos
     destinos: posicion.destinos ?? [],
   }))
 
+/**
+ * Los avisos que todavía valen, mirando el estado de ahora.
+ *
+ * `parse_warnings` es una foto de lo que el parser vio al subir la ficha, y se
+ * guarda así a propósito: es el registro de qué leyó la máquina y qué arregló
+ * una persona. Pero mostrarla tal cual convierte cada aviso en permanente. El
+ * asesor le asigna la clase a «AMX», y el cartel de «no pude clasificar AMX»
+ * sigue ahí — pidiéndole que haga lo que acaba de hacer, y tapando los avisos
+ * que sí quedan por resolver.
+ *
+ * Cada aviso trae la fila de la que salió. Se busca esa posición y se pregunta
+ * si el motivo del aviso sigue en pie: la clase ya está puesta, el rendimiento
+ * ya lo corrigió alguien, la moneda ya la eligió. El que no se puede
+ * comprobar —o cuya fila ya no está— se muestra: callar un aviso que no
+ * sabemos si se resolvió es peor que repetir uno resuelto.
+ */
+export function avisosVigentes(
+  avisos: readonly Aviso[],
+  posiciones: readonly PosicionEditada[],
+): readonly Aviso[] {
+  const porFila = new Map(posiciones.map((posicion) => [posicion.fila, posicion]))
+
+  return avisos.filter((aviso) => {
+    if (aviso.fila === undefined) return true
+    const posicion = porFila.get(aviso.fila)
+    if (posicion === undefined) return true
+
+    const corrigio = (campo: string) => posicion.camposEditados.includes(campo)
+
+    switch (aviso.codigo) {
+      // El unico que se puede comprobar contra el dato y no contra la marca de
+      // edicion: la clase esta puesta o no lo esta, la haya puesto el parser
+      // en una segunda pasada o una persona.
+      case 'clase_sin_resolver':
+        return posicion.claseModelo === null
+      // Estos dicen «revisá esto», y revisarlo es tocarlo. Dejar de mostrarlos
+      // porque el valor cambio solo seria callarlos sin que nadie los mirara.
+      case 'clase_inferida':
+        return !corrigio('claseModelo') && !corrigio('assetClass')
+      case 'rendimiento_dudoso':
+        return !corrigio('rendimientoEst')
+      case 'moneda_desconocida':
+        return !corrigio('moneda')
+      default:
+        return true
+    }
+  })
+}
+
 /** Una venta parcial por encima de la posición no se puede guardar: la base la rechaza. */
 export const ventaParcialInvalida = (posicion: PosicionEditada): boolean =>
   posicion.cta === 'venta_parcial' && posicion.montoVentaParcial > posicion.valorUsd

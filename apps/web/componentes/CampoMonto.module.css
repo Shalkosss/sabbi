@@ -1,0 +1,48 @@
+/*
+ * El campo de dinero.
+ *
+ * El input y su unidad son una sola caja: el borde rodea a los dos y el foco
+ * los ilumina juntos. Con el «USD» afuera de la caja el campo se lee como si
+ * la unidad fuera de otra cosa.
+ */
+
+.campo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 0;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  min-width: 0;
+}
+
+.campo:focus-within {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+}
+
+.entrada {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 5px 0 5px 9px;
+  font-size: 13px;
+  color: var(--tinta);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.entrada:focus {
+  outline: none;
+}
+
+/* La unidad no compite con la cifra: dice en qué está, no cuánto es. */
+.unidad {
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--tinta-4);
+  flex: none;
+}

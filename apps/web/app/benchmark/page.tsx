@@ -1,7 +1,12 @@
 import { Benchmark } from '../../componentes/Benchmark'
 import { Marco } from '../../componentes/Marco'
 import { SinAsesor } from '../../componentes/SinAsesor'
-import { matrizDeBenchmark, perfilesDeLaUrl, reglasDeLaUrl } from '../../lib/benchmark'
+import {
+  matrizDeBenchmark,
+  miradaDeLaUrl,
+  perfilesDeLaUrl,
+  reglasDeLaUrl,
+} from '../../lib/benchmark'
 import { macroActiva } from '../../lib/datos/macro'
 import { asesorActual } from '../../lib/supabase/servidor'
 
@@ -34,6 +39,7 @@ export default async function Pagina({
           activa.macro,
           reglasDeLaUrl(parametros, activa.macro),
           perfilesDeLaUrl(parametros),
+          miradaDeLaUrl(parametros),
           activa.esDeFabrica,
         )}
         problemaDeMacro={activa.problema}

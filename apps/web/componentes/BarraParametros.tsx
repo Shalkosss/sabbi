@@ -3,7 +3,6 @@
 import { useId, useState } from 'react'
 
 import type { Parametros } from '../lib/estado'
-import { usdCorto } from '../lib/formato'
 import { PanelParametros } from './PanelParametros'
 import estilos from './BarraParametros.module.css'
 
@@ -15,18 +14,17 @@ interface Props {
   readonly flujoDeclarado: string | null
 }
 
-const INSTITUCIONAL: Readonly<Record<string, string>> = {
-  auto: 'Automático',
-  si: 'Sí califica',
-  no: 'No califica',
-}
-
 /**
  * Los parametros, plegados.
  *
- * Se tocan una vez por propuesta y despues estorban, pero olvidarse de que el
- * perfil quedo en Moderado arruina el plan entero. Asi que quedan siempre a la
- * vista en una linea, y solo se abren cuando hay algo que cambiar.
+ * Se tocan una vez por propuesta y despues estorban. La linea llegó a listar
+ * los seis —flujos, institucional, colchon, ticket— y ninguno de esos cinco se
+ * mira dos veces: son estado, no informacion, y ocupaban el ancho entero de la
+ * pantalla antes de la primera fila de la ficha.
+ *
+ * Queda el perfil, que es el unico que cambia el plan entero si quedo mal, y
+ * el aviso de US person, que lo bloquea. El resto vive detras de «Ajustar»,
+ * que es cuando se lo va a buscar.
  */
 export function BarraParametros({
   parametros,
@@ -38,27 +36,25 @@ export function BarraParametros({
   const [abierto, setAbierto] = useState(false)
   const panelId = useId()
 
-  const resumen = [
-    { etiqueta: 'Perfil', valor: parametros.perfil },
-    { etiqueta: 'Flujos', valor: parametros.necesitaFlujos ? 'Sí' : 'No' },
-    { etiqueta: 'Institucional', valor: INSTITUCIONAL[parametros.institucional] ?? '—' },
-    { etiqueta: 'Colchón', valor: usdCorto(parametros.colchonLiquidezUsd) },
-    { etiqueta: 'ETF mínimo', valor: usdCorto(parametros.ticketMinimoUsd) },
-    ...(parametros.usPerson ? [{ etiqueta: 'US person', valor: 'Sí' }] : []),
-  ]
-
   return (
     <section className={estilos.bloque} aria-label="Parámetros de la propuesta">
       <div className={estilos.barra}>
         <p className={estilos.titulo}>Parámetros</p>
 
         <div className={estilos.valores}>
-          {resumen.map((par) => (
-            <span key={par.etiqueta} className={estilos.par}>
-              <span className={estilos.etiqueta}>{par.etiqueta}</span>
-              <span className={estilos.valor}>{par.valor}</span>
-            </span>
-          ))}
+          <span className={estilos.par}>
+            <span className={estilos.etiqueta}>Perfil</span>
+            <span className={estilos.valor}>{parametros.perfil}</span>
+          </span>
+
+          {/*
+            US person no es un parámetro más: bloquea el plan automático. Si
+            está puesto no puede quedar detrás de un botón, porque explica por
+            qué la propuesta no sale.
+          */}
+          {parametros.usPerson && (
+            <span className={estilos.bloqueo}>US person — el plan automático no aplica</span>
+          )}
         </div>
 
         <button

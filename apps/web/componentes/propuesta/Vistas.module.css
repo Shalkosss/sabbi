@@ -477,3 +477,65 @@
   padding: 1px 7px;
   vertical-align: middle;
 }
+
+/* ── Hoy y objetivo, uno al lado del otro ──────────────────────────────── */
+
+.columnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+/* Debajo de esto las dos columnas dejan de entrar sin que el nombre de la
+   clase se parta, y apiladas siguen leyendose: primero hoy, despues el
+   objetivo, que es el orden de la historia. */
+@media (max-width: 900px) {
+  .columnas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.columna {
+  min-width: 0;
+}
+
+.columnaCabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px 8px;
+}
+
+.columnaCabecera h3 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  margin: 0;
+}
+
+.columnaCabecera b {
+  font-size: 14px;
+  color: var(--tinta);
+}
+
+/* Sin `summary`: en esta mirada las filas no se abren. El detalle por
+   instrumento esta en la mirada de al lado, y hacer que una columna crezca
+   rompe la alineacion contra la otra, que es lo unico que esta vista aporta. */
+.filaLado {
+  padding: 11px 18px 10px;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.filaLado:last-child {
+  border-bottom: none;
+}
+
+/* La cabecera de la fila aca no lleva chevron ni rentabilidad: son cuatro
+   columnas, no seis. */
+.filaLado .encabezado {
+  grid-template-columns: auto 1fr auto auto;
+}

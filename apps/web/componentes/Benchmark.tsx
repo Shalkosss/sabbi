@@ -2,6 +2,7 @@ import type { Matriz, Portafolio } from '../lib/benchmark'
 import { pct1, plural, usdCentavos, usdTabla } from '../lib/formato'
 import { bandaPerfil } from '../lib/perfiles'
 import { GraficoBenchmark } from './GraficoBenchmark'
+import { SelectorMirada } from './SelectorMirada'
 import { SelectorPerfiles } from './SelectorPerfiles'
 import estilos from './Benchmark.module.css'
 
@@ -128,6 +129,18 @@ export function Benchmark({
         <b>{pct1(0.1899)}</b>. Casi siete puntos, con el mismo benchmark y el mismo ticket.
       </p>
 
+      <SelectorMirada puesta={matriz.mirada} />
+
+      {matriz.mirada === 'liquidez' && (
+        <p className={estilos.nota}>
+          Ilíquido es lo que no se puede vender cuando uno quiere:{' '}
+          <b>Mercados Privados</b> y <b>Club Deals</b>, que tienen plazo de permanencia y ventana
+          de salida. Todo lo demás —ETFs, cash, oro, BTC y el inmobiliario, que se vende aunque
+          tarde— entra como líquido. Es el mismo dinero de la mirada por clase, sumado de otra
+          manera.
+        </p>
+      )}
+
       <GraficoBenchmark matriz={matriz} />
 
       <div className={estilos.columnas} data-columnas={matriz.tickets.length}>
@@ -141,7 +154,10 @@ export function Benchmark({
               const portafolio = matriz.portafolios.find(
                 (p) => p.ticketUsd === ticket && p.perfil === perfil,
               )
-              return portafolio === undefined ? null : (
+              if (portafolio === undefined) return null
+              return matriz.mirada === 'liquidez' ? (
+                <TarjetaLiquidez key={perfil} portafolio={portafolio} />
+              ) : (
                 <TarjetaPerfil key={perfil} portafolio={portafolio} />
               )
             })}
@@ -237,6 +253,84 @@ function TarjetaPerfil({ portafolio }: { readonly portafolio: Portafolio }) {
           </ul>
         </details>
       )}
+    </figure>
+  )
+}
+
+/**
+ * El mismo portafolio partido en dos: lo que se vende cuando uno quiere y lo
+ * que no.
+ *
+ * Dos filas y un total, que es toda la tabla que esta pregunta necesita. Sale
+ * de sumar las mismas clases que la otra mirada — no de una segunda corrida —
+ * así que las dos vistas cierran contra el mismo total por construcción.
+ */
+function TarjetaLiquidez({ portafolio }: { readonly portafolio: Portafolio }) {
+  const { liquidez } = portafolio
+
+  const filas = [
+    { nombre: 'Líquidos', usd: liquidez.liquidoUsd, share: liquidez.liquidoShare, esIliquido: false },
+    {
+      nombre: 'Ilíquidos',
+      usd: liquidez.iliquidoUsd,
+      share: liquidez.iliquidoShare,
+      esIliquido: true,
+    },
+  ]
+
+  return (
+    <figure className={estilos.tarjeta}>
+      <table className={estilos.tabla}>
+        <thead>
+          <tr style={{ background: bandaPerfil(portafolio.perfil) }}>
+            <th scope="col">Liquidez</th>
+            <th scope="col" className={estilos.num}>
+              {portafolio.perfil}
+            </th>
+            <th scope="col" className={estilos.num}>
+              %
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {filas.map((fila) => (
+            <tr key={fila.nombre} className={estilos.filaClase}>
+              <th scope="row">
+                <span
+                  className={`${estilos.puntoLiquidez} ${fila.esIliquido ? estilos.iliquido : estilos.liquido}`}
+                  aria-hidden="true"
+                />
+                {fila.nombre}
+              </th>
+              <td className={`${estilos.num} mono`}>{usdCentavos(fila.usd)}</td>
+              <td className={estilos.num}>{pct1(fila.share)}</td>
+            </tr>
+          ))}
+
+          {/*
+            Qué clases componen el ilíquido, para no tener que confiar en la
+            palabra: son las dos que el modelo llama Privados y Club Deals.
+          */}
+          {portafolio.bloques
+            .filter((bloque) => bloque.clase === 'privados' || bloque.clase === 'club')
+            .map((bloque) => (
+              <tr key={bloque.clase} className={estilos.filaLinea}>
+                <td>{bloque.nombre}</td>
+                <td className={`${estilos.num} mono`}>{usdCentavos(bloque.usd)}</td>
+                <td className={estilos.num}>{pct1(bloque.share)}</td>
+              </tr>
+            ))}
+        </tbody>
+
+        <tfoot>
+          <tr>
+            <th scope="row">Total del Portafolio</th>
+            <td className={`${estilos.num} mono`}>{usdCentavos(portafolio.totalUsd)}</td>
+            <td className={estilos.num}>{pct1(portafolio.totalUsd > 0 ? 1 : 0)}</td>
+          </tr>
+        </tfoot>
+      </table>
     </figure>
   )
 }

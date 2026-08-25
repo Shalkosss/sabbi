@@ -88,6 +88,23 @@ export interface FilaInstrumento {
   readonly nota: string | null
 }
 
+/**
+ * Las dos clases que no se pueden vender cuando uno quiere.
+ *
+ * Mercados Privados y Club Deals tienen plazos de permanencia y ventanas de
+ * salida; las demas se liquidan en dias. Es el corte que la mesa mira antes
+ * que ningun otro, porque decide si el portafolio aguanta un imprevisto — y
+ * no coincide con ninguna de las siete clases, asi que hay que sumarlo aparte.
+ */
+export const CLASES_ILIQUIDAS: ReadonlySet<ClaseModelo> = new Set(['privados', 'club'])
+
+export interface Liquidez {
+  readonly liquidoUsd: number
+  readonly iliquidoUsd: number
+  readonly liquidoShare: number
+  readonly iliquidoShare: number
+}
+
 export interface BloqueClase {
   readonly clase: ClaseModelo
   readonly nombre: string
@@ -108,11 +125,27 @@ export interface Portafolio {
    * de la fila no diga mejor, y son la mitad de la tabla en los tickets bajos.
    */
   readonly bloques: readonly BloqueClase[]
+  /**
+   * El mismo portafolio partido en dos: lo que se puede vender y lo que no.
+   *
+   * Sale de sumar las mismas clases, no de una segunda corrida: la vista de
+   * liquidez y la de clases tienen que decir lo mismo o una de las dos miente.
+   */
+  readonly liquidez: Liquidez
   /** Lo que el motor decidió y hay que poder leer: mínimos, derivaciones. */
   readonly avisos: readonly string[]
   /** Suma de las líneas. Tiene que ser el ticket. */
   readonly totalUsd: number
 }
+
+/**
+ * Como se mira la matriz.
+ *
+ * `clase` es el reparto entre las siete clases del modelo. `liquidez` es el
+ * mismo dinero partido en dos — lo que se puede vender y lo que no — que es
+ * la pregunta que la mesa hace antes de mirar ninguna clase.
+ */
+export type Mirada = 'clase' | 'liquidez'
 
 export interface Matriz {
   readonly portafolios: readonly Portafolio[]
@@ -126,6 +159,8 @@ export interface Matriz {
   readonly versionMacro: number
   /** `true` cuando la base no tiene macro guardada y corre la de fábrica. */
   readonly esDeFabrica: boolean
+  /** Cuál de las dos miradas está puesta. */
+  readonly mirada: Mirada
 }
 
 const CLASES_VACIAS: Readonly<Record<ClaseModelo, number>> = {
@@ -195,7 +230,26 @@ function correr(ticketUsd: number, perfil: Perfil, macro: Macro, reglas: Reglas)
     }),
   )
 
-  return { ticketUsd, perfil, porClase, bloques, avisos: plan.avisos, totalUsd: total }
+  const iliquidoUsd = ORDEN.reduce(
+    (acc, clase) => (CLASES_ILIQUIDAS.has(clase) ? acc + porClase[clase] : acc),
+    0,
+  )
+  const liquidoUsd = total - iliquidoUsd
+
+  return {
+    ticketUsd,
+    perfil,
+    porClase,
+    bloques,
+    liquidez: {
+      liquidoUsd,
+      iliquidoUsd,
+      liquidoShare: share(liquidoUsd),
+      iliquidoShare: share(iliquidoUsd),
+    },
+    avisos: plan.avisos,
+    totalUsd: total,
+  }
 }
 
 /** La matriz: cada ticket contra cada perfil elegido, con estas palancas. */
@@ -203,6 +257,7 @@ export function matrizDeBenchmark(
   macro: Macro,
   reglas: Reglas,
   perfiles: readonly Perfil[],
+  mirada: Mirada = 'clase',
   esDeFabrica = false,
 ): Matriz {
   const base = reglasDeLaMacro(macro)
@@ -220,7 +275,17 @@ export function matrizDeBenchmark(
       reglas.ticketEtfUsd === base.ticketEtfUsd,
     versionMacro: macro.version,
     esDeFabrica,
+    mirada,
   }
+}
+
+/** Lee la mirada de la URL. Ante cualquier duda, el reparto por clase. */
+export function miradaDeLaUrl(
+  parametros: Record<string, string | string[] | undefined>,
+): Mirada {
+  const crudo = parametros['mirada']
+  const valor = Array.isArray(crudo) ? crudo[0] : crudo
+  return valor === 'liquidez' ? 'liquidez' : 'clase'
 }
 
 /**

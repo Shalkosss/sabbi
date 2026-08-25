@@ -6,8 +6,8 @@ import { useId, useState } from 'react'
 
 import type { ProductoOfrecible } from '../lib/catalogo'
 import { NOMBRE_CLASE_CORTO, ORDEN_CLASES } from '../lib/clases'
-import { paraInput, usdCorto } from '../lib/formato'
-import { CampoNumero } from './CampoNumero'
+import { usdCorto } from '../lib/formato'
+import { CampoMonto } from './CampoMonto'
 import estilos from './AjustesObjetivo.module.css'
 
 interface Props {
@@ -144,9 +144,8 @@ export function AjustesObjetivo({
         <div className={estilos.seccion}>
           <h3 className={estilos.subtitulo}>Activos agregados</h3>
           <p className={estilos.ayuda}>
-            Una línea que el modelo no propone y el asesor quiere igual. Clava ese monto dentro
-            del ticket: no agranda el patrimonio, sale del mismo dinero. Elegir del catálogo hace
-            que la línea salga con su retorno.
+            Una línea que el modelo no propone. Sale del mismo dinero, no lo agranda.{' '}
+            <span className={estilos.aparte}>Del catálogo, viene con su retorno.</span>
           </p>
 
           {agregados.length > 0 && (
@@ -191,9 +190,9 @@ export function AjustesObjetivo({
                       </select>
                     </td>
                     <td className={estilos.derecha}>
-                      <CampoNumero
-                        className={`${estilos.numero} mono`}
-                        texto={paraInput(activo.montoUsd)}
+                      <CampoMonto
+                        className={estilos.numero}
+                        valor={activo.montoUsd}
                         aria-label="Monto del activo, en dólares"
                         alCambiar={(valor) => cambiarActivo({ ...activo, montoUsd: valor ?? 0 })}
                       />
@@ -222,10 +221,11 @@ export function AjustesObjetivo({
         <div className={estilos.seccion}>
           <h3 className={estilos.subtitulo}>Montos por clase</h3>
           <p className={estilos.ayuda}>
-            Fijar clava el objetivo de una clase y el motor prorratea el resto entre las demás:
-            Inmobiliario Directo en {usdCorto(60_000)} cuando el modelo le daba {usdCorto(70_000)}
-            , y esos {usdCorto(10_000)} se reparten. Ninguna clase baja de lo que el cliente ya
-            conserva ahí — para eso hay que marcar la venta en la ficha.
+            Fijar una clase clava su monto y el resto se prorratea entre las demás.{' '}
+            <span className={estilos.aparte}>
+              Ninguna baja de lo que el cliente ya conserva ahí: eso se marca como venta en la
+              ficha.
+            </span>
           </p>
 
           <div className={estilos.clases}>
@@ -251,9 +251,9 @@ export function AjustesObjetivo({
                   </select>
 
                   {modo === 'fijar' ? (
-                    <CampoNumero
-                      className={`${estilos.numero} mono`}
-                      texto={paraInput(ajuste?.montoUsd ?? 0)}
+                    <CampoMonto
+                      className={estilos.numero}
+                      valor={ajuste?.montoUsd ?? 0}
                       aria-label={`Monto fijado para ${NOMBRE_CLASE[clase]}, en dólares`}
                       alCambiar={(valor) =>
                         cambiarAjuste(clase, { clase, modo: 'fijar', montoUsd: valor ?? 0 })
@@ -270,8 +270,7 @@ export function AjustesObjetivo({
           </div>
 
           <p className={estilos.pie}>
-            Patrimonio invertible <b className="mono">{usdCorto(patrimonioUsd)}</b> — es el techo
-            de todo lo que fijes.
+            Techo: <b className="mono">{usdCorto(patrimonioUsd)}</b> de patrimonio invertible.
           </p>
         </div>
       </div>

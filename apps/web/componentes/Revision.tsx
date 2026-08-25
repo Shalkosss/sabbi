@@ -74,6 +74,16 @@ export function Revision({ inicial, asesor, productos }: Props) {
   // Lo que el servidor rechazó y el gate del navegador no había previsto. Sin
   // esto el botón giraba y no pasaba nada: nadie sabía por qué.
   const [rechazo, setRechazo] = useState<readonly Bloqueo[]>([])
+  /**
+   * El plan que se ve ya no corresponde a lo que hay cargado.
+   *
+   * Antes un cambio borraba el plan y la pantalla quedaba en blanco justo
+   * cuando uno queria ver que habia cambiado. Ahora se queda, marcado: las
+   * cifras son las de antes hasta que alguien apriete Actualizar.
+   */
+  const [desactualizado, setDesactualizado] = useState(false)
+  /** La ficha se pliega en cuanto hay plan: el trabajo pasa a ser el objetivo. */
+  const [fichaAbierta, setFichaAbierta] = useState(true)
   const [calculando, calcular] = useTransition()
 
   const { estado: guardado, encolar } = useAutoguardado<Cambio>(async (clave, cambios) => {
@@ -107,7 +117,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
     // Cualquier cambio invalida el plan ya calculado: mostrar cifras viejas al
     // lado de posiciones nuevas es la forma más rápida de mandar mal una propuesta.
-    setPlan(null)
+    setDesactualizado(true)
     setRechazo([])
     despacharCrudo({ tipo: 'editar', id, cambios })
 
@@ -126,14 +136,14 @@ export function Revision({ inicial, asesor, productos }: Props) {
   }
 
   const cambiarParametros = (cambios: Partial<Parametros>) => {
-    setPlan(null)
+    setDesactualizado(true)
     setRechazo([])
     despacharCrudo({ tipo: 'parametros', cambios })
     encolar(CLAVE_PARAMETROS, { ...estado.parametros, ...cambios })
   }
 
   const cambiarActivo = (activo: ActivoAgregado) => {
-    setPlan(null)
+    setDesactualizado(true)
     setRechazo([])
     despacharCrudo({ tipo: 'activo', activo })
     encolar(`${PREFIJO_ACTIVO}${activo.id}`, { ...activo, eliminado: false })
@@ -142,14 +152,14 @@ export function Revision({ inicial, asesor, productos }: Props) {
   const quitarActivo = (id: string) => {
     const activo = estado.agregados.find((candidato) => candidato.id === id)
     if (activo === undefined) return
-    setPlan(null)
+    setDesactualizado(true)
     setRechazo([])
     despacharCrudo({ tipo: 'quitar-activo', id })
     encolar(`${PREFIJO_ACTIVO}${id}`, { ...activo, eliminado: true })
   }
 
   const cambiarAjuste = (clase: ClaseModelo, ajuste: AjusteClase | null) => {
-    setPlan(null)
+    setDesactualizado(true)
     setRechazo([])
     despacharCrudo({ tipo: 'ajuste', clase, ajuste })
     encolar(
@@ -201,6 +211,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
   const alCalcular = () => {
     calcular(async () => {
+      setDesactualizado(false)
       const resultado = await calcularPlan(aRevisadas(posiciones), {
         perfil: parametros.perfil,
         necesitaFlujos: parametros.necesitaFlujos,
@@ -214,6 +225,9 @@ export function Revision({ inicial, asesor, productos }: Props) {
       })
       setPlan(resultado.ok ? resultado.plan : null)
       setRechazo(resultado.ok ? [] : resultado.bloqueos)
+      // Calculado por primera vez, la ficha se pliega: el trabajo pasa a ser
+      // el objetivo, y ochenta filas de posiciones entre medio son ruido.
+      if (resultado.ok) setFichaAbierta(false)
     })
   }
 
@@ -284,15 +298,38 @@ export function Revision({ inicial, asesor, productos }: Props) {
         </div>
       )}
 
-      <TablaPosiciones
-        posiciones={posiciones}
-        productos={productos}
-        editar={editar}
-        marcar={marcar}
-        agregados={agregados}
-        cambiarActivo={cambiarActivo}
-        quitarActivo={quitarActivo}
-      />
+      {/*
+        La ficha se verifica una vez. Despues de eso son ochenta filas entre el
+        asesor y lo que vino a mirar, asi que se pliega sola en cuanto hay plan
+        — y se vuelve a abrir de un click, porque corregir un valor sigue
+        siendo lo que uno hace cuando el objetivo no cierra.
+      */}
+      <div className={estilos.ficha}>
+        <button
+          type="button"
+          className={estilos.verFicha}
+          aria-expanded={fichaAbierta}
+          onClick={() => setFichaAbierta((previa) => !previa)}
+        >
+          {fichaAbierta ? 'Ocultar' : 'Mostrar'} la ficha
+          <span className={estilos.verFichaNota}>
+            {plural(posiciones.length, 'posición', 'posiciones')}
+            {agregados.length > 0 && ` · ${plural(agregados.length, 'agregado', 'agregados')}`}
+          </span>
+        </button>
+
+        {fichaAbierta && (
+          <TablaPosiciones
+            posiciones={posiciones}
+            productos={productos}
+            editar={editar}
+            marcar={marcar}
+            agregados={agregados}
+            cambiarActivo={cambiarActivo}
+            quitarActivo={quitarActivo}
+          />
+        )}
+      </div>
 
       {cliente.observaciones.length > 0 && (
         <details className={estilos.observaciones}>
@@ -307,9 +344,34 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
       {plan !== null && (
         <div className={estilos.plan}>
-          <PanelPlan plan={plan} propuestaId={estado.propuestaId} />
+          <PanelPlan
+            plan={plan}
+            propuestaId={estado.propuestaId}
+            desactualizado={desactualizado}
+            recalculando={calculando}
+            alActualizar={alCalcular}
+            modificar={{
+              agregados,
+              ajustes,
+              productos,
+              cambiarActivo,
+              quitarActivo,
+              cambiarAjuste,
+            }}
+          />
         </div>
       )}
+
+      {/*
+        El menu del catalogo, una sola vez para toda la pantalla: lo usan la
+        tabla de posiciones y el panel del objetivo, y duplicarlo son doscientas
+        opciones repetidas en el DOM.
+      */}
+      <datalist id="productos-ofrecibles">
+        {productos.map((producto) => (
+          <option key={producto.nombre} value={producto.nombre} />
+        ))}
+      </datalist>
 
       <BarraAccion
         nota={nota}

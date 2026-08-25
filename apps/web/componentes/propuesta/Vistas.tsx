@@ -273,6 +273,7 @@ function ColumnaPortafolio({
           <dd>{rangoUsd(rentaAnualUsd)}</dd>
         </div>
       </dl>
+
     </section>
   )
 }
@@ -393,9 +394,6 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
           >
             {aporte(fila.aporteRentaDespues)}
           </span>
-          <span className={estilos.rentClase} title="Rentabilidad estimada con Sabbi">
-            {rent(fila.rentabilidadDespues)}
-          </span>
           <Chevron />
         </div>
         <div className={estilos.pistaDoble}>
@@ -455,7 +453,6 @@ function Subfilas({ subfilas }: { readonly subfilas: readonly SubfilaVista[] }) 
           <span className={estilos.subAporte} title="Parte de la renta que sale de esta línea">
             {aporte(sub.aporteRenta)}
           </span>
-          <span className={estilos.subRent}>{rent(sub.rentabilidad)}</span>
         </div>
       ))}
     </div>

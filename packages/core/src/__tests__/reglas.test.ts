@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  CAMPOS_DE_MACRO,
-  REGLAS_V8,
-  conTextoDeMacro,
-  conValorDeMacro,
-  textoDeMacro,
-  valorDeMacro,
-} from '../domain/reglas.js'
+import { CAMPOS_DE_MACRO, conValorDeMacro, REGLAS_V4, valorDeMacro } from '../domain/reglas.js'
 import type { Benchmark } from '../domain/tipos.js'
 import { generarPlan } from '../plan.js'
 import type { EntradaPlan } from '../plan.js'
@@ -36,8 +29,6 @@ const BENCHMARK: Benchmark = {
 
 const PESOS = {
   fijo: { 'iShares $ Corporate Bond': 0.6, 'iShares $ Treasury 1-3yr': 0.4 },
-  // Tres, y no dos: con un solo satelite el motor de Variable no llega a
-  // aplicar la separacion, y el caso que la prueba no probaria nada.
   variable: { 'iShares Core S&P 500': 0.5, EIMI: 0.28, EMUU: 0.22 },
   otros: { 'BTC (IBIT)': 0.8, Oro: 0.2 },
 }
@@ -48,299 +39,174 @@ const base = (patrimonio: number): EntradaPlan => ({
   benchmark: BENCHMARK,
   pesos: PESOS,
   pisos: [],
-  ticketMinimoUsd: REGLAS_V8.ticketEtfUsd,
-  fallbacks: { fijo: 'Flip - Panda Zen', variable: 'Flip - Cobra achorada' },
+  ticketMinimoUsd: REGLAS_V4.ticketMinimoUsd,
+  fallbacks: { fijo: 'Flip Panda', variable: 'Flip Cobra' },
 })
 
 const instrumentos = (entrada: EntradaPlan): string[] =>
   generarPlan(entrada).lineas.map((l) => l.instrumento)
 
+const objetivo = (plan: ReturnType<typeof generarPlan>, clase: string) =>
+  plan.reparto.porClase.find((c) => c.clase === clase)?.objetivoUsd ?? 0
+
 describe('la macro llega al motor', () => {
-  it('sin macro corre la v8, que es la del golden test', () => {
-    const conDefecto = generarPlan(base(400_000))
-    const conExplicita = generarPlan({ ...base(400_000), reglas: REGLAS_V8 })
-
-    expect(conDefecto.lineas).toEqual(conExplicita.lineas)
+  it('sin macro corre la v4', () => {
+    expect(generarPlan(base(400_000)).lineas).toEqual(
+      generarPlan({ ...base(400_000), reglas: REGLAS_V4 }).lineas,
+    )
   })
 
-  it('el minimo de Club Deals decide si la clase abre', () => {
-    // 8,000 de club: no llega al minimo de 10,000 de la v8.
-    const conV8 = generarPlan(base(80_000))
-    expect(conV8.lineas.some((l) => l.clase === 'club')).toBe(false)
-    expect(conV8.avisos.join(' ')).toContain('10,000')
+  it('el ticket minimo decide si la clase Otros existe', () => {
+    // 200,000 de ticket son 20,000 de Otros: justo el minimo de la v4.
+    expect(objetivo(generarPlan(base(200_000)), 'otros')).toBeGreaterThan(0)
 
-    const conMinimoBajo = generarPlan({
-      ...base(80_000),
-      reglas: { ...REGLAS_V8, club: { ...REGLAS_V8.club, minUsd: 5_000 } },
+    const conTicketAlto = generarPlan({ ...base(200_000), ticketMinimoUsd: 50_000 })
+    expect(objetivo(conTicketAlto, 'otros')).toBe(0)
+    expect(conTicketAlto.avisos.join(' ')).toContain('Otros')
+  })
+
+  it('el minimo del club deal decide si la clase abre', () => {
+    // Con 40,000 de privados + club el tramo 3 abre los dos.
+    expect(objetivo(generarPlan(base(400_000)), 'club')).toBeGreaterThan(0)
+
+    const conMinimoAlto = generarPlan({
+      ...base(400_000),
+      reglas: {
+        ...REGLAS_V4,
+        privados: { ...REGLAS_V4.privados, minClubUsd: 200_000 },
+      },
     })
-    expect(conMinimoBajo.lineas.some((l) => l.clase === 'club')).toBe(true)
+    expect(objetivo(conMinimoAlto, 'club')).toBe(0)
   })
 
-  it('la frontera Edifica A / B cambia el nombre del instrumento', () => {
-    // 800,000 de ticket son 80,000 de club: por encima de los 70,000 de la v8.
-    const conV8 = instrumentos(base(800_000))
-    expect(conV8.some((n) => n.includes('Clase A'))).toBe(true)
+  it('el minimo del Fondo Oportunidad decide el tramo', () => {
+    const conMinimoAlto = generarPlan({
+      ...base(400_000),
+      reglas: {
+        ...REGLAS_V4,
+        privados: { ...REGLAS_V4.privados, minFondoUsd: 500_000 },
+      },
+    })
+    // Sin fondo posible, todo el bloque se juega al club deal.
+    expect(objetivo(conMinimoAlto, 'privados')).toBe(0)
+    expect(objetivo(conMinimoAlto, 'club')).toBeGreaterThan(0)
+  })
+
+  it('la frontera de etiqueta cambia el nombre del club deal', () => {
+    expect(instrumentos(base(800_000)).some((n) => n.includes('Clase A'))).toBe(true)
 
     const conFronteraAlta = instrumentos({
       ...base(800_000),
-      reglas: { ...REGLAS_V8, club: { ...REGLAS_V8.club, umbralClaseAUsd: 200_000 } },
+      reglas: {
+        ...REGLAS_V4,
+        privados: { ...REGLAS_V4.privados, umbralClaseAUsd: 500_000 },
+      },
     })
     expect(conFronteraAlta.some((n) => n.includes('Clase B'))).toBe(true)
   })
 
-  it('el minimo de Otros decide si se abre BTC y Oro', () => {
-    // 200,000 de ticket son 20,000 de Otros: el doble del minimo de la v8.
-    const conV8 = generarPlan(base(200_000))
-    expect(conV8.lineas.some((l) => l.clase === 'otros')).toBe(true)
-
-    const conMinimoAlto = generarPlan({
-      ...base(200_000),
-      reglas: { ...REGLAS_V8, otros: { ...REGLAS_V8.otros, minUsd: 50_000 } },
-    })
-    expect(conMinimoAlto.lineas.some((l) => l.clase === 'otros')).toBe(false)
-    expect(conMinimoAlto.avisos.join(' ')).toContain('50,000')
-  })
-
   it('el minimo por subfondo decide si se abre el split institucional', () => {
-    const conV8 = instrumentos(base(600_000))
-    expect(conV8).toContain('FM RE Infra')
+    expect(instrumentos(base(1_000_000))).toContain('FM RE Infra')
 
     const conMinimoAlto = instrumentos({
-      ...base(600_000),
+      ...base(1_000_000),
       reglas: {
-        ...REGLAS_V8,
-        privados: { ...REGLAS_V8.privados, minSubfondoUsd: 500_000 },
+        ...REGLAS_V4,
+        privados: { ...REGLAS_V4.privados, minSubfondoUsd: 5_000_000 },
       },
     })
     expect(conMinimoAlto).not.toContain('FM RE Infra')
     expect(conMinimoAlto).toContain('Sabbi Fondo Oportunidad')
   })
 
-  it('el ticket de Vision Dividendos Global manda cuando hay flujos', () => {
-    const conFlujos = { ...base(600_000), necesitaFlujos: true }
-
-    expect(instrumentos(conFlujos)).toContain('Fondo Visión Dividendos Global')
-
-    const conTicketAlto = instrumentos({
-      ...conFlujos,
-      reglas: {
-        ...REGLAS_V8,
-        privados: { ...REGLAS_V8.privados, minDividendosGlobalUsd: 5_000_000 },
-      },
-    })
-    expect(conTicketAlto).toContain('Sabbi Fondo Oportunidad')
-  })
-
-  it('el umbral del inmobiliario decide si la clase se disuelve', () => {
+  it('el umbral del inmobiliario decide a donde va su peso', () => {
     const conInm: EntradaPlan = {
       ...base(300_000),
       benchmark: { ...BENCHMARK, inm: 0.2, fijo: 0.1 },
     }
 
-    expect(generarPlan(conInm).lineas.some((l) => l.clase === 'inm')).toBe(false)
+    // Por encima del umbral de la v4, el peso va al bloque privado.
+    const grande = generarPlan(conInm)
+    expect(grande.avisos.join(' ')).toContain('Mercados Privados')
 
-    const conUmbralBajo = generarPlan({
+    const conUmbralAlto = generarPlan({
       ...conInm,
       reglas: {
-        ...REGLAS_V8,
-        inmobiliario: { ...REGLAS_V8.inmobiliario, umbralUsd: 100_000 },
+        ...REGLAS_V4,
+        inmobiliario: { ...REGLAS_V4.inmobiliario, umbralUsd: 1_000_000 },
       },
     })
-    expect(conUmbralBajo.lineas.some((l) => l.clase === 'inm')).toBe(true)
+    expect(conUmbralAlto.avisos.join(' ')).toContain('Renta Fija y Renta Variable')
   })
 
-  it('el destino del inmobiliario disuelto cambia quien recibe', () => {
+  it('la parte al club deal mueve el reparto dentro de privados', () => {
     const conInm: EntradaPlan = {
-      ...base(300_000),
-      benchmark: { ...BENCHMARK, inm: 0.2, fijo: 0.1 },
-    }
-
-    const prorrateado = generarPlan(conInm)
-    const alBloque = generarPlan({
-      ...conInm,
-      reglas: {
-        ...REGLAS_V8,
-        inmobiliario: { ...REGLAS_V8.inmobiliario, destino: 'alternativos' },
-      },
-    })
-
-    const fijoDe = (plan: ReturnType<typeof generarPlan>) =>
-      plan.reparto.porClase.find((c) => c.clase === 'fijo')?.objetivoUsd ?? 0
-
-    expect(fijoDe(prorrateado)).toBeGreaterThan(fijoDe(alBloque))
-    expect(alBloque.avisos.join(' ')).toContain('Privados, Club y Otros')
-  })
-
-  it('la separacion de la cascada mueve las lineas de Renta Fija', () => {
-    const conV8 = generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'fijo')
-    const conSeparacionGrande = generarPlan({
-      ...base(200_000),
-      reglas: { ...REGLAS_V8, fijo: { ...REGLAS_V8.fijo, separacion: 0.9 } },
-    }).lineas.filter((l) => l.clase === 'fijo')
-
-    expect(conSeparacionGrande.map((l) => l.usd)).not.toEqual(conV8.map((l) => l.usd))
-  })
-
-  it('el ticket propio de Renta Fija manda sobre el general', () => {
-    // 200,000 de ticket son 60,000 de Fijo: alcanza para los dos ETFs con el
-    // ticket general de 20,000 y para uno solo con uno de 45,000.
-    const conGeneral = generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'fijo')
-    expect(conGeneral.length).toBe(2)
-
-    const conPropio = generarPlan({
-      ...base(200_000),
-      reglas: { ...REGLAS_V8, ticketFijoUsd: 45_000 },
-    }).lineas.filter((l) => l.clase === 'fijo')
-
-    expect(conPropio.length).toBe(1)
-    // Y solo movio a Fijo: Variable siguio midiendose contra el general.
-    expect(generarPlan({ ...base(200_000), reglas: { ...REGLAS_V8, ticketFijoUsd: 45_000 } })
-      .lineas.filter((l) => l.clase === 'variable')
-      .map((l) => l.usd))
-      .toEqual(generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'variable').map((l) => l.usd))
-  })
-
-  it('el ticket propio de Renta Variable manda sobre el general', () => {
-    const conGeneral = generarPlan(base(200_000)).lineas.filter((l) => l.clase === 'variable')
-    const conPropio = generarPlan({
-      ...base(200_000),
-      reglas: { ...REGLAS_V8, ticketVariableUsd: 45_000 },
-    }).lineas.filter((l) => l.clase === 'variable')
-
-    expect(conPropio.length).toBeLessThan(conGeneral.length)
-  })
-
-  it('un ticket por clase en cero deja mandar al general', () => {
-    // Es la garantia que permite agregar la palanca sin mover una cifra: la
-    // macro de fabrica los trae en cero y tiene que dar lo mismo que no tenerlos.
-    const conCeros = generarPlan({
-      ...base(400_000),
-      reglas: { ...REGLAS_V8, ticketFijoUsd: 0, ticketVariableUsd: 0 },
-    })
-    expect(conCeros.lineas).toEqual(generarPlan(base(400_000)).lineas)
-  })
-
-  it('el minimo por linea de Otros decide si se imprime el oro', () => {
-    // 600,000 de ticket son 60,000 de Otros: BTC se lleva 48,000 y el oro
-    // 12,000, que pasa el minimo de linea de la v8.
-    const conV8 = instrumentos(base(600_000))
-    expect(conV8).toContain('Oro')
-
-    const conMinimoDeLinea = instrumentos({
       ...base(600_000),
-      reglas: { ...REGLAS_V8, otros: { ...REGLAS_V8.otros, minLineaUsd: 20_000 } },
-    })
-    // La clase sigue abierta —su minimo no cambio— pero el oro se pliega sobre BTC.
-    expect(conMinimoDeLinea).toContain('BTC (IBIT)')
-    expect(conMinimoDeLinea).not.toContain('Oro')
+      benchmark: { ...BENCHMARK, inm: 0.2, fijo: 0.1 },
+    }
+
+    const unTercio = objetivo(generarPlan(conInm), 'club')
+    const casiTodo = objetivo(
+      generarPlan({
+        ...conInm,
+        reglas: {
+          ...REGLAS_V4,
+          inmobiliario: { ...REGLAS_V4.inmobiliario, parteClub: 0.9 },
+        },
+      }),
+      'club',
+    )
+
+    expect(casiTodo).toBeGreaterThan(unTercio)
   })
 
-  it('el nucleo de Renta Variable se reconoce por el texto de la macro', () => {
-    // Con un nucleo que ningun instrumento contiene, el bloque no se sostiene
-    // desglosado y cae entero al instrumento de consolidacion.
-    const conNucleoAjeno = instrumentos({
+  it('el recorte de Cash solo mueve al Conservador', () => {
+    const conCash: EntradaPlan = {
       ...base(400_000),
-      reglas: {
-        ...REGLAS_V8,
-        variable: { ...REGLAS_V8.variable, nucleo: 'MSCI World' },
-      },
+      benchmark: { ...BENCHMARK, cash: 0.2, fijo: 0.1 },
+    }
+
+    const moderado = generarPlan(conCash)
+    const conservador = generarPlan({ ...conCash, perfil: 'Conservador' })
+
+    expect(objetivo(conservador, 'cash')).toBeLessThan(objetivo(moderado, 'cash'))
+    expect(conservador.avisos.join(' ')).toContain('Conservador')
+
+    const sinRecorte = generarPlan({
+      ...conCash,
+      perfil: 'Conservador',
+      reglas: { ...REGLAS_V4, cash: { recorteConservadorPp: 0 } },
     })
-    expect(conNucleoAjeno).toContain('Flip - Cobra achorada')
-
-    // Y el de fabrica reconoce al S&P 500 escrito de las dos formas.
-    const conSinSimbolos = instrumentos({
-      ...base(400_000),
-      reglas: { ...REGLAS_V8, variable: { ...REGLAS_V8.variable, nucleo: 'sp500' } },
-    })
-    expect(conSinSimbolos).toContain('iShares Core S&P 500')
-  })
-
-  it('el destino de residuos decide donde cae lo que no abrio linea', () => {
-    // 80,000 de ticket son 8,000 de club: no llega a los 10,000 de la v8.
-    const aPrivados = generarPlan(base(80_000))
-    expect(aPrivados.avisos.join(' ')).toContain('Sabbi Fondo Oportunidad')
-
-    const aCash = generarPlan({
-      ...base(80_000),
-      reglas: { ...REGLAS_V8, residuos: { destino: 'cash' } },
-    })
-
-    expect(aCash.avisos.join(' ')).toContain('Cash')
-    const cashDe = (plan: ReturnType<typeof generarPlan>) =>
-      plan.reparto.porClase.find((c) => c.clase === 'cash')?.objetivoUsd ?? 0
-    expect(cashDe(aCash)).toBeGreaterThan(cashDe(aPrivados))
-  })
-
-  it('la separacion de satelites mueve las lineas de Renta Variable', () => {
-    // Con 800,000 sobreviven los dos satelites, que es cuando la separacion
-    // tiene sobre que actuar.
-    const conV8 = generarPlan(base(800_000)).lineas.filter((l) => l.clase === 'variable')
-    const conSeparacionGrande = generarPlan({
-      ...base(800_000),
-      reglas: { ...REGLAS_V8, variable: { ...REGLAS_V8.variable, separacion: 0.8 } },
-    }).lineas.filter((l) => l.clase === 'variable')
-
-    expect(conSeparacionGrande.map((l) => l.usd)).not.toEqual(conV8.map((l) => l.usd))
+    expect(objetivo(sinRecorte, 'cash')).toBeCloseTo(objetivo(moderado, 'cash'), 6)
   })
 })
 
 describe('leer y escribir un campo de la macro por su ruta', () => {
   it('lee un campo anidado', () => {
-    expect(valorDeMacro(REGLAS_V8, 'club.minUsd')).toBe(10_000)
-    expect(valorDeMacro(REGLAS_V8, 'ticketEtfUsd')).toBe(20_000)
+    expect(valorDeMacro(REGLAS_V4, 'privados.minClubUsd')).toBe(5_000)
+    expect(valorDeMacro(REGLAS_V4, 'ticketMinimoUsd')).toBe(20_000)
   })
 
   it('devuelve NaN ante una ruta que no existe', () => {
-    expect(valorDeMacro(REGLAS_V8, 'club.inventado')).toBeNaN()
-    expect(valorDeMacro(REGLAS_V8, 'club.minUsd.masAdentro')).toBeNaN()
+    expect(valorDeMacro(REGLAS_V4, 'privados.inventado')).toBeNaN()
+    expect(valorDeMacro(REGLAS_V4, 'privados.minClubUsd.masAdentro')).toBeNaN()
   })
 
   it('escribe sin mutar el original', () => {
-    const cambiada = conValorDeMacro(REGLAS_V8, 'club.minUsd', 25_000)
+    const cambiada = conValorDeMacro(REGLAS_V4, 'privados.minClubUsd', 25_000)
 
-    expect(cambiada.club.minUsd).toBe(25_000)
-    expect(REGLAS_V8.club.minUsd).toBe(10_000)
-    // El resto viaja intacto: cambiar un umbral no puede tocar los otros doce.
-    expect(cambiada.club.umbralClaseAUsd).toBe(REGLAS_V8.club.umbralClaseAUsd)
-    expect(cambiada.fijo).toEqual(REGLAS_V8.fijo)
-  })
-
-  it('lee un campo que no es un numero', () => {
-    expect(textoDeMacro(REGLAS_V8, 'variable.nucleo')).toBe('S&P 500')
-    expect(textoDeMacro(REGLAS_V8, 'inmobiliario.destino')).toBe('prorratear')
-    expect(textoDeMacro(REGLAS_V8, 'residuos.destino')).toBe('privados')
-  })
-
-  it('escribe un campo de texto sin mutar el original', () => {
-    const cambiada = conTextoDeMacro(REGLAS_V8, 'variable.nucleo', 'MSCI World')
-
-    expect(cambiada.variable.nucleo).toBe('MSCI World')
-    expect(REGLAS_V8.variable.nucleo).toBe('S&P 500')
-    expect(cambiada.variable.separacion).toBe(REGLAS_V8.variable.separacion)
+    expect(cambiada.privados.minClubUsd).toBe(25_000)
+    expect(REGLAS_V4.privados.minClubUsd).toBe(5_000)
+    // El resto viaja intacto: cambiar un umbral no puede tocar los otros.
+    expect(cambiada.privados.minFondoUsd).toBe(REGLAS_V4.privados.minFondoUsd)
+    expect(cambiada.cash).toEqual(REGLAS_V4.cash)
   })
 
   it('cada campo declarado existe de verdad en la macro', () => {
     // La pantalla de Macro construye sus campos desde esta lista. Una ruta que
     // no resuelve saldria como un input vacio que no guarda nada.
     for (const campo of CAMPOS_DE_MACRO) {
-      if (campo.unidad === 'usd' || campo.unidad === 'pct') {
-        expect(valorDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBeNaN()
-      } else {
-        expect(textoDeMacro(REGLAS_V8, campo.ruta), campo.ruta).not.toBe('')
-      }
-    }
-  })
-
-  it('cada opcion declarada es una que el motor acepta', () => {
-    // Un valor de mas en el desplegable seria una eleccion que el esquema
-    // rechaza al guardar, y el mensaje llegaria despues de teclear la nota.
-    for (const campo of CAMPOS_DE_MACRO) {
-      if (campo.unidad !== 'opcion') continue
-      expect(campo.opciones, campo.ruta).toBeDefined()
-      expect(
-        campo.opciones?.map((o) => o.valor),
-        campo.ruta,
-      ).toContain(textoDeMacro(REGLAS_V8, campo.ruta))
+      expect(valorDeMacro(REGLAS_V4, campo.ruta), campo.ruta).not.toBeNaN()
     }
   })
 })

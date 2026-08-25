@@ -59,6 +59,7 @@ export async function guardarParametros(
       perfil: parametros.perfil,
       institucional_override: parametros.institucional,
       toggle_inm_seccion_propia: parametros.incluirInmueblesDeRenta,
+      accede_inmobiliario: parametros.accedeInmobiliario,
       colchon_liquidez_usd: parametros.colchonLiquidezUsd,
       // Los dos tienen un check de mayor que cero en la base. Un input vacío
       // llega como 0 mientras el asesor termina de escribir: se deja el valor

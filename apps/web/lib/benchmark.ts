@@ -3,7 +3,7 @@ import 'server-only'
 import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import type { Macro } from '@sabbi/config'
 import { generarPlan, NOMBRE_CLASE, PERFILES } from '@sabbi/core'
-import type { ClaseModelo, Perfil, ReglaInmobiliario, ReglasMotor } from '@sabbi/core'
+import type { ClaseModelo, Perfil, ReglasMotor } from '@sabbi/core'
 
 import { FALLBACKS } from './catalogo'
 
@@ -43,26 +43,35 @@ export const TICKETS: readonly number[] = [25_000, 50_000, 75_000, 100_000]
  * exactamente la misma.
  */
 export interface Reglas {
-  /** A dónde va el capital de Inmobiliario cuando la clase se disuelve. */
-  readonly inmobiliario: ReglaInmobiliario
-  /** Debajo de este ticket, Inmobiliario Directo se disuelve. */
+  /**
+   * El cliente accede a Inmobiliario Directo.
+   *
+   * En la v4 no se elige a dónde va el capital de la clase disuelta: lo decide
+   * el ticket. Lo que sí se elige es si el cliente la puede tomar, y esa es la
+   * palanca que cambia la matriz entera.
+   */
+  readonly accedeInmobiliario: boolean
+  /** Ticket a partir del cual Inmobiliario Directo se puede ejecutar. */
   readonly umbralInmobiliarioUsd: number
-  /** Monto mínimo para que una línea de ETF sea ejecutable. */
-  readonly ticketEtfUsd: number
+  /** Monto mínimo para que una línea sea ejecutable. */
+  readonly ticketMinimoUsd: number
 }
 
 /** Las tres palancas tal como están en la macro guardada. */
 export const reglasDeLaMacro = (macro: Macro): Reglas => ({
-  inmobiliario: macro.reglas.inmobiliario.destino,
+  // La macro no guarda el acceso: es del cliente, no del modelo. La matriz
+  // arranca por el caso que el motor toma por defecto — no accede — que es
+  // además el que hace visible el umbral.
+  accedeInmobiliario: false,
   umbralInmobiliarioUsd: macro.reglas.inmobiliario.umbralUsd,
-  ticketEtfUsd: macro.reglas.ticketEtfUsd,
+  ticketMinimoUsd: macro.reglas.ticketMinimoUsd,
 })
 
-/** La macro con las tres palancas de la pantalla encima. */
+/** La macro con las palancas de la pantalla encima. */
 const conLasPalancas = (base: ReglasMotor, reglas: Reglas): ReglasMotor => ({
   ...base,
-  ticketEtfUsd: reglas.ticketEtfUsd,
-  inmobiliario: { umbralUsd: reglas.umbralInmobiliarioUsd, destino: reglas.inmobiliario },
+  ticketMinimoUsd: reglas.ticketMinimoUsd,
+  inmobiliario: { ...base.inmobiliario, umbralUsd: reglas.umbralInmobiliarioUsd },
 })
 
 /**
@@ -200,8 +209,9 @@ function correr(ticketUsd: number, perfil: Perfil, macro: Macro, reglas: Reglas)
     // Sin pisos: es un cliente que llega con dinero y nada mas. Esa es la
     // condicion que deja ver el modelo sin nada encima.
     pisos: [],
-    ticketMinimoUsd: reglas.ticketEtfUsd,
+    ticketMinimoUsd: reglas.ticketMinimoUsd,
     fallbacks: FALLBACKS,
+    accedeInmobiliario: reglas.accedeInmobiliario,
     reglas: conLasPalancas(macro.reglas, reglas),
   })
 
@@ -270,9 +280,9 @@ export function matrizDeBenchmark(
     perfiles: [...perfiles],
     reglas,
     esLaMacroGuardada:
-      reglas.inmobiliario === base.inmobiliario &&
+      reglas.accedeInmobiliario === base.accedeInmobiliario &&
       reglas.umbralInmobiliarioUsd === base.umbralInmobiliarioUsd &&
-      reglas.ticketEtfUsd === base.ticketEtfUsd,
+      reglas.ticketMinimoUsd === base.ticketMinimoUsd,
     versionMacro: macro.version,
     esDeFabrica,
     mirada,
@@ -329,16 +339,11 @@ export function reglasDeLaUrl(
   }
 
   const inm = parametros['inm']
-  const destino = Array.isArray(inm) ? inm[0] : inm
+  const accede = Array.isArray(inm) ? inm[0] : inm
 
   return {
-    inmobiliario:
-      destino === 'alternativos'
-        ? 'alternativos'
-        : destino === 'prorratear'
-          ? 'prorratear'
-          : base.inmobiliario,
+    accedeInmobiliario: accede === 'si' ? true : accede === 'no' ? false : base.accedeInmobiliario,
     umbralInmobiliarioUsd: numero('umbral', base.umbralInmobiliarioUsd),
-    ticketEtfUsd: numero('etf', base.ticketEtfUsd),
+    ticketMinimoUsd: numero('etf', base.ticketMinimoUsd),
   }
 }

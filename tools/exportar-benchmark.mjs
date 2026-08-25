@@ -20,24 +20,22 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { benchmarkDe, pesosDeClase } from '../packages/config/dist/src/index.js'
-import { generarPlan, NOMBRE_CLASE, PERFILES, REGLAS_V8 } from '../packages/core/dist/index.js'
+import { generarPlan, NOMBRE_CLASE, PERFILES, REGLAS_V4 } from '../packages/core/dist/index.js'
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * Con que regla se reparte el inmobiliario disuelto.
+ * Si el cliente accede a Inmobiliario Directo.
  *
- * `prorratear` es la macro v8, la que reproduce el motor y la que fija el
- * golden test. `alternativos` es la de la hoja con la que la mesa venia
- * trabajando: manda ese capital entero al bloque de Privados, Club y Otros.
- * Cada una sale a su propio archivo para poder mirarlas una al lado de la otra.
+ * Es la palanca que mas mueve la matriz. Sin acceso —el caso por defecto— el
+ * peso de la clase se reparte, y a donde lo decide el ticket: hasta 100,000 va
+ * a Mercados Publicos y por encima a Mercados Privados. Cada caso sale a su
+ * propio archivo para poder mirarlos uno al lado del otro.
  */
 const bandera = process.argv.indexOf('--regla')
-const REGLA = bandera !== -1 && process.argv[bandera + 1] === 'alternativos'
-  ? 'alternativos'
-  : 'prorratear'
+const REGLA = bandera !== -1 && process.argv[bandera + 1] === 'accede' ? 'accede' : 'no-accede'
 
-const SALIDA = path.join(RAIZ, REGLA === 'prorratear' ? 'benchmark.csv' : 'benchmark-alternativos.csv')
+const SALIDA = path.join(RAIZ, REGLA === 'no-accede' ? 'benchmark.csv' : 'benchmark-alternativos.csv')
 
 /** Los mismos que la pantalla. Cambiarlos aca no cambia la web. */
 const TICKETS = [25_000, 50_000, 75_000, 100_000]
@@ -78,9 +76,9 @@ for (const ticket of TICKETS) {
       pisos: [],
       ticketMinimoUsd: TICKET_ETF,
       fallbacks: FALLBACKS,
-      // Los umbrales de la macro v8 con la regla del inmobiliario cambiada.
-      // Este script no lee la base: es el modelo de fabrica, a proposito.
-      reglas: { ...REGLAS_V8, inmobiliario: { ...REGLAS_V8.inmobiliario, destino: REGLA } },
+      accedeInmobiliario: REGLA === 'accede',
+      // Este script no lee la base: corre el modelo de fabrica, a proposito.
+      reglas: REGLAS_V4,
     })
 
     const totalDe = (clase) =>
@@ -107,7 +105,7 @@ writeFileSync(SALIDA, filas.map((f) => f.map(celda).join(',')).join('\n') + '\n'
 const corridas = TICKETS.length * PERFILES.length
 console.log(`\n${SALIDA}`)
 console.log(`  ${corridas} portafolios · ${filas.length - 1} lineas de instrumento`)
-console.log(`  regla del inmobiliario disuelto: ${REGLA}`)
+console.log(`  acceso al inmobiliario: ${REGLA}`)
 console.log(`  tickets: ${TICKETS.map((t) => `${t / 1000}k`).join(', ')}`)
 console.log(`  perfiles: ${PERFILES.join(', ')}`)
 console.log(`\n  python tools/benchmark-grafico.py\n`)

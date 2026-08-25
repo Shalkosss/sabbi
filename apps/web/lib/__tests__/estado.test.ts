@@ -53,6 +53,7 @@ const revision = (posiciones: readonly PosicionEditada[]): EstadoRevision => ({
     usPerson: false,
     institucional: 'auto',
     incluirInmueblesDeRenta: true,
+  accedeInmobiliario: false,
     colchonLiquidezUsd: 0,
     ticketMinimoUsd: 20_000,
     fxPenUsd: 3.4,

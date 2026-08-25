@@ -95,7 +95,7 @@ export function propuestaDeEjemplo(ajustes: readonly AjusteClase[] = []): Propue
     posiciones: POSICIONES,
     plan: generarPlan(derivacion.entrada),
     planSistema: base !== null && base.ok ? generarPlan(base.entrada) : null,
-    modeloPuro: generarPlan({ ...derivacion.entrada, pisos: [], ajustes: [], inmFijado: false }),
+    modeloPuro: generarPlan({ ...derivacion.entrada, pisos: [], ajustes: [] }),
     pisos: derivacion.entrada.pisos,
     benchmark: derivacion.entrada.benchmark,
     parametros: { ticketMinimoUsd: 20_000, colchonLiquidezUsd: 0, fxPenUsd: 3.75 },

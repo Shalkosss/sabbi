@@ -13,7 +13,7 @@ trae, propone qué se conserva y qué se vende, y deja la propuesta calculada. E
 asesor corrige excepciones, no llena casillas.
 
 Reemplaza dos herramientas: un HTML monolítico de 10,863 líneas y la macro
-`Benchmark Sabbi` en VBA.
+`Benchmark Sabbi - Macros v4` en VBA, que es el modelo que el motor reproduce.
 
 ## Reglas del proyecto
 
@@ -93,22 +93,32 @@ el motor las trata así:
 
 | Clase | Qué entra | Mínimo |
 |---|---|---|
-| Mercados Públicos — Fijo | ETFs de bonos | 20,000 por ETF; abajo, Flip - Panda Zen |
-| Mercados Públicos — Variable | ETFs de acciones | 20,000 por ETF; abajo, Flip - Cobra achorada |
-| Mercados Privados | FM RE Infra, FM PC, FM PE VC, Fondo Oportunidad | 50,000 por fondo mutuo; el Fondo Oportunidad no tiene |
-| Club Deals | Edifica Clase A o B; Fondo Estratégico con flujos | 10,000 |
-| Otros | BTC (IBIT) y Oro | 10,000 |
-| Inmobiliario Directo | el inmueble propio o TBD | la clase se disuelve bajo 500,000 de ticket |
-| Cash | Sura Ultracash Dólares | — |
+| Mercados Públicos — Fijo | ETFs de bonos | el ticket mínimo por ETF; abajo, Flip Panda |
+| Mercados Públicos — Variable | ETFs de acciones | el ticket mínimo por ETF; abajo, Flip Cobra |
+| Mercados Privados | FM RE Infra, FM PC, FM PE VC, Fondo Oportunidad | 25,000 el fondo; 50,000 por subfondo |
+| Club Deals | Edifica Clase A o B; Fondo Estratégico con flujos | 5,000 |
+| Otros | BTC (IBIT) y Oro | el ticket mínimo |
+| Inmobiliario Directo | el inmueble propio o TBD | 100,000 de ticket, salvo que el cliente acceda |
+| Cash | Sura Ultracash Dólares | va blindado: no cede al prorrateo |
 
 Partir la clase en tres no mueve un centavo del bloque: el solver es
 proporcional y el caso Ana Tumi se reproduce al centavo. Lo que cambia es dónde
 vive el neteo — ahora lo hace el solver de pisos, clase por clase, en vez de la
 rutina de familias.
 
-Lo que no llega a su mínimo no imprime una línea inejecutable: Club Deals y
-Otros por debajo de 10,000 pasan al Fondo Oportunidad, que no tiene mínimo, y un
-aviso lo deja escrito.
+Lo que no llega a su mínimo no imprime una línea inejecutable. La clase Otros
+que no alcanza el ticket deja de existir y su peso se suma a Mercados Privados.
+Y el bloque privado tiene su propia cascada, con una válvula que sorprende: si
+el dinero no alcanza ni para el Fondo Oportunidad ni para un club deal, **vuelve
+a Mercados Públicos** en vez de quedarse parado en una clase que no lo puede
+colocar. Cada decisión de esas deja su aviso escrito.
+
+Dos reglas más que no se ven en ninguna tabla y mueven mucho. El perfil
+Conservador pierde cinco puntos porcentuales de Cash —16.4730% pasa a
+11.4730%— repartidos pro-rata entre las otras cinco clases; es la única
+corrección por perfil del modelo. Y Cash va blindado: conserva su peso y no
+entra en la base del prorrateo, así que una posición conservada en otra clase no
+le puede quitar liquidez al cliente.
 
 Los pisos vienen de dos fuentes que el motor trata igual: posiciones que el
 cliente conserva y restricciones que pone el asesor. Por eso "el cliente quiere
@@ -146,9 +156,18 @@ foto de la ficha en una tercera mirada. Sin esa columna un ajuste no se puede
 explicar, solo creer.
 
 Los pesos de benchmark salen de la hoja `Data` del archivo Portfolio Modificado,
-a precisión completa. El JSON de configuración trae esos mismos pesos redondeados
-a cuatro decimales, y ese redondeo desplaza la base de redistribución en 6,502.88
-USD sobre el caso Ana Tumi.
+a precisión completa. Redondearlos a cuatro decimales desplaza la base de
+redistribución en 6,502.88 USD sobre el caso Ana Tumi, y por eso el editor de la
+macro solo reescribe las celdas que alguien tocó.
+
+### Sobre el caso Ana Tumi
+
+`Propuesta Ana Tumi.xlsx` salió de la macro **v8**, y el motor corre la **v4**:
+cambian la cascada de ETFs, los mínimos de Mercados Privados y el umbral del
+inmobiliario. Las cifras ya no coinciden, y eso no es una regresión — es que el
+modelo cambió. Los tests del motor fijan dos cosas distintas: los **invariantes**
+(el total cierra, cada clase vale lo que suman sus líneas, ninguna línea plena
+queda bajo el ticket) y las **reglas de la v4**, cada una por su efecto.
 
 ## La macro
 

@@ -1,4 +1,4 @@
-import { REGLAS_V8 } from '@sabbi/core'
+import { REGLAS_V4 } from '@sabbi/core'
 import { describe, expect, it } from 'vitest'
 
 import { MACRO_DE_FABRICA, benchmarks } from '../index.js'
@@ -16,9 +16,9 @@ import { macroDeFabrica, validarMacro } from '../macro.js'
 const valida = () => JSON.parse(JSON.stringify(MACRO_DE_FABRICA)) as Record<string, unknown>
 
 describe('la macro de fabrica', () => {
-  it('es la v4 de pesos con la v8 de umbrales', () => {
+  it('es la hoja Data de pesos con los umbrales de la v4', () => {
     expect(MACRO_DE_FABRICA.pesos).toEqual(benchmarks)
-    expect(MACRO_DE_FABRICA.reglas).toEqual(REGLAS_V8)
+    expect(MACRO_DE_FABRICA.reglas).toEqual(REGLAS_V4)
   })
 
   it('valida contra su propio esquema', () => {
@@ -34,7 +34,7 @@ describe('validarMacro', () => {
   it('acepta una macro completa', () => {
     const salida = validarMacro(valida())
     expect(salida.ok).toBe(true)
-    if (salida.ok) expect(salida.macro.reglas.club.minUsd).toBe(10_000)
+    if (salida.ok) expect(salida.macro.reglas.privados.minClubUsd).toBe(5_000)
   })
 
   it('rechaza un perfil cuyas clases no suman 1', () => {
@@ -47,8 +47,8 @@ describe('validarMacro', () => {
   })
 
   it('rechaza un ticket minimo en cero', () => {
-    const rota = valida() as { reglas: { ticketEtfUsd: number } }
-    rota.reglas.ticketEtfUsd = 0
+    const rota = valida() as { reglas: { ticketMinimoUsd: number } }
+    rota.reglas.ticketMinimoUsd = 0
 
     const salida = validarMacro(rota)
     expect(salida.ok).toBe(false)
@@ -57,8 +57,8 @@ describe('validarMacro', () => {
 
   it('rechaza una fraccion escrita como porcentaje', () => {
     // El error que se comete de verdad: teclear 15 donde va 0.15.
-    const rota = valida() as { reglas: { fijo: { separacion: number } } }
-    rota.reglas.fijo.separacion = 15
+    const rota = valida() as { reglas: { cash: { recorteConservadorPp: number } } }
+    rota.reglas.cash.recorteConservadorPp = 15
 
     const salida = validarMacro(rota)
     expect(salida.ok).toBe(false)
@@ -66,48 +66,15 @@ describe('validarMacro', () => {
   })
 
   it('rechaza un umbral negativo', () => {
-    const rota = valida() as { reglas: { club: { minUsd: number } } }
-    rota.reglas.club.minUsd = -1
+    const rota = valida() as { reglas: { privados: { minClubUsd: number } } }
+    rota.reglas.privados.minClubUsd = -1
 
     expect(validarMacro(rota).ok).toBe(false)
   })
 
-  it('rechaza un destino del inmobiliario que el motor no conoce', () => {
-    const rota = valida() as { reglas: { inmobiliario: { destino: string } } }
-    rota.reglas.inmobiliario.destino = 'al mejor postor'
-
-    expect(validarMacro(rota).ok).toBe(false)
-  })
-
-  it('acepta una macro guardada antes de las palancas nuevas', () => {
-    // Es el caso que de verdad pasa: en la base hay payloads con la forma
-    // vieja. Si el esquema los rechazara, el motor caeria en la de fabrica y la
-    // mesa veria cambiar todas sus cifras sin haber tocado nada.
-    const vieja = valida() as { reglas: Record<string, unknown> }
-    delete vieja.reglas['ticketFijoUsd']
-    delete vieja.reglas['ticketVariableUsd']
-    delete vieja.reglas['residuos']
-    delete (vieja.reglas['otros'] as Record<string, unknown>)['minLineaUsd']
-    delete (vieja.reglas['variable'] as Record<string, unknown>)['nucleo']
-
-    const salida = validarMacro(vieja)
-    expect(salida.ok).toBe(true)
-    // Y los defectos son los neutros: la macro vieja calcula igual que antes.
-    if (salida.ok) expect(salida.macro.reglas).toEqual(REGLAS_V8)
-  })
-
-  it('rechaza un nucleo de Renta Variable vacio', () => {
-    // Sin nucleo el bloque entero cae al instrumento de consolidacion, que no
-    // es una calibracion sino un portafolio roto.
-    const rota = valida() as { reglas: { variable: { nucleo: string } } }
-    rota.reglas.variable.nucleo = '   '
-
-    expect(validarMacro(rota).ok).toBe(false)
-  })
-
-  it('rechaza un destino de residuos que el motor no conoce', () => {
-    const rota = valida() as { reglas: { residuos: { destino: string } } }
-    rota.reglas.residuos.destino = 'inm'
+  it('rechaza una parte al club deal fuera de rango', () => {
+    const rota = valida() as { reglas: { inmobiliario: { parteClub: number } } }
+    rota.reglas.inmobiliario.parteClub = 3
 
     expect(validarMacro(rota).ok).toBe(false)
   })

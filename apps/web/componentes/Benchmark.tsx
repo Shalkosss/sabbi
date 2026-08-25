@@ -66,10 +66,10 @@ export function Benchmark({
         <SelectorPerfiles elegidos={matriz.perfiles} />
 
         <label className={estilos.campo}>
-          <span>Inmobiliario disuelto</span>
-          <select name="inm" defaultValue={matriz.reglas.inmobiliario}>
-            <option value="prorratear">Se prorratea entre las cinco clases</option>
-            <option value="alternativos">Pasa entero a Privados, Club y Otros</option>
+          <span>Acceso al inmobiliario</span>
+          <select name="inm" defaultValue={matriz.reglas.accedeInmobiliario ? 'si' : 'no'}>
+            <option value="no">El cliente no accede</option>
+            <option value="si">El cliente accede</option>
           </select>
         </label>
 
@@ -93,13 +93,13 @@ export function Benchmark({
         </label>
 
         <label className={estilos.campo}>
-          <span>Ticket mínimo de ETF</span>
+          <span>Ticket mínimo</span>
           <input
             type="number"
             name="etf"
             min={1}
             step="any"
-            defaultValue={matriz.reglas.ticketEtfUsd}
+            defaultValue={matriz.reglas.ticketMinimoUsd}
             className="mono"
           />
         </label>
@@ -114,7 +114,7 @@ export function Benchmark({
             propuesta le entrega hoy a un cliente. <a href="/benchmark">Volver a las de la macro</a>{' '}
             ·{' '}
             <a
-              href={`/macro?etf=${matriz.reglas.ticketEtfUsd}&umbral=${matriz.reglas.umbralInmobiliarioUsd}&inm=${matriz.reglas.inmobiliario}`}
+              href={`/macro?etf=${matriz.reglas.ticketMinimoUsd}&umbral=${matriz.reglas.umbralInmobiliarioUsd}`}
             >
               llevarlas a la macro
             </a>
@@ -123,10 +123,10 @@ export function Benchmark({
       </form>
 
       <p className={estilos.nota}>
-        La diferencia entre las dos reglas del inmobiliario es la que separa las dos hojas con
-        las que la mesa venía trabajando. Sobre un perfil Moderado, prorratear le da{' '}
-        <b>{pct1(0.2585)}</b> a Renta Fija; mandarlo al bloque alternativo le deja{' '}
-        <b>{pct1(0.1899)}</b>. Casi siete puntos, con el mismo benchmark y el mismo ticket.
+        El acceso al inmobiliario es la palanca que más mueve la matriz. Si el cliente no accede,
+        el peso de la clase se reparte — y a dónde va lo decide el monto: hasta{' '}
+        <b>{usdTabla(matriz.reglas.umbralInmobiliarioUsd)}</b> va a Renta Fija y Variable, por
+        encima a Mercados Privados con un tercio al club deal.
       </p>
 
       <SelectorMirada puesta={matriz.mirada} />

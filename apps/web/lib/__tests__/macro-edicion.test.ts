@@ -1,16 +1,13 @@
 import { MACRO_DE_FABRICA, validarMacro } from '@sabbi/config'
 import type { Macro } from '@sabbi/config'
-import { PERFILES } from '@sabbi/core'
 import { describe, expect, it } from 'vitest'
 
 import {
   conPesoDeClase,
   conRegla,
   conRepartoInterno,
-  conTexto,
   cuadrarPerfil,
   cuadrarReparto,
-  cuadrarTodoElReparto,
   descuadres,
   pesoDeClase,
   repartoInterno,
@@ -199,47 +196,18 @@ describe('descuadres', () => {
 describe('los umbrales', () => {
   it('conRegla cambia uno y deja los otros', () => {
     const antes = base()
-    const despues = conRegla(antes, 'club.minUsd', 15_000)
+    const despues = conRegla(antes, 'privados.minClubUsd', 15_000)
 
-    expect(despues.reglas.club.minUsd).toBe(15_000)
-    expect(despues.reglas.fijo).toEqual(antes.reglas.fijo)
+    expect(despues.reglas.privados.minClubUsd).toBe(15_000)
+    expect(despues.reglas.cash).toEqual(antes.reglas.cash)
     expect(despues.pesos).toBe(antes.pesos)
   })
 
-  it('conTexto cambia el destino del inmobiliario y conserva el umbral', () => {
-    const despues = conTexto(base(), 'inmobiliario.destino', 'alternativos')
+  it('conRegla llega tambien a un campo anidado del inmobiliario', () => {
+    const despues = conRegla(base(), 'inmobiliario.umbralUsd', 250_000)
 
-    expect(despues.reglas.inmobiliario.destino).toBe('alternativos')
-    expect(despues.reglas.inmobiliario.umbralUsd).toBe(500_000)
-  })
-
-  it('conTexto llega a los campos que no son numeros ni enumeraciones', () => {
-    const antes = base()
-    const despues = conTexto(antes, 'variable.nucleo', 'MSCI World')
-
-    expect(despues.reglas.variable.nucleo).toBe('MSCI World')
-    expect(despues.reglas.variable.separacion).toBe(antes.reglas.variable.separacion)
-    expect(despues.pesos).toBe(antes.pesos)
-  })
-})
-
-describe('cuadrarTodoElReparto', () => {
-  it('deja intacta una macro que ya cuadra', () => {
-    // Es la promesa que sostiene el boton: apretarlo sobre algo cuadrado no
-    // puede reescribir los treinta y cinco pesos con su version redondeada.
-    const antes = base()
-    expect(cuadrarTodoElReparto(antes, PERFILES)).toEqual(antes)
-  })
-
-  it('cierra el descuadre que el editor ya no puede tocar celda por celda', () => {
-    // Los instrumentos se mueven con su clase y no tienen celda propia, asi
-    // que un reparto torcido —escrito desde el panel de Supabase, o heredado—
-    // dejaria el guardado bloqueado sin salida.
-    const torcida = conRepartoInterno(base(), CLASE_CON_PRODUCTOS, 0, PERFIL, 0.9)
-    expect(descuadres(torcida, [PERFIL]).length).toBeGreaterThan(0)
-
-    const cuadrada = cuadrarTodoElReparto(torcida, PERFILES)
-    expect(descuadres(cuadrada, PERFILES)).toEqual([])
-    expect(sumaDelReparto(cuadrada, CLASE_CON_PRODUCTOS, PERFIL)).toBeCloseTo(1, 12)
+    expect(despues.reglas.inmobiliario.umbralUsd).toBe(250_000)
+    // El hermano no se toca: cambiar un umbral no puede mover el reparto.
+    expect(despues.reglas.inmobiliario.parteClub).toBe(1 / 3)
   })
 })

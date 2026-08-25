@@ -1,178 +1,209 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  etiquetaClubDeal,
   FONDO_DIVIDENDOS_GLOBAL,
+  FONDO_ESTRATEGICO,
   FONDO_OPORTUNIDAD,
   FONDO_PE_VC,
   FONDO_PRIVATE_CREDIT,
   FONDO_RE_INFRA,
+  lineaClub,
   NOTA_INSTITUCIONAL,
-  repartirPrivados,
+  planificarPrivados,
+  repartirFondo,
 } from '../privados.js'
+import type { UmbralesPrivados } from '../privados.js'
 
 /**
- * Desde la separacion de Club Deals y Otros en clases propias, esta rutina
- * recibe el dinero nuevo de Mercados Privados directamente: el neteo por
- * familia lo hace el solver de pisos. Las cifras de referencia son las de la
- * familia oportunidad del caso Ana Tumi: 163,344.22 tras descontar el club.
+ * La cascada de Mercados Privados.
+ *
+ * Tres tramos y una valvula. Lo que hay que cuidar en cada caso es que el
+ * dinero cierre: club mas fondo mas lo que vuelve a publicos tiene que dar
+ * siempre el monto libre, sin un centavo de mas ni de menos.
  */
 
-const OPC = { perfil: 'Moderado' as const }
+const UMBRALES: UmbralesPrivados = {
+  minFondoUsd: 25_000,
+  minClubUsd: 5_000,
+  minSubfondoUsd: 50_000,
+  umbralClaseAUsd: 70_000,
+}
 
-const monto = (r: { instrumento: string; usd: number }[], nombre: string) =>
-  r.find((x) => x.instrumento === nombre)?.usd ?? 0
+const plan = (libreUsd: number, objetivoClubUsd: number) =>
+  planificarPrivados({ libreUsd, objetivoClubUsd, umbrales: UMBRALES })
 
-describe('repartirPrivados', () => {
-  describe('caso Ana Tumi (familia oportunidad)', () => {
-    const r = repartirPrivados(163_344.2160641878, OPC)
+const cierra = (p: ReturnType<typeof plan>, libre: number) => {
+  expect(p.clubUsd + p.fondoUsd + p.aPublicosUsd).toBeCloseTo(libre, 6)
+}
 
-    it('abre los dos fondos institucionales a la mitad', () => {
-      expect(monto(r, FONDO_RE_INFRA)).toBeCloseTo(81_672.10803209392, 4)
-      expect(monto(r, FONDO_PRIVATE_CREDIT)).toBeCloseTo(81_672.10803209392, 4)
-      expect(monto(r, FONDO_PE_VC)).toBe(0)
+describe('planificarPrivados', () => {
+  it('sin dinero no hay nada que planificar', () => {
+    expect(plan(0, 0)).toEqual({ clubUsd: 0, fondoUsd: 0, aPublicosUsd: 0 })
+  })
+
+  describe('el benchmark no contempla club deals', () => {
+    it('todo al fondo cuando alcanza su minimo', () => {
+      const p = plan(60_000, 0)
+      expect(p.fondoUsd).toBe(60_000)
+      expect(p.clubUsd).toBe(0)
+      cierra(p, 60_000)
     })
 
-    it('arrastra la nota institucional en los fondos FM', () => {
-      for (const nombre of [FONDO_RE_INFRA, FONDO_PRIVATE_CREDIT]) {
-        expect(r.find((x) => x.instrumento === nombre)?.nota).toBe(NOTA_INSTITUCIONAL)
+    it('vuelve a publicos cuando no alcanza', () => {
+      const p = plan(9_000, 0)
+      expect(p.aPublicosUsd).toBe(9_000)
+      cierra(p, 9_000)
+    })
+  })
+
+  describe('tramo 1: por debajo del minimo del fondo', () => {
+    it('todo al club deal', () => {
+      const p = plan(20_000, 6_000)
+      expect(p.clubUsd).toBe(20_000)
+      expect(p.fondoUsd).toBe(0)
+      cierra(p, 20_000)
+    })
+
+    it('si el club tampoco llega, el dinero vuelve a publicos', () => {
+      const p = plan(4_000, 1_000)
+      expect(p.aPublicosUsd).toBe(4_000)
+      expect(p.clubUsd).toBe(0)
+      expect(p.fondoUsd).toBe(0)
+      cierra(p, 4_000)
+    })
+  })
+
+  describe('tramo 2: alcanza para uno solo', () => {
+    it('todo al fondo', () => {
+      const p = plan(27_000, 8_000)
+      expect(p.fondoUsd).toBe(27_000)
+      expect(p.clubUsd).toBe(0)
+      cierra(p, 27_000)
+    })
+  })
+
+  describe('tramo 3: conviven los dos', () => {
+    it('cada uno toma su minimo y el sobrante va por peso', () => {
+      // 100,000 libres; el club pesaria 30,000 -> 30% del sobrante.
+      const p = plan(100_000, 30_000)
+      const sobrante = 100_000 - 30_000
+
+      expect(p.clubUsd).toBeCloseTo(5_000 + sobrante * 0.3, 6)
+      expect(p.fondoUsd).toBeCloseTo(25_000 + sobrante * 0.7, 6)
+      cierra(p, 100_000)
+    })
+
+    it('justo en la frontera, cada uno abre exactamente en su minimo', () => {
+      // 30,000 son 25,000 + 5,000: no sobra nada que repartir por peso.
+      const p = plan(30_000, 9_000)
+      expect(p.fondoUsd).toBeCloseTo(25_000, 6)
+      expect(p.clubUsd).toBeCloseTo(5_000, 6)
+      cierra(p, 30_000)
+    })
+
+    it('un dolar menos y el fondo se lo lleva todo', () => {
+      const p = plan(29_999, 9_000)
+      expect(p.fondoUsd).toBeCloseTo(29_999, 6)
+      expect(p.clubUsd).toBe(0)
+      cierra(p, 29_999)
+    })
+
+    it('ninguno queda por debajo de su minimo', () => {
+      for (const objetivo of [1, 5_000, 50_000, 99_000]) {
+        const p = plan(100_000, objetivo)
+        expect(p.clubUsd, String(objetivo)).toBeGreaterThanOrEqual(5_000 - 1e-6)
+        expect(p.fondoUsd, String(objetivo)).toBeGreaterThanOrEqual(25_000 - 1e-6)
+        cierra(p, 100_000)
       }
     })
 
-    it('cierra exacto contra el monto recibido', () => {
-      expect(r.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(163_344.2160641878, 6)
+    it('un objetivo de club mayor que el monto libre se recorta', () => {
+      const p = plan(100_000, 500_000)
+      expect(p.clubUsd).toBeCloseTo(75_000, 6)
+      cierra(p, 100_000)
     })
   })
+})
 
-  describe('regla de todo o nada', () => {
-    it('no abre ningún subfondo si uno no llega a 50,000', () => {
-      // A cada mitad le tocarían 45,000.
-      const r = repartirPrivados(90_000, OPC)
-      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(90_000, 6)
-      expect(monto(r, FONDO_RE_INFRA)).toBe(0)
-      expect(monto(r, FONDO_PRIVATE_CREDIT)).toBe(0)
-    })
+describe('repartirFondo', () => {
+  const opciones = { perfil: 'Moderado' as const, minSubfondoUsd: 50_000 }
 
-    it('los abre en cuanto todos superan el mínimo', () => {
-      const r = repartirPrivados(120_000, OPC)
-      expect(monto(r, FONDO_RE_INFRA)).toBeGreaterThanOrEqual(50_000)
-      expect(monto(r, FONDO_PRIVATE_CREDIT)).toBeGreaterThanOrEqual(50_000)
-      expect(monto(r, FONDO_OPORTUNIDAD)).toBe(0)
-    })
-
-    it('el Fondo Oportunidad no tiene mínimo: recibe montos chicos', () => {
-      const r = repartirPrivados(500, OPC)
-      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(500, 6)
-    })
+  it('sin dinero no abre nada', () => {
+    expect(repartirFondo(0, opciones)).toEqual([])
   })
 
-  describe('perfil Arriesgado', () => {
-    const r = repartirPrivados(600_000, { perfil: 'Arriesgado' })
-
-    it('vuelca el split a private equity y deja fuera real estate', () => {
-      expect(monto(r, FONDO_RE_INFRA)).toBe(0)
-      expect(monto(r, FONDO_PE_VC)).toBeGreaterThan(monto(r, FONDO_PRIVATE_CREDIT))
-    })
-
-    it('reparte 30/70 entre crédito privado y private equity', () => {
-      const total = monto(r, FONDO_PRIVATE_CREDIT) + monto(r, FONDO_PE_VC)
-      expect(monto(r, FONDO_PRIVATE_CREDIT) / total).toBeCloseTo(0.3, 6)
-      expect(monto(r, FONDO_PE_VC) / total).toBeCloseTo(0.7, 6)
-    })
+  it('abre los subfondos que llegan a su minimo', () => {
+    const lineas = repartirFondo(200_000, opciones)
+    expect(lineas.map((l) => l.instrumento)).toEqual([FONDO_RE_INFRA, FONDO_PRIVATE_CREDIT])
+    expect(lineas.every((l) => l.nota === NOTA_INSTITUCIONAL)).toBe(true)
   })
 
-  describe('bordes', () => {
-    it('no reparte nada sin monto', () => {
-      expect(repartirPrivados(0, OPC)).toStrictEqual([])
-    })
+  it('el perfil Arriesgado abre PE VC en vez de RE Infra', () => {
+    const lineas = repartirFondo(200_000, { ...opciones, perfil: 'Arriesgado' })
+    expect(lineas.map((l) => l.instrumento)).toEqual([FONDO_PRIVATE_CREDIT, FONDO_PE_VC])
+  })
 
-    it('siempre cierra exacto contra el monto', () => {
-      for (const m of [500, 15_000, 30_000, 120_000, 231_323.25, 1_000_000, 5_000_000]) {
-        const r = repartirPrivados(m, OPC)
-        expect(r.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(m, 6)
+  it('el que no llega le cede su monto al que si, a prorrata', () => {
+    // Arriesgado con 100,000: PC llevaria 30,000 y no llega; PE VC lleva
+    // 70,000 y si. La regla de la v4 abre PE VC con todo.
+    const lineas = repartirFondo(100_000, { ...opciones, perfil: 'Arriesgado' })
+
+    expect(lineas).toHaveLength(1)
+    expect(lineas[0]?.instrumento).toBe(FONDO_PE_VC)
+    expect(lineas[0]?.usd).toBeCloseTo(100_000, 6)
+  })
+
+  it('si ninguno llega, todo queda en el Fondo Oportunidad', () => {
+    const lineas = repartirFondo(60_000, opciones)
+    expect(lineas).toHaveLength(1)
+    expect(lineas[0]?.instrumento).toBe(FONDO_OPORTUNIDAD)
+    expect(lineas[0]?.usd).toBe(60_000)
+  })
+
+  it('lo que abre siempre suma el monto entero', () => {
+    for (const monto of [60_000, 100_000, 200_000, 1_000_000]) {
+      for (const perfil of ['Moderado', 'Arriesgado'] as const) {
+        const suma = repartirFondo(monto, { ...opciones, perfil }).reduce(
+          (acc, l) => acc + l.usd,
+          0,
+        )
+        expect(suma, `${perfil} ${monto}`).toBeCloseTo(monto, 6)
       }
-    })
-
-    it('es puro', () => {
-      expect(repartirPrivados(231_323.25, OPC)).toStrictEqual(repartirPrivados(231_323.25, OPC))
-    })
+    }
   })
 
-  describe('regla de flujos', () => {
-    const conFlujos = { ...OPC, necesitaFlujos: true }
-
-    it('no abre ningun fondo mutuo: los FM no distribuyen', () => {
-      const r = repartirPrivados(163_344.2160641878, conFlujos)
-      expect(monto(r, FONDO_RE_INFRA)).toBe(0)
-      expect(monto(r, FONDO_PRIVATE_CREDIT)).toBe(0)
-      expect(monto(r, FONDO_PE_VC)).toBe(0)
-    })
-
-    it('manda el monto a Visión Dividendos Global si llega a su ticket', () => {
-      const r = repartirPrivados(163_344.2160641878, conFlujos)
-      expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBeCloseTo(163_344.2160641878, 4)
-    })
-
-    it('deja el monto en Fondo Oportunidad si no llega al ticket de Dividendos', () => {
-      const r = repartirPrivados(70_612.9687, conFlujos)
-      expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBe(0)
-      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(70_612.9687, 3)
-    })
-
-    it('no cambia nada con el toggle apagado', () => {
-      expect(repartirPrivados(231_323.25, OPC)).toStrictEqual(
-        repartirPrivados(231_323.25, { ...OPC, necesitaFlujos: false }),
-      )
-    })
-
-    it('nunca deja pasar un fondo mutuo, sea cual sea el monto', () => {
-      for (const m of [15_000, 120_000, 231_323.25, 1_000_000, 5_000_000]) {
-        const r = repartirPrivados(m, conFlujos)
-        expect(r.some((x) => x.nota === NOTA_INSTITUCIONAL)).toBe(false)
-        expect(r.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(m, 6)
-      }
-    })
+  it('con flujos activos los fondos mutuos no participan', () => {
+    const lineas = repartirFondo(200_000, { ...opciones, necesitaFlujos: true })
+    expect(lineas).toHaveLength(1)
+    expect(lineas[0]?.instrumento).toBe(FONDO_DIVIDENDOS_GLOBAL)
   })
 
-  describe('check institucional', () => {
-    const MONTO = 163_344.2160641878
+  it('forzar el check institucional a no cierra el split', () => {
+    const lineas = repartirFondo(200_000, { ...opciones, institucional: 'no' })
+    expect(lineas[0]?.instrumento).toBe(FONDO_OPORTUNIDAD)
+  })
 
-    it('en automatico abre el split con la nota, como hace v8', () => {
-      const r = repartirPrivados(MONTO, { ...OPC, institucional: 'auto' })
+  it('forzarlo a si abre sin la nota', () => {
+    const lineas = repartirFondo(200_000, { ...opciones, institucional: 'si' })
+    expect(lineas).toHaveLength(2)
+    expect(lineas.every((l) => l.nota === undefined)).toBe(true)
+  })
+})
 
-      expect(monto(r, FONDO_RE_INFRA)).toBeCloseTo(81_672.10803209392, 4)
-      expect(r.find((x) => x.instrumento === FONDO_RE_INFRA)?.nota).toBe(NOTA_INSTITUCIONAL)
-    })
+describe('el club deal', () => {
+  it('la etiqueta cambia en el umbral', () => {
+    expect(etiquetaClubDeal(69_999.99, 70_000)).toContain('Clase B')
+    expect(etiquetaClubDeal(70_000, 70_000)).toContain('Clase A')
+  })
 
-    it('forzado a si abre el split sin la nota', () => {
-      const r = repartirPrivados(MONTO, { ...OPC, institucional: 'si' })
+  it('sin monto no hay linea', () => {
+    expect(lineaClub(0, { umbralClaseAUsd: 70_000 })).toBeNull()
+  })
 
-      expect(monto(r, FONDO_RE_INFRA)).toBeCloseTo(81_672.10803209392, 4)
-      expect(r.every((x) => x.nota === undefined)).toBe(true)
-    })
-
-    it('forzado a no deja todo en el Fondo Oportunidad', () => {
-      const r = repartirPrivados(MONTO, { ...OPC, institucional: 'no' })
-
-      expect(r.some((x) => x.instrumento === FONDO_RE_INFRA)).toBe(false)
-      expect(r.some((x) => x.instrumento === FONDO_PRIVATE_CREDIT)).toBe(false)
-      expect(monto(r, FONDO_OPORTUNIDAD)).toBeCloseTo(MONTO, 4)
-    })
-
-    it('el default es automatico: no pasar el estado no cambia nada', () => {
-      expect(repartirPrivados(MONTO, OPC)).toEqual(
-        repartirPrivados(MONTO, { ...OPC, institucional: 'auto' }),
-      )
-    })
-
-    it('los flujos ganan al forzado a si: los FM siguen siendo iliquidos', () => {
-      const r = repartirPrivados(MONTO, {
-        ...OPC,
-        institucional: 'si',
-        necesitaFlujos: true,
-      })
-
-      expect(r.some((x) => x.instrumento === FONDO_RE_INFRA)).toBe(false)
-      expect(monto(r, FONDO_DIVIDENDOS_GLOBAL)).toBeCloseTo(MONTO, 4)
-    })
+  it('con flujos el destino es el fondo que distribuye', () => {
+    const linea = lineaClub(80_000, { necesitaFlujos: true, umbralClaseAUsd: 70_000 })
+    expect(linea?.instrumento).toBe(FONDO_ESTRATEGICO)
+    expect(linea?.usd).toBe(80_000)
   })
 })

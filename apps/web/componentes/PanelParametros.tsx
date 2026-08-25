@@ -155,6 +155,27 @@ export function PanelParametros({
               </span>
             </span>
           </label>
+
+          {/*
+            La otra pregunta del inmobiliario, y no es la misma: la de arriba
+            dice si lo que el cliente YA TIENE cuenta como patrimonio
+            financiero; esta dice si el modelo le puede proponer inmobiliario
+            NUEVO. Van juntas para que la diferencia se lea de una vez.
+          */}
+          <label className={estilos.interruptor}>
+            <input
+              type="checkbox"
+              checked={parametros.accedeInmobiliario}
+              onChange={(e) => cambiar({ accedeInmobiliario: e.target.checked })}
+            />
+            <span>
+              <b>El cliente accede a Inmobiliario Directo</b>
+              <span className={estilos.ayuda}>
+                apagado, el peso de la clase se reparte: hasta el umbral va a Renta Fija y
+                Variable, por encima a Mercados Privados. Un inmueble conservado la salva igual.
+              </span>
+            </span>
+          </label>
         </div>
       </details>
     </section>

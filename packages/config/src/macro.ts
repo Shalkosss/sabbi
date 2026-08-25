@@ -1,4 +1,4 @@
-import { REGLAS_V8 } from '@sabbi/core'
+import { REGLAS_V4 } from '@sabbi/core'
 import type { ReglasMotor } from '@sabbi/core'
 import { z } from 'zod'
 
@@ -42,57 +42,21 @@ const fraccion = (etiqueta: string) =>
     .min(0, `${etiqueta} no puede ser negativo`)
     .max(1, `${etiqueta} va de 0 a 1, no de 0 a 100`)
 
-/**
- * Las palancas del motor.
- *
- * Las que llegaron despues de la v8 entran con `default`, y no por comodidad:
- * en la base hay macros guardadas con la forma vieja, y un campo nuevo sin
- * valor por defecto las volveria invalidas de golpe — el motor caeria en la de
- * fabrica y la mesa veria cambiar todas sus cifras sin haber tocado nada. El
- * defecto de cada uno es su valor neutro, el que reproduce lo que el motor ya
- * hacia.
- */
 export const reglasSchema = z.object({
-  ticketEtfUsd: positivo('El ticket minimo de ETF'),
-  /** En cero manda el general. Por eso no negativo y no positivo. */
-  ticketFijoUsd: noNegativo('El ticket de Renta Fija').default(0),
-  ticketVariableUsd: noNegativo('El ticket de Renta Variable').default(0),
+  ticketMinimoUsd: positivo('El ticket minimo'),
   inmobiliario: z.object({
-    umbralUsd: noNegativo('El umbral del inmobiliario'),
-    destino: z.enum(['prorratear', 'alternativos']),
+    umbralUsd: noNegativo('El ticket minimo del inmobiliario'),
+    parteClub: fraccion('La parte al club deal'),
   }),
   privados: z.object({
+    minFondoUsd: noNegativo('El minimo del Fondo Oportunidad'),
+    minClubUsd: noNegativo('El minimo del club deal'),
     minSubfondoUsd: noNegativo('El minimo por subfondo'),
-    minDividendosGlobalUsd: noNegativo('El minimo de Vision Dividendos Global'),
+    umbralClaseAUsd: noNegativo('La frontera de etiqueta del club deal'),
   }),
-  club: z.object({
-    minUsd: noNegativo('El minimo de Club Deals'),
-    umbralClaseAUsd: noNegativo('La frontera Edifica A / B'),
+  cash: z.object({
+    recorteConservadorPp: fraccion('El recorte de Cash del Conservador'),
   }),
-  otros: z.object({
-    minUsd: noNegativo('El minimo de Otros'),
-    minLineaUsd: noNegativo('El minimo de cada linea de Otros').default(0),
-  }),
-  fijo: z.object({
-    factorDescarte: fraccion('La poda por costo'),
-    maxSacrificio: fraccion('El sacrificio maximo'),
-    separacion: fraccion('La separacion de la cadena'),
-  }),
-  variable: z.object({
-    pisoRescateUsd: noNegativo('El piso de rescate'),
-    bloqueRescateUsd: positivo('El bloque del rescate'),
-    separacion: fraccion('La separacion de satelites'),
-    nucleo: z
-      .string()
-      .trim()
-      .min(1, 'El nucleo de Renta Variable no puede quedar vacio')
-      .default('S&P 500'),
-  }),
-  residuos: z
-    .object({
-      destino: z.enum(['privados', 'cash', 'fijo', 'variable']),
-    })
-    .default({ destino: 'privados' }),
 })
 
 export const macroSchema = z.object({
@@ -107,19 +71,18 @@ export const macroSchema = z.object({
 export type Macro = z.infer<typeof macroSchema>
 
 /**
- * La macro de fabrica: los pesos de la v4 y los umbrales de la v8.
+ * La macro de fabrica: los pesos de la hoja Data y los umbrales de la v4.
  *
  * Es el punto de partida y la red de seguridad. Si la base no tiene ninguna
- * macro guardada —o la que tiene no valida— el motor corre con esta, que es la
- * que reproduce el caso Ana Tumi al centavo. Nunca se calcula con una macro a
- * medias: o la guardada entera, o esta entera.
+ * macro guardada —o la que tiene no valida— el motor corre con esta. Nunca se
+ * calcula con una macro a medias: o la guardada entera, o esta entera.
  */
 export function macroDeFabrica(pesos: Benchmarks): Macro {
   return {
     version: 1,
-    nota: 'Macro de fábrica: pesos de la hoja Data v4 y umbrales de la Benchmark Sabbi v8.',
+    nota: 'Macro de fábrica: pesos de la hoja Data y umbrales de Benchmark Sabbi - Macros v4.',
     pesos,
-    reglas: REGLAS_V8,
+    reglas: REGLAS_V4,
   }
 }
 

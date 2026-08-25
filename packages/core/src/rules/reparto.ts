@@ -38,16 +38,24 @@ const MAX_ITERACIONES = 50
  * ajuste no puede es bajar de lo que el cliente conserva: para eso hay que
  * vender, y vender se marca en la ficha.
  *
+ * Cash va blindado: conserva su peso de benchmark y no entra en la base del
+ * prorrateo, asi que una posicion conservada en otra clase no le puede quitar
+ * liquidez al cliente. Es la regla de la macro v4 y la unica excepcion al
+ * reparto proporcional. Si el propio Cash trae un piso mayor que su peso, ese
+ * exceso si sale a repartirse entre las demas.
+ *
  * @param benchmark  pesos por clase; se normalizan, no hace falta que sumen 1
  * @param patrimonioTotalUsd  suma de las posiciones invertibles
  * @param pisos  minimos por clase, de cualquier origen
  * @param ajustes  montos clavados por el asesor, por clase
+ * @param blindadas  clases que conservan su peso y no ceden al prorrateo
  */
 export function repartirPorClase(
   benchmark: Benchmark,
   patrimonioTotalUsd: number,
   pisos: readonly Piso[],
   ajustes: readonly AjusteClase[] = [],
+  blindadas: ReadonlySet<ClaseModelo> = new Set(['cash']),
 ): ResultadoReparto {
   if (!Number.isFinite(patrimonioTotalUsd) || patrimonioTotalUsd <= 0) {
     throw new Error(
@@ -81,6 +89,18 @@ export function repartirPorClase(
     CLASES.filter((c) => (benchmark[c] ?? 0) > 0 && !fijadas.has(c)),
   )
   const cerradas = new Map<ClaseModelo, number>(fijadas)
+
+  // Una clase blindada se cierra en su peso antes de la primera vuelta: recibe
+  // lo que le toca del benchmark y despues no participa. Un ajuste del asesor
+  // le gana — si clavo Cash en un monto, manda ese monto.
+  const escala = CLASES.reduce((acc, c) => acc + (benchmark[c] ?? 0), 0)
+  for (const clase of blindadas) {
+    if (fijadas.has(clase) || !abiertas.has(clase)) continue
+    const porBenchmark = escala > 0 ? (patrimonioTotalUsd * benchmark[clase]) / escala : 0
+    cerradas.set(clase, Math.max(porBenchmark, pisoPorClase.get(clase) ?? 0))
+    abiertas.delete(clase)
+  }
+
   for (const clase of CLASES) {
     if (abiertas.has(clase) || cerradas.has(clase)) continue
     const piso = pisoPorClase.get(clase) ?? 0
@@ -133,7 +153,10 @@ export function repartirPorClase(
       objetivoUsd: objetivo,
       pisoUsd: piso,
       dineroNuevoUsd: Math.max(0, objetivo - piso),
-      cerrada,
+      // Una clase blindada esta cerrada en el solver, pero no lo esta en el
+      // sentido que la propuesta usa la palabra: recibe dinero nuevo y abre
+      // sus lineas. `cerrada` marca solo a las que quedaron en su piso.
+      cerrada: cerrada && objetivo <= piso + TOL,
       fijada: fijadas.has(clase),
     }
   })

@@ -76,6 +76,16 @@ export interface DecisionesPropuesta {
    * se reparte entre las otras cuatro.
    */
   readonly incluirInmueblesDeRenta?: boolean
+  /**
+   * El cliente accede a Inmobiliario Directo.
+   *
+   * Es el Si/No de la hoja, y no es lo mismo que `incluirInmueblesDeRenta`:
+   * ese dice si los inmuebles que el cliente ya tiene cuentan como patrimonio
+   * financiero, este dice si el modelo le puede proponer inmobiliario nuevo.
+   * En `false` —el defecto— la clase se disuelve salvo que el cliente conserve
+   * un inmueble, que la clava por su cuenta.
+   */
+  readonly accedeInmobiliario?: boolean
   /** Efectivo que la propuesta reserva. Clava cash dentro del ticket. */
   readonly colchonLiquidezUsd?: number
   readonly restricciones?: readonly Restriccion[]
@@ -390,6 +400,7 @@ export function armarEntradaPlan(
     restricciones = [],
     ajustes = [],
     reglas,
+    accedeInmobiliario = false,
   } = decisiones
 
   const { resumen, bloqueos, cuentan } = evaluarRevision(posiciones, {
@@ -487,13 +498,8 @@ export function armarEntradaPlan(
     necesitaFlujos,
     institucional,
     ajustes,
+    accedeInmobiliario,
     ...(reglas === undefined ? {} : { reglas }),
-    // Una restriccion sobre la clase inmobiliaria la salva del umbral de los
-    // 500,000, que si no la disolveria por ticket bajo. Fijarla a mano tiene el
-    // mismo efecto: es la misma decision dicha de otra manera.
-    inmFijado:
-      restricciones.some((r) => r.clase === 'inm' && r.montoUsd > EPS) ||
-      ajustes.some((a) => a.clase === 'inm' && a.modo === 'fijar' && a.montoUsd > EPS),
   }
 
   return { ok: true, entrada, resumen, avisos }

@@ -109,25 +109,29 @@ describe.skipIf(RUTA === undefined)('de la ficha al plan', () => {
     expect(porClase('privados')).toBe(0)
   })
 
-  it('reproduce la base de redistribución y los objetivos por clase', () => {
+  it('respeta lo conservado y reparte el resto entre las clases del modelo', () => {
     const { plan: resultado } = plan()
     const objetivo = (clase: string) =>
       resultado.reparto.porClase.find((c) => c.clase === clase)?.objetivoUsd ?? 0
 
-    // Las cifras de la propuesta son estas mismas redondeadas al centavo: el
-    // Excel parte de un patrimonio de 1,264,392.99 y un efectivo conservado de
-    // 214,492.75, y la ficha los trae con todos sus decimales. Ese redondeo de
-    // entrada mueve la base menos de un centavo, que es la tolerancia de aca.
-    expect(resultado.reparto.baseRedistribucion).toBeCloseTo(744_255.9831, 1)
+    // Las clases con posiciones conservadas quedan clavadas en lo que el
+    // cliente ya tiene: el inmueble y el money market no se venden.
     expect(objetivo('inm')).toBeCloseTo(555_000, 2)
     expect(objetivo('cash')).toBeCloseTo(214_492.75, 1)
-    expect(objetivo('fijo')).toBeCloseTo(141_318.96, 1)
-    expect(objetivo('variable')).toBeCloseTo(122_258.03, 1)
-    // Privados absorbe el residuo de Otros, que no llega a su minimo; el
-    // bloque completo sigue siendo los 231,323.25 de la clase madre.
-    expect(objetivo('privados')).toBeCloseTo(163_344.22, 1)
-    expect(objetivo('club')).toBeCloseTo(67_979.04, 1)
-    expect(objetivo('privados') + objetivo('club') + objetivo('otros')).toBeCloseTo(231_323.25, 1)
+
+    // El resto del patrimonio se reparte entre las clases que compran. No se
+    // fijan los montos: los decide la macro activa, y fijarlos aca seria
+    // congelar el modelo en un test de parseo de fichas.
+    const reparte = ['fijo', 'variable', 'privados', 'club', 'otros'] as const
+    const nuevo = reparte.reduce((total, clase) => total + objetivo(clase), 0)
+    expect(nuevo).toBeCloseTo(1_264_392.99 - 555_000 - 214_492.75, 1)
+
+    for (const clase of resultado.reparto.porClase) {
+      const suma = resultado.lineas
+        .filter((l) => l.clase === clase.clase)
+        .reduce((acc, l) => acc + l.usd, 0)
+      expect(suma, clase.clase).toBeCloseTo(clase.objetivoUsd, 2)
+    }
   })
 
   it('cuadra el total del plan contra el patrimonio y las compras contra el dinero disponible', () => {

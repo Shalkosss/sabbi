@@ -1,5 +1,5 @@
 import type { Benchmarks, Macro } from '@sabbi/config'
-import { CLASES, conTextoDeMacro, conValorDeMacro } from '@sabbi/core'
+import { CLASES, conValorDeMacro } from '@sabbi/core'
 import type { ClaseModelo, Perfil } from '@sabbi/core'
 
 /**
@@ -201,44 +201,6 @@ export const conRegla = (macro: Macro, ruta: string, valor: number): Macro => ({
   ...macro,
   reglas: conValorDeMacro(macro.reglas, ruta, valor),
 })
-
-/**
- * Lo mismo para los campos que no son números: el destino del inmobiliario, el
- * del dinero que sobra, el texto con el que se reconoce el núcleo.
- *
- * El valor llega como `string` porque sale de un `<select>` o de un input, y
- * quien decide si es uno de los que el motor acepta es el esquema al guardar —
- * la misma puerta por la que pasa cualquier otra escritura. Validarlo acá
- * además sería una segunda lista de valores válidos que envejece sola.
- */
-export const conTexto = (macro: Macro, ruta: string, valor: string): Macro => ({
-  ...macro,
-  reglas: conTextoDeMacro(macro.reglas, ruta, valor),
-})
-
-/**
- * Cuadra el reparto interno de todas las clases, en todos los perfiles.
- *
- * Los instrumentos ya no se editan uno por uno —se mueven con su clase, que es
- * como se piensan—, así que un reparto torcido no tiene celda donde arreglarse.
- * Puede llegar torcido de todos modos: la tabla la puede escribir un admin
- * desde el panel de Supabase, o venir de una macro guardada antes. Esto es la
- * salida para eso, y no toca nada que ya cuadre.
- */
-export function cuadrarTodoElReparto(macro: Macro, perfiles: readonly Perfil[]): Macro {
-  let salida = macro
-
-  for (const clase of CLASES) {
-    if (macro.pesos.clases[clase].productos.length === 0) continue
-    for (const perfil of perfiles) {
-      const suma = sumaDelReparto(salida, clase, perfil)
-      if (Math.abs(suma - 1) <= 1e-9) continue
-      salida = cuadrarReparto(salida, clase, perfil)
-    }
-  }
-
-  return salida
-}
 
 /**
  * Una versión guardada de la macro, para el historial.

@@ -34,7 +34,7 @@ import type { FilaPosicion } from './mapeo'
  * el panel de parámetros, y esa elección se guarda y manda.
  */
 const ticketEtfPorDefecto = async (): Promise<number> =>
-  (await macroParaCalcular()).reglas.ticketEtfUsd
+  (await macroParaCalcular()).reglas.ticketMinimoUsd
 
 /** Sin perfil declarado en la ficha, el del medio: ni el más caro ni el más barato de corregir. */
 const PERFIL_POR_DEFECTO: Perfil = 'Moderado'
@@ -222,6 +222,7 @@ interface FilaPropuesta {
   perfil: string | null
   institucional_override: string
   toggle_inm_seccion_propia: boolean
+  accede_inmobiliario: boolean
   fx: number
   colchon_liquidez_usd: number
   ticket_minimo_etf_usd: number
@@ -246,7 +247,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
   const { data: propuesta } = await supabase
     .from('proposals')
     .select(
-      'id, perfil, institucional_override, toggle_inm_seccion_propia, fx, ' +
+      'id, perfil, institucional_override, toggle_inm_seccion_propia, accede_inmobiliario, fx, ' +
         'colchon_liquidez_usd, ticket_minimo_etf_usd',
     )
     .eq('ficha_id', fichaId)
@@ -315,6 +316,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
       usPerson: cliente?.us_person ?? false,
       institucional: (propuesta?.institucional_override ?? 'auto') as Parametros['institucional'],
       incluirInmueblesDeRenta: propuesta?.toggle_inm_seccion_propia ?? true,
+      accedeInmobiliario: propuesta?.accede_inmobiliario ?? false,
       colchonLiquidezUsd: propuesta?.colchon_liquidez_usd ?? 0,
       ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? (await ticketEtfPorDefecto()),
       fxPenUsd: propuesta?.fx ?? 3.4,

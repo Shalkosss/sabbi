@@ -56,6 +56,19 @@ drop policy if exists solo_admin on products;
 drop policy if exists alta_desde_ficha on products;
 drop policy if exists completar_desde_ficha on products;
 
+-- Idempotente a proposito: esta migracion se corrio a medias en al menos una
+-- base y volvia a fallar en el `create`, dejando la cadena entera trabada.
+-- Soltar antes de crear deja el mismo estado final y se puede repetir.
+drop policy if exists escribir_la_mesa on products;
+drop policy if exists escribir_la_mesa on clases_activo;
+drop policy if exists escribir_la_mesa on subyacentes;
+drop policy if exists escribir_la_mesa on regiones;
+drop policy if exists escribir_la_mesa on gestores;
+drop policy if exists escribir_la_mesa on administradores;
+drop policy if exists escribir_la_mesa on producto_foco_geografico;
+drop policy if exists escribir_la_mesa on producto_clase_activo;
+drop policy if exists escribir_la_mesa on producto_subyacente;
+
 create policy escribir_la_mesa on products
   for all to authenticated
   using (true) with check (true);

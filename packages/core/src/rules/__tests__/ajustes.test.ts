@@ -29,7 +29,10 @@ const objetivo = (
   ajustes: readonly AjusteClase[],
   pisos: readonly Piso[] = [],
 ) => {
-  const resultado = repartirPorClase(benchmark, PATRIMONIO, pisos, ajustes)
+  // Sin blindaje: estos casos son sobre la mecanica del ajuste, y con Cash
+  // fuera del prorrateo las cuentas dejan de leerse a ojo. El blindaje tiene
+  // su propio bloque mas abajo.
+  const resultado = repartirPorClase(benchmark, PATRIMONIO, pisos, ajustes, new Set())
   return {
     resultado,
     de: (clase: ClaseModelo) =>
@@ -159,5 +162,78 @@ describe('ajustes por clase', () => {
       expect(con.ajustes).toEqual([])
       expect(con.porClase.every((c) => !c.fijada)).toBe(true)
     })
+  })
+})
+
+/**
+ * Cash blindado.
+ *
+ * Es la unica excepcion al reparto proporcional y viene de la macro v4:
+ * conserva su peso de benchmark y no entra en la base del prorrateo, asi que
+ * una posicion conservada en otra clase no le puede quitar liquidez al
+ * cliente. Sin esto, un cliente con mucho inmobiliario conservado terminaba
+ * con la mitad del cash que su perfil pide.
+ */
+describe('Cash blindado', () => {
+  const conBlindaje = (pisos: readonly Piso[] = [], ajustes: readonly AjusteClase[] = []) =>
+    repartirPorClase(PAREJO, PATRIMONIO, pisos, ajustes)
+
+  const de = (r: ReturnType<typeof conBlindaje>, clase: ClaseModelo) =>
+    r.porClase.find((c) => c.clase === clase)?.objetivoUsd ?? 0
+
+  const total = (r: ReturnType<typeof conBlindaje>) =>
+    r.porClase.reduce((acc, c) => acc + c.objetivoUsd, 0)
+
+  it('recibe su peso de benchmark, ni mas ni menos', () => {
+    expect(de(conBlindaje(), 'cash')).toBeCloseTo(17_500, 2)
+  })
+
+  it('no cede cuando otra clase trae una posicion conservada grande', () => {
+    const conPiso = conBlindaje([
+      { clase: 'inm', montoUsd: 200_000, origen: 'conservado', etiqueta: 'Casa' },
+    ])
+
+    expect(de(conPiso, 'cash')).toBeCloseTo(17_500, 2)
+    expect(total(conPiso)).toBeCloseTo(PATRIMONIO, 2)
+  })
+
+  it('sin blindaje si cederia: es la diferencia que la regla evita', () => {
+    const pisos: Piso[] = [
+      { clase: 'inm', montoUsd: 200_000, origen: 'conservado', etiqueta: 'Casa' },
+    ]
+    const sinBlindaje = repartirPorClase(PAREJO, PATRIMONIO, pisos, [], new Set())
+
+    expect(sinBlindaje.porClase.find((c) => c.clase === 'cash')?.objetivoUsd).toBeLessThan(17_500)
+  })
+
+  it('un piso propio mayor que su peso si lo sube', () => {
+    const conPiso = conBlindaje([
+      { clase: 'cash', montoUsd: 50_000, origen: 'conservado', etiqueta: 'Money Market' },
+    ])
+
+    expect(de(conPiso, 'cash')).toBeCloseTo(50_000, 2)
+    expect(total(conPiso)).toBeCloseTo(PATRIMONIO, 2)
+  })
+
+  it('un ajuste del asesor le gana al blindaje', () => {
+    const fijado = conBlindaje([], [{ clase: 'cash', modo: 'fijar', montoUsd: 100_000 }])
+
+    expect(de(fijado, 'cash')).toBeCloseTo(100_000, 2)
+    expect(total(fijado)).toBeCloseTo(PATRIMONIO, 2)
+  })
+
+  it('sacar Cash del calculo lo deja en cero', () => {
+    const excluido = conBlindaje([], [{ clase: 'cash', modo: 'excluir', montoUsd: 0 }])
+
+    expect(de(excluido, 'cash')).toBe(0)
+    expect(total(excluido)).toBeCloseTo(PATRIMONIO, 2)
+  })
+
+  it('recibir dinero no lo marca como cerrado', () => {
+    // Blindado quiere decir que no cede, no que no compra: la clase abre su
+    // linea igual y la propuesta la tiene que mostrar.
+    const cash = conBlindaje().porClase.find((c) => c.clase === 'cash')!
+    expect(cash.dineroNuevoUsd).toBeCloseTo(17_500, 2)
+    expect(cash.cerrada).toBe(false)
   })
 })

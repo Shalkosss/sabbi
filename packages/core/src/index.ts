@@ -1,34 +1,24 @@
 export * from './domain/tipos.js'
 export {
   CAMPOS_DE_MACRO,
-  REGLAS_V8,
-  conTextoDeMacro,
+  REGLAS_V4,
   conValorDeMacro,
-  textoDeMacro,
   valorDeMacro,
 } from './domain/reglas.js'
 export type {
   CampoDeMacro,
-  ClaseResiduo,
-  OpcionDeCampo,
-  ReglaInmobiliario,
-  ReglasCascada,
-  ReglasClub,
+  DestinoInmobiliario,
+  ReglasCash,
   ReglasInmobiliario,
   ReglasMotor,
-  ReglasOtros,
   ReglasPrivados,
-  ReglasResiduos,
-  ReglasVariable,
-  UnidadDeMacro,
 } from './domain/reglas.js'
 export { repartirPorClase } from './rules/reparto.js'
 export { repartirEtfs } from './rules/cascada.js'
 export type { AsignacionEtf, OpcionesCascada } from './rules/cascada.js'
-export { repartirVariable } from './rules/variable.js'
-export type { OpcionesVariable } from './rules/variable.js'
-export { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from './rules/inmobiliario.js'
-export type { OpcionesInmobiliario } from './rules/inmobiliario.js'
+export { resolverInmobiliario } from './rules/inmobiliario.js'
+export type { OpcionesInmobiliario, ResultadoInmobiliario } from './rules/inmobiliario.js'
+export { recortarCash, PERFIL_DEL_RECORTE } from './rules/cash.js'
 export { prorratearResiduales } from './rules/residuales.js'
 export {
   aperturaFm,
@@ -44,26 +34,26 @@ export type {
   SenalInstitucional,
 } from './rules/institucional.js'
 export {
-  repartirPrivados,
+  planificarPrivados,
+  repartirFondo,
+  lineaClub,
+  etiquetaClubDeal,
   FONDO_OPORTUNIDAD,
   FONDO_RE_INFRA,
   FONDO_PRIVATE_CREDIT,
   FONDO_PE_VC,
   FONDO_DIVIDENDOS_GLOBAL,
-  NOTA_INSTITUCIONAL,
-  MIN_SUBFONDO,
-  MIN_DIVIDENDOS_GLOBAL,
-} from './rules/privados.js'
-export type { LineaPrivados, OpcionesPrivados } from './rules/privados.js'
-export {
-  repartirClub,
-  etiquetaClubDeal,
   FONDO_ESTRATEGICO,
-  MIN_CLUB,
-  UMBRAL_CLASE_A,
-} from './rules/club.js'
-export type { LineaClub, OpcionesClub } from './rules/club.js'
-export { repartirOtros, OTROS_BTC, OTROS_ORO, MIN_OTROS } from './rules/otros.js'
+  NOTA_INSTITUCIONAL,
+} from './rules/privados.js'
+export type {
+  LineaPrivados,
+  OpcionesFondo,
+  OpcionesPlan,
+  PlanPrivados,
+  UmbralesPrivados,
+} from './rules/privados.js'
+export { repartirOtros, otrosAbre, OTROS_BTC, OTROS_ORO } from './rules/otros.js'
 export type { LineaOtros } from './rules/otros.js'
 export { generarPlan, INMOBILIARIO_TBD, LINEA_CASH } from './plan.js'
 export {

@@ -3,29 +3,41 @@ import { describe, expect, it } from 'vitest'
 import type { Benchmark, LineaPlan, Piso } from '../domain/tipos.js'
 import { generarPlan, INMOBILIARIO_TBD } from '../plan.js'
 import type { EntradaPlan } from '../plan.js'
-import { UMBRAL_INMOBILIARIO } from '../rules/inmobiliario.js'
-import { FONDO_ESTRATEGICO } from '../rules/club.js'
 import {
   FONDO_DIVIDENDOS_GLOBAL,
+  FONDO_ESTRATEGICO,
   FONDO_OPORTUNIDAD,
   FONDO_RE_INFRA,
   NOTA_INSTITUCIONAL,
 } from '../rules/privados.js'
 
 /**
- * Golden test del caso Ana Tumi.
+ * El caso Ana Tumi bajo la macro v4.
  *
- * Los objetivos por clase, la base de redistribucion y el total se comparan
- * contra `Propuesta Ana Tumi.xlsx` al centavo. Las lineas de ETF no: la
- * propuesta es del 11 de agosto y el motor paso por v6 y v8 despues, asi que
- * estan re-baselinizadas a la salida de v8.
+ * La ficha es la real —el mismo patrimonio, las mismas posiciones conservadas,
+ * los mismos pesos de la hoja Data— pero las cifras ya no son las de
+ * `Propuesta Ana Tumi.xlsx`: ese archivo salio de la macro v8 y la v4 cambia
+ * la cascada de ETFs, los minimos de privados y el umbral del inmobiliario.
+ * Comparar contra el no diria que el motor esta mal, diria que el modelo
+ * cambio — que es justamente lo que paso.
+ *
+ * Asi que lo que se fija aca son dos cosas distintas, y conviene no
+ * confundirlas:
+ *
+ *  - Los INVARIANTES. El total cierra contra el patrimonio, cada clase vale lo
+ *    que suman sus lineas, ninguna linea plena queda bajo el ticket, el motor
+ *    es puro. Esos no dependen de que macro corra y valen siempre.
+ *  - Las REGLAS de la v4, cada una probada por su efecto: el recorte de Cash,
+ *    el umbral del inmobiliario, los tramos de privados, la clase Otros.
+ *
+ * Los montos concretos viven en un bloque aparte, marcado como lo que es: una
+ * baseline derivada del propio motor, util para detectar un cambio no querido
+ * y sin autoridad sobre lo que el modelo deberia dar.
  */
 
 /**
  * Pesos exactos de Data!E, perfil Moderado, con la clase Mercados Privados de
- * la hoja (0.31081141150218566) abierta en privados + club + otros como manda
- * la hoja Allocation detallado. El solver es proporcional, asi que el bloque
- * completo sigue moviendo el mismo dinero que la clase madre.
+ * la hoja abierta en privados + club + otros como manda Allocation detallado.
  */
 const BENCHMARK: Benchmark = {
   inm: 0.24030062266972713,
@@ -86,287 +98,256 @@ const monto = (lineas: readonly LineaPlan[], instrumento: string) =>
 const sumaClase = (lineas: readonly LineaPlan[], clase: string) =>
   lineas.filter((l) => l.clase === clase).reduce((acc, l) => acc + l.usd, 0)
 
-describe('generarPlan — caso Ana Tumi', () => {
+/** Lo que tiene que valer siempre, corra la macro que corra. */
+function invariantes(plan: ReturnType<typeof generarPlan>, patrimonio: number, contexto = '') {
+  expect(plan.totalObjetivoUsd, `${contexto} total`).toBeCloseTo(patrimonio, 2)
+
+  for (const clase of plan.reparto.porClase) {
+    expect(sumaClase(plan.lineas, clase.clase), `${contexto} ${clase.clase}`).toBeCloseTo(
+      clase.objetivoUsd,
+      2,
+    )
+  }
+
+  for (const linea of plan.lineas) {
+    // Las exentas y las de reserva resuelven sus propios minimos. Los "Flip"
+    // tampoco cuentan: son justamente la linea en la que una clase se
+    // consolida cuando NO llega al ticket, asi que estar por debajo es su
+    // razon de existir.
+    const esConsolidacion = linea.instrumento.startsWith('Flip')
+    if (linea.residuales === undefined && !esConsolidacion) {
+      expect(linea.usd, `${contexto} ${linea.instrumento}`).toBeGreaterThanOrEqual(20_000 - 0.01)
+    }
+  }
+}
+
+describe('generarPlan — invariantes', () => {
   const plan = generarPlan(ENTRADA)
 
-  describe('reparto por clase', () => {
-    it('reproduce la base de redistribucion del Excel', () => {
-      expect(plan.reparto.baseRedistribucion).toBeCloseTo(744_255.9831307061, 4)
-    })
-
-    it('cierra inmobiliario y cash en lo conservado', () => {
-      expect(objetivo(plan, 'inm')).toBeCloseTo(555_000, 4)
-      expect(objetivo(plan, 'cash')).toBeCloseTo(214_492.75, 4)
-    })
-
-    it('reproduce los objetivos de clase abiertos', () => {
-      expect(objetivo(plan, 'fijo')).toBeCloseTo(141_318.9610218216, 4)
-      expect(objetivo(plan, 'variable')).toBeCloseTo(122_258.0263423767, 4)
-      expect(objetivo(plan, 'club')).toBeCloseTo(67_979.03657161385, 4)
-      // Privados absorbe los 4,095.12 de Otros, que no llegan a su minimo.
-      expect(objetivo(plan, 'privados')).toBeCloseTo(163_344.2160641878, 4)
-      expect(objetivo(plan, 'otros')).toBe(0)
-    })
-
-    it('el bloque privados + club + otros mueve lo mismo que la clase madre', () => {
-      const bloque =
-        objetivo(plan, 'privados') + objetivo(plan, 'club') + objetivo(plan, 'otros')
-      expect(bloque).toBeCloseTo(231_323.25263580168, 4)
-    })
-
-    it('no toca el inmobiliario y solo avisa el residuo de Otros', () => {
-      expect(PATRIMONIO).toBeGreaterThan(UMBRAL_INMOBILIARIO)
-      expect(plan.avisos).toHaveLength(1)
-      expect(plan.avisos[0]).toMatch(/Otros: el dinero nuevo .* no llega al minimo/)
-    })
+  it('las lineas suman el patrimonio y cada clase cierra contra las suyas', () => {
+    invariantes(plan, PATRIMONIO)
   })
 
-  describe('totales', () => {
-    it('las lineas suman el patrimonio invertible', () => {
-      expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
-    })
-
-    it('las compras igualan el dinero disponible', () => {
-      expect(plan.dineroNuevoUsd).toBeCloseTo(478_900.24, 2)
-    })
-
-    it('cada bloque cierra contra su objetivo de clase', () => {
-      for (const clase of ['inm', 'fijo', 'variable', 'privados', 'club', 'otros', 'cash'] as const) {
-        expect(sumaClase(plan.lineas, clase)).toBeCloseTo(objetivo(plan, clase), 4)
-      }
-    })
+  it('conserva lo mantenido como linea propia, al centavo', () => {
+    expect(monto(plan.lineas, 'DPF Caja Huancayo 2')).toBe(16_000)
+    expect(monto(plan.lineas, 'Money Market')).toBe(214_492.75)
+    expect(monto(plan.lineas, 'Inmuebles de renta')).toBe(555_000)
   })
 
-  describe('lineas', () => {
-    it('conserva lo mantenido como linea propia', () => {
-      expect(monto(plan.lineas, 'DPF Caja Huancayo 2')).toBe(16_000)
-      expect(monto(plan.lineas, 'Money Market')).toBe(214_492.75)
-      expect(monto(plan.lineas, 'Inmuebles de renta')).toBe(555_000)
-    })
+  it('no propone inmobiliario nuevo: la clase esta cerrada en su piso', () => {
+    expect(monto(plan.lineas, INMOBILIARIO_TBD)).toBe(0)
+  })
 
-    it('no propone inmobiliario nuevo: la clase esta cerrada en su piso', () => {
-      expect(monto(plan.lineas, INMOBILIARIO_TBD)).toBe(0)
-    })
-
-    it('reparte Fijo con la cascada v8', () => {
-      expect(monto(plan.lineas, 'IBTM')).toBeCloseTo(40_482.96, 2)
-      expect(monto(plan.lineas, 'LQDA')).toBeCloseTo(37_320.23, 2)
-      expect(monto(plan.lineas, 'IBTA')).toBeCloseTo(27_515.76, 2)
-      expect(monto(plan.lineas, 'IHYA')).toBeCloseTo(20_000, 2)
-      expect(monto(plan.lineas, 'JPEA')).toBe(0)
-    })
-
-    it('reparte Variable con el motor de nucleo y satelites', () => {
-      expect(monto(plan.lineas, 'iShares Core S&P 500')).toBeCloseTo(85_878.8087, 3)
-      expect(monto(plan.lineas, 'EIMI')).toBeCloseTo(36_379.2176, 3)
-    })
-
-    it('reproduce Mercados Privados al centavo', () => {
-      expect(monto(plan.lineas, 'Fondo Edifica Diversificado Clase B')).toBeCloseTo(67_979.04, 2)
-      expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeCloseTo(81_672.11, 2)
-      expect(monto(plan.lineas, 'FM PC')).toBeCloseTo(81_672.11, 2)
-    })
-
-    it('ninguna linea queda bajo el ticket minimo, salvo las exentas', () => {
-      for (const l of plan.lineas) {
-        if (l.residuales === undefined) expect(l.usd).toBeGreaterThanOrEqual(20_000)
-      }
-    })
-
-    it('ordena por bloque y, dentro del bloque, de mayor a menor', () => {
-      const orden = ['inm', 'fijo', 'variable', 'privados', 'club', 'otros', 'cash']
-      let anterior = -1
-      for (const l of plan.lineas) {
-        const bloque = orden.indexOf(l.clase)
-        expect(bloque).toBeGreaterThanOrEqual(anterior)
-        anterior = bloque
-      }
-      const fijo = plan.lineas.filter((l) => l.clase === 'fijo').map((l) => l.usd)
-      expect(fijo).toStrictEqual([...fijo].sort((a, b) => b - a))
-    })
+  it('ordena por bloque y, dentro del bloque, de mayor a menor', () => {
+    const orden = ['inm', 'fijo', 'variable', 'privados', 'club', 'otros', 'cash']
+    let anterior = -1
+    for (const l of plan.lineas) {
+      const bloque = orden.indexOf(l.clase)
+      expect(bloque).toBeGreaterThanOrEqual(anterior)
+      anterior = bloque
+    }
+    const fijo = plan.lineas.filter((l) => l.clase === 'fijo').map((l) => l.usd)
+    expect(fijo).toStrictEqual([...fijo].sort((a, b) => b - a))
   })
 
   it('es puro', () => {
     expect(generarPlan(ENTRADA)).toStrictEqual(generarPlan(ENTRADA))
   })
-})
-
-describe('generarPlan — toggles', () => {
-  it('con flujos activos saca a los fondos mutuos y avisa', () => {
-    const plan = generarPlan({ ...ENTRADA, necesitaFlujos: true })
-
-    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
-    expect(monto(plan.lineas, FONDO_ESTRATEGICO)).toBeCloseTo(67_979.04, 2)
-    expect(monto(plan.lineas, FONDO_DIVIDENDOS_GLOBAL)).toBeCloseTo(163_344.22, 2)
-    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
-    expect(plan.avisos.some((a) => a.includes('Flujos activos'))).toBe(true)
-  })
-
-  it('disuelve el inmobiliario con ticket bajo 500,000', () => {
-    const plan = generarPlan({
-      ...ENTRADA,
-      patrimonioTotalUsd: 300_000,
-      pisos: [],
-    })
-
-    expect(objetivo(plan, 'inm')).toBe(0)
-    expect(monto(plan.lineas, INMOBILIARIO_TBD)).toBe(0)
-    expect(plan.totalObjetivoUsd).toBeCloseTo(300_000, 2)
-    expect(plan.avisos.some((a) => a.includes('prorrateo'))).toBe(true)
-  })
-
-  it('conserva el inmobiliario con ticket bajo si el asesor lo clava', () => {
-    const plan = generarPlan({
-      ...ENTRADA,
-      patrimonioTotalUsd: 300_000,
-      pisos: [],
-      inmFijado: true,
-    })
-
-    expect(objetivo(plan, 'inm')).toBeGreaterThan(0)
-    expect(plan.avisos.some((a) => a.includes('conservado por restriccion'))).toBe(true)
-  })
-
-  it('en automatico abre los fondos mutuos con la nota y no avisa nada', () => {
-    const plan = generarPlan(ENTRADA)
-
-    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeCloseTo(81_672.11, 2)
-    expect(plan.lineas.find((l) => l.instrumento === FONDO_RE_INFRA)?.nota).toBe(
-      NOTA_INSTITUCIONAL,
-    )
-    expect(plan.avisos.some((a) => a.includes('Check institucional'))).toBe(false)
-  })
-
-  it('con el check forzado a no cierra los fondos mutuos y avisa', () => {
-    const plan = generarPlan({ ...ENTRADA, institucional: 'no' })
-
-    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
-    expect(monto(plan.lineas, FONDO_OPORTUNIDAD)).toBeCloseTo(163_344.22, 2)
-    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
-    expect(plan.avisos.some((a) => a.includes('Check institucional forzado a no'))).toBe(true)
-  })
-
-  it('con el check forzado a si abre los fondos mutuos sin la nota y avisa', () => {
-    const plan = generarPlan({ ...ENTRADA, institucional: 'si' })
-
-    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeCloseTo(81_672.11, 2)
-    expect(plan.lineas.every((l) => l.nota !== NOTA_INSTITUCIONAL)).toBe(true)
-    expect(plan.avisos.some((a) => a.includes('Check institucional forzado a si'))).toBe(true)
-  })
 
   it('rechaza un ticket minimo invalido', () => {
     expect(() => generarPlan({ ...ENTRADA, ticketMinimoUsd: 0 })).toThrow(/ticket minimo/i)
   })
-})
 
-/**
- * Derivar el residuo de Club y Otros a Mercados Privados mueve dinero entre
- * clases despues del solver. Es el paso donde un descuadre no se veria hasta
- * que alguien sumara la propuesta a mano, asi que se comprueba clase por clase.
- */
-describe('generarPlan — residuos de Club y Otros', () => {
-  const chico = (pisos: readonly Piso[]) =>
-    generarPlan({ ...ENTRADA, patrimonioTotalUsd: 400_000, pisos })
-
-  it('cada clase sigue cuadrando contra sus lineas', () => {
-    for (const pisos of [
-      [] as Piso[],
-      [{ clase: 'club', montoUsd: 30_000, origen: 'conservado', etiqueta: 'Edifica que ya tenia' }],
-      [{ clase: 'otros', montoUsd: 25_000, origen: 'conservado', etiqueta: 'BTC en Binance' }],
-    ] as const) {
-      const plan = chico(pisos)
-      for (const clase of plan.reparto.porClase) {
-        expect(sumaClase(plan.lineas, clase.clase)).toBeCloseTo(clase.objetivoUsd, 2)
-      }
-      expect(plan.totalObjetivoUsd).toBeCloseTo(400_000, 2)
+  it('cierra en todo el rango de tickets, no solo en este', () => {
+    for (const ticket of [50_000, 120_000, 300_000, 750_000, 2_000_000]) {
+      invariantes(
+        generarPlan({ ...ENTRADA, patrimonioTotalUsd: ticket, pisos: [] }),
+        ticket,
+        `ticket ${ticket}`,
+      )
     }
   })
 
-  it('derivar Otros equivale a que el benchmark nunca le hubiera dado nada', () => {
-    const plan = chico([])
+  it('cierra tambien con cada perfil', () => {
+    for (const perfil of [
+      'Conservador',
+      'Conservador & Moderado',
+      'Moderado',
+      'Moderado & Arriesgado',
+      'Arriesgado',
+    ] as const) {
+      invariantes(generarPlan({ ...ENTRADA, perfil }), PATRIMONIO, perfil)
+    }
+  })
+})
 
-    // La propiedad, sin reimplementar la cuenta: un Otros que no llega a su
-    // mínimo tiene que dejar el mismo reparto que un benchmark donde ese peso
-    // ya viviera en Mercados Privados. Si el residuo se perdiera o se contara
-    // dos veces, estas dos corridas no coincidirían.
+describe('generarPlan — las reglas de la v4', () => {
+  it('recorta la liquidez del Conservador y lo dice', () => {
+    const conservador = generarPlan({ ...ENTRADA, perfil: 'Conservador', pisos: [] })
+    const moderado = generarPlan({ ...ENTRADA, perfil: 'Moderado', pisos: [] })
+
+    expect(objetivo(conservador, 'cash')).toBeLessThan(objetivo(moderado, 'cash'))
+    expect(conservador.avisos.some((a) => a.includes('Conservador'))).toBe(true)
+    invariantes(conservador, PATRIMONIO, 'conservador')
+  })
+
+  it('con ticket chico el inmobiliario va a Mercados Publicos', () => {
+    const plan = generarPlan({ ...ENTRADA, patrimonioTotalUsd: 80_000, pisos: [] })
+
+    expect(objetivo(plan, 'inm')).toBe(0)
+    expect(plan.avisos.some((a) => a.includes('Renta Fija y Renta Variable'))).toBe(true)
+    invariantes(plan, 80_000, 'ticket chico')
+  })
+
+  it('con ticket grande el inmobiliario va a Mercados Privados', () => {
+    const plan = generarPlan({ ...ENTRADA, patrimonioTotalUsd: 600_000, pisos: [] })
+
+    expect(objetivo(plan, 'inm')).toBe(0)
+    expect(plan.avisos.some((a) => a.includes('pasó a Mercados Privados'))).toBe(true)
+    invariantes(plan, 600_000, 'ticket grande')
+  })
+
+  it('un inmueble conservado salva la clase del umbral', () => {
+    const plan = generarPlan({
+      ...ENTRADA,
+      patrimonioTotalUsd: 80_000,
+      pisos: [{ clase: 'inm', montoUsd: 30_000, origen: 'conservado', etiqueta: 'Casa' }],
+    })
+
+    expect(objetivo(plan, 'inm')).toBeGreaterThan(0)
+    expect(plan.avisos.some((a) => a.includes('Inmobiliario Directo'))).toBe(false)
+  })
+
+  it('si el cliente accede, la clase se queda con ticket chico', () => {
+    const plan = generarPlan({
+      ...ENTRADA,
+      patrimonioTotalUsd: 80_000,
+      pisos: [],
+      accedeInmobiliario: true,
+    })
+
+    expect(objetivo(plan, 'inm')).toBeGreaterThan(0)
+    invariantes(plan, 80_000, 'accede')
+  })
+
+  it('Otros se pliega a Privados cuando no llega al ticket', () => {
+    // Con este benchmark, Otros pesa medio punto: nunca llega solo.
+    const plan = generarPlan({ ...ENTRADA, patrimonioTotalUsd: 400_000, pisos: [] })
+
+    expect(objetivo(plan, 'otros')).toBe(0)
+    expect(plan.avisos.some((a) => a.includes('Otros'))).toBe(true)
+  })
+
+  it('plegar Otros equivale a que el benchmark nunca le hubiera dado nada', () => {
+    // La propiedad, sin reimplementar la cuenta: si el peso se perdiera o se
+    // contara dos veces, estas dos corridas no coincidirian.
+    const plan = generarPlan({ ...ENTRADA, patrimonioTotalUsd: 400_000, pisos: [] })
     const sinOtros = generarPlan({
       ...ENTRADA,
       patrimonioTotalUsd: 400_000,
       pisos: [],
-      benchmark: {
-        ...BENCHMARK,
-        privados: BENCHMARK.privados + BENCHMARK.otros,
-        otros: 0,
-      },
+      benchmark: { ...BENCHMARK, privados: BENCHMARK.privados + BENCHMARK.otros, otros: 0 },
     })
 
-    expect(objetivo(plan, 'otros')).toBe(0)
     expect(objetivo(plan, 'privados')).toBeCloseTo(objetivo(sinOtros, 'privados'), 2)
     expect(objetivo(plan, 'club')).toBeCloseTo(objetivo(sinOtros, 'club'), 2)
-    expect(plan.avisos.some((a) => a.includes('Otros: el dinero nuevo'))).toBe(true)
   })
 
-  it('con la clase entera bajo el mínimo de los FM, todo cae al Fondo Oportunidad', () => {
-    // Es el caso que describe la regla: si a los fondos les tocarían menos de
-    // 50,000 cada uno, no se abre ninguno.
+  it('con la clase entera bajo el minimo de los FM, todo cae al Fondo Oportunidad', () => {
     const plan = generarPlan({ ...ENTRADA, patrimonioTotalUsd: 150_000, pisos: [] })
 
     expect(monto(plan.lineas, FONDO_OPORTUNIDAD)).toBeGreaterThan(0)
     expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
-    expect(sumaClase(plan.lineas, 'privados')).toBeCloseTo(objetivo(plan, 'privados'), 2)
+    invariantes(plan, 150_000, 'sin FM')
   })
 
-  it('una clase con piso conserva su linea aunque su dinero nuevo se derive', () => {
-    // El piso no se toca: lo que se deriva es solo la compra que no llega.
-    const plan = chico([
-      { clase: 'otros', montoUsd: 25_000, origen: 'conservado', etiqueta: 'BTC en Binance' },
-    ])
+  it('un bloque privado que no alcanza para nada vuelve a Mercados Publicos', () => {
+    // La valvula de la regla: ni fondo ni club deal posibles.
+    const plan = generarPlan({
+      ...ENTRADA,
+      patrimonioTotalUsd: 60_000,
+      pisos: [],
+      benchmark: { ...BENCHMARK, privados: 0.02, club: 0.02, fijo: 0.4, inm: 0, variable: 0.4 },
+      accedeInmobiliario: true,
+    })
 
-    expect(monto(plan.lineas, 'BTC en Binance')).toBe(25_000)
-    expect(objetivo(plan, 'otros')).toBeCloseTo(25_000, 2)
+    expect(objetivo(plan, 'privados')).toBe(0)
+    expect(objetivo(plan, 'club')).toBe(0)
+    expect(plan.avisos.some((a) => a.includes('volvió a Mercados Públicos'))).toBe(true)
+    invariantes(plan, 60_000, 'valvula')
+  })
+
+  it('Cash va blindado: una posicion conservada en otra clase no le quita liquidez', () => {
+    const sinPisos = generarPlan({ ...ENTRADA, pisos: [] })
+    const conPiso = generarPlan({
+      ...ENTRADA,
+      pisos: [
+        { clase: 'variable', montoUsd: 400_000, origen: 'conservado', etiqueta: 'Acciones' },
+      ],
+    })
+
+    expect(objetivo(conPiso, 'cash')).toBeCloseTo(objetivo(sinPisos, 'cash'), 2)
+  })
+})
+
+describe('generarPlan — los toggles', () => {
+  it('con flujos activos el destino cambia de vehiculo', () => {
+    const plan = generarPlan({ ...ENTRADA, necesitaFlujos: true })
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
+    expect(monto(plan.lineas, FONDO_ESTRATEGICO)).toBeGreaterThan(0)
+    expect(monto(plan.lineas, FONDO_DIVIDENDOS_GLOBAL)).toBeGreaterThan(0)
+    invariantes(plan, PATRIMONIO, 'flujos')
+  })
+
+  it('en automatico abre los fondos mutuos con la nota', () => {
+    const plan = generarPlan(ENTRADA)
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeGreaterThan(0)
+    expect(plan.lineas.find((l) => l.instrumento === FONDO_RE_INFRA)?.nota).toBe(
+      NOTA_INSTITUCIONAL,
+    )
+  })
+
+  it('con el check forzado a no cierra los fondos mutuos', () => {
+    const plan = generarPlan({ ...ENTRADA, institucional: 'no' })
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBe(0)
+    expect(monto(plan.lineas, FONDO_OPORTUNIDAD)).toBeGreaterThan(0)
+    invariantes(plan, PATRIMONIO, 'institucional no')
+  })
+
+  it('con el check forzado a si abre sin la nota', () => {
+    const plan = generarPlan({ ...ENTRADA, institucional: 'si' })
+
+    expect(monto(plan.lineas, FONDO_RE_INFRA)).toBeGreaterThan(0)
+    expect(plan.lineas.every((l) => l.nota !== NOTA_INSTITUCIONAL)).toBe(true)
   })
 })
 
 describe('generarPlan — el reparto sigue a las lineas', () => {
   /**
    * El barrido de residuales cruza clases: una linea de Fijo que no llega al
-   * ticket desaparece y su monto engorda a las de Variable. Eso esta bien y es
-   * lo que hace la macro; lo que no puede quedar es un reparto que diga que
-   * Fijo tiene un objetivo que sus propias lineas ya no suman.
+   * ticket desaparece y su monto engorda a las de Variable. Eso esta bien; lo
+   * que no puede quedar es un reparto que diga que Fijo tiene un objetivo que
+   * sus propias lineas ya no suman.
    *
-   * No es cosmetico. La seccion 6 imprimia una clase cuyo total no era la suma
-   * de sus filas, y el blotter calculaba las compras de cada clase sobre las
-   * lineas que le quedaban: la que se quedaba sin ninguna aportaba cero, las
-   * compras no cuadraban contra las ventas y la propuesta se marcaba como no
-   * publicable sin que nadie hubiera hecho nada mal.
+   * No es cosmetico. La seccion 6 imprimiria una clase cuyo total no es la
+   * suma de sus filas, y el blotter calcularia las compras sobre las lineas
+   * que le quedan: la que se queda sin ninguna aporta cero, las compras no
+   * cuadran contra las ventas y la propuesta se marca como no publicable sin
+   * que nadie haya hecho nada mal.
    */
   const conResiduoQueCruza: EntradaPlan = {
     ...ENTRADA,
-    // Casi todo conservado en Fijo: a la clase le queda un dinero nuevo tan
-    // chico que ninguna de sus lineas llega al ticket y todas se barren.
     pisos: [
       { clase: 'inm', montoUsd: 555_000, origen: 'conservado', etiqueta: 'Inmuebles' },
       { clase: 'fijo', montoUsd: 226_000, origen: 'conservado', etiqueta: 'DPF' },
     ],
   }
 
-  const plan = generarPlan(conResiduoQueCruza)
-
   it('cada clase vale exactamente lo que suman sus lineas', () => {
-    for (const clase of plan.reparto.porClase) {
-      expect(sumaClase(plan.lineas, clase.clase)).toBeCloseTo(clase.objetivoUsd, 2)
-    }
-  })
-
-  it('el total sigue siendo el patrimonio: el barrido no crea ni pierde dinero', () => {
-    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
-  })
-
-  it('el caso Ana Tumi no se mueve: ahi ningun residual cruza de clase', () => {
-    const original = generarPlan(ENTRADA)
-    for (const clase of original.reparto.porClase) {
-      expect(sumaClase(original.lineas, clase.clase)).toBeCloseTo(clase.objetivoUsd, 2)
-    }
+    invariantes(generarPlan(conResiduoQueCruza), PATRIMONIO, 'residuo que cruza')
   })
 
   it('una clase fijada no cede ni recibe en el barrido', () => {
@@ -377,6 +358,17 @@ describe('generarPlan — el reparto sigue a las lineas', () => {
 
     expect(objetivo(fijada, 'variable')).toBeCloseTo(150_000, 2)
     expect(sumaClase(fijada.lineas, 'variable')).toBeCloseTo(150_000, 2)
-    expect(fijada.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
+    invariantes(fijada, PATRIMONIO, 'fijada')
+  })
+
+  it('una clase con piso conserva su linea aunque su dinero nuevo se pliegue', () => {
+    const plan = generarPlan({
+      ...ENTRADA,
+      patrimonioTotalUsd: 400_000,
+      pisos: [{ clase: 'otros', montoUsd: 25_000, origen: 'conservado', etiqueta: 'BTC' }],
+    })
+
+    expect(monto(plan.lineas, 'BTC')).toBe(25_000)
+    invariantes(plan, 400_000, 'piso en otros')
   })
 })

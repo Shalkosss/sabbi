@@ -152,7 +152,7 @@ describe('armarEntradaPlan', () => {
     expect(resumen.restringidoUsd).toBe(90_000)
   })
 
-  it('fija la clase inmobiliaria cuando una restriccion la apunta', () => {
+  it('una restriccion sobre el inmobiliario llega como piso de la clase', () => {
     const { entrada } = derivar(
       [posicion({ claseModelo: 'cash', valorUsd: 300_000, cta: 'venta_total' })],
       {
@@ -163,8 +163,25 @@ describe('armarEntradaPlan', () => {
       },
     )
 
-    // Con ticket bajo 500,000 el umbral disolveria la clase; la restriccion la salva.
-    expect(entrada.inmFijado).toBe(true)
+    // El piso es lo que salva a la clase del umbral del inmobiliario, y el
+    // motor lo mira por su cuenta: aca solo tiene que viajar.
+    expect(entrada.pisos).toContainEqual({
+      clase: 'inm',
+      montoUsd: 90_000,
+      origen: 'restriccion',
+      etiqueta: 'Depto en construccion',
+    })
+  })
+
+  it('el acceso al inmobiliario viaja al motor tal como se decidio', () => {
+    const sinAcceso = derivar([posicion({ claseModelo: 'cash', cta: 'venta_total' })], DECISIONES)
+    expect(sinAcceso.entrada.accedeInmobiliario).toBe(false)
+
+    const conAcceso = derivar([posicion({ claseModelo: 'cash', cta: 'venta_total' })], {
+      ...DECISIONES,
+      accedeInmobiliario: true,
+    })
+    expect(conAcceso.entrada.accedeInmobiliario).toBe(true)
   })
 
   it('traslada los toggles de propuesta al motor', () => {

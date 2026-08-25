@@ -1,153 +1,142 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ClaseModelo, ResultadoReparto } from '../../domain/tipos.js'
-import { prorratearInmobiliario, UMBRAL_INMOBILIARIO } from '../inmobiliario.js'
+import type { Benchmark } from '../../domain/tipos.js'
+import { CLASES } from '../../domain/tipos.js'
+import { resolverInmobiliario } from '../inmobiliario.js'
 
-/** Reparto de juguete: objetivos redondos para que el prorrateo se lea a ojo. */
-function repartoDe(
-  objetivos: Partial<Record<ClaseModelo, number>>,
-  pisos: Partial<Record<ClaseModelo, number>> = {},
-  fijadas: readonly ClaseModelo[] = [],
-): ResultadoReparto {
-  const clases: ClaseModelo[] = ['fijo', 'variable', 'privados', 'inm', 'cash']
-  return {
-    porClase: clases.map((clase) => {
-      const objetivoUsd = objetivos[clase] ?? 0
-      const pisoUsd = pisos[clase] ?? 0
-      return {
-        clase,
-        objetivoUsd,
-        pisoUsd,
-        dineroNuevoUsd: Math.max(0, objetivoUsd - pisoUsd),
-        cerrada: pisoUsd > 0 && objetivoUsd <= pisoUsd,
-        fijada: fijadas.includes(clase),
-      }
-    }),
-    baseRedistribucion: 0,
-    iteraciones: 1,
-    ajustes: [],
-  }
+/**
+ * El umbral del inmobiliario.
+ *
+ * La regla tiene dos salidas y el ticket decide cual. Es la que mas mueve las
+ * cifras y la que menos se ve, asi que cada caso comprueba tambien que el
+ * dinero no se cree ni se pierda: el total del benchmark no cambia nunca.
+ */
+
+const BENCHMARK: Benchmark = {
+  inm: 0.24,
+  fijo: 0.19,
+  variable: 0.16,
+  privados: 0.21,
+  club: 0.09,
+  otros: 0.02,
+  cash: 0.09,
 }
 
-const objetivo = (r: ResultadoReparto, clase: ClaseModelo) =>
-  r.porClase.find((c) => c.clase === clase)?.objetivoUsd ?? 0
+const suma = (b: Benchmark) => CLASES.reduce((acc, c) => acc + b[c], 0)
 
-const BASE = { inm: 100_000, fijo: 100_000, variable: 50_000, privados: 50_000, cash: 40_000 }
-
-describe('prorratearInmobiliario', () => {
-  describe('bajo el umbral', () => {
-    const r = prorratearInmobiliario(repartoDe(BASE), { patrimonioTotalUsd: 340_000 })
-
-    it('disuelve la clase inmobiliaria', () => {
-      expect(objetivo(r, 'inm')).toBe(0)
-    })
-
-    it('reparte su capital entre fijo, variable y privados a prorrata', () => {
-      // 100k sobre una base de 200k: cada una crece un 50%.
-      expect(objetivo(r, 'fijo')).toBeCloseTo(150_000, 6)
-      expect(objetivo(r, 'variable')).toBeCloseTo(75_000, 6)
-      expect(objetivo(r, 'privados')).toBeCloseTo(75_000, 6)
-    })
-
-    it('no toca el cash', () => {
-      expect(objetivo(r, 'cash')).toBe(40_000)
-    })
-
-    it('conserva el patrimonio total', () => {
-      const total = r.porClase.reduce((acc, c) => acc + c.objetivoUsd, 0)
-      expect(total).toBeCloseTo(340_000, 6)
-    })
-
-    it('recalcula el dinero nuevo de las receptoras', () => {
-      const conPiso = prorratearInmobiliario(repartoDe(BASE, { fijo: 120_000 }), {
-        patrimonioTotalUsd: 340_000,
-      })
-      const fijo = conPiso.porClase.find((c) => c.clase === 'fijo')
-      expect(fijo?.dineroNuevoUsd).toBeCloseTo(30_000, 6)
-      expect(fijo?.cerrada).toBe(false)
-    })
+const correr = (patrimonioTotalUsd: number, extra: Record<string, unknown> = {}) =>
+  resolverInmobiliario(BENCHMARK, {
+    patrimonioTotalUsd,
+    accede: false,
+    tienePiso: false,
+    umbralUsd: 100_000,
+    ...extra,
   })
 
-  describe('cuando no aplica', () => {
-    it('deja el reparto intacto sobre el umbral', () => {
-      const original = repartoDe(BASE)
-      const r = prorratearInmobiliario(original, { patrimonioTotalUsd: UMBRAL_INMOBILIARIO })
-      expect(r).toBe(original)
-    })
+describe('resolverInmobiliario', () => {
+  it('con ticket chico reparte entre Renta Fija y Variable', () => {
+    const salida = correr(80_000)
 
-    it('respeta el inmueble conservado, que llega como piso', () => {
-      const r = prorratearInmobiliario(repartoDe(BASE, { inm: 100_000 }), {
-        patrimonioTotalUsd: 340_000,
-      })
-      expect(objetivo(r, 'inm')).toBe(100_000)
-    })
-
-    it('respeta el escape manual del asesor', () => {
-      const r = prorratearInmobiliario(repartoDe(BASE), {
-        patrimonioTotalUsd: 340_000,
-        inmFijado: true,
-      })
-      expect(objetivo(r, 'inm')).toBe(100_000)
-    })
-
-    it('no hace nada si la clase no tiene objetivo', () => {
-      const r = prorratearInmobiliario(repartoDe({ ...BASE, inm: 0 }), {
-        patrimonioTotalUsd: 240_000,
-      })
-      expect(objetivo(r, 'fijo')).toBe(100_000)
-    })
-
-    it('no hace nada si no hay clases receptoras', () => {
-      const r = prorratearInmobiliario(repartoDe({ inm: 100_000, cash: 40_000 }), {
-        patrimonioTotalUsd: 140_000,
-      })
-      expect(objetivo(r, 'inm')).toBe(100_000)
-    })
-  })
-})
-
-describe('las dos maneras de repartir el inmobiliario disuelto', () => {
-  /**
-   * La mesa venia trabajando con dos hojas que no coinciden, y difieren en
-   * esto: el capital de la clase disuelta se prorratea entre las cinco
-   * receptoras —la macro v8— o pasa entero al bloque de Privados, Club y
-   * Otros. Las dos reparten el mismo dinero y las dos dejan al cash afuera.
-   */
-  const BASE = { inm: 100_000, fijo: 100_000, variable: 50_000, privados: 50_000, cash: 40_000 }
-  const bajo = { patrimonioTotalUsd: 340_000 }
-
-  const prorrateado = prorratearInmobiliario(repartoDe(BASE), { ...bajo, regla: 'prorratear' })
-  const alBloque = prorratearInmobiliario(repartoDe(BASE), { ...bajo, regla: 'alternativos' })
-
-  it('las dos disuelven la clase', () => {
-    expect(objetivo(prorrateado, 'inm')).toBe(0)
-    expect(objetivo(alBloque, 'inm')).toBe(0)
+    expect(salida.disuelta).toBe(true)
+    expect(salida.destino).toBe('publicos')
+    expect(salida.benchmark.inm).toBe(0)
+    expect(salida.benchmark.fijo).toBeGreaterThan(BENCHMARK.fijo)
+    expect(salida.benchmark.variable).toBeGreaterThan(BENCHMARK.variable)
+    // Privados y Cash no participan.
+    expect(salida.benchmark.privados).toBe(BENCHMARK.privados)
+    expect(salida.benchmark.cash).toBe(BENCHMARK.cash)
   })
 
-  it('prorratear reparte entre todas las receptoras', () => {
-    expect(objetivo(prorrateado, 'fijo')).toBeCloseTo(150_000, 2)
-    expect(objetivo(prorrateado, 'variable')).toBeCloseTo(75_000, 2)
-    expect(objetivo(prorrateado, 'privados')).toBeCloseTo(75_000, 2)
+  it('con ticket grande reparte entre Privados y Club Deals', () => {
+    const salida = correr(500_000)
+
+    expect(salida.disuelta).toBe(true)
+    expect(salida.destino).toBe('privados')
+    expect(salida.benchmark.inm).toBe(0)
+    expect(salida.benchmark.privados).toBeGreaterThan(BENCHMARK.privados)
+    expect(salida.benchmark.club).toBeGreaterThan(BENCHMARK.club)
+    expect(salida.benchmark.fijo).toBe(BENCHMARK.fijo)
+    expect(salida.benchmark.cash).toBe(BENCHMARK.cash)
   })
 
-  it('al bloque alternativo deja Fijo y Variable donde estaban', () => {
-    expect(objetivo(alBloque, 'fijo')).toBeCloseTo(100_000, 2)
-    expect(objetivo(alBloque, 'variable')).toBeCloseTo(50_000, 2)
-    expect(objetivo(alBloque, 'privados')).toBeCloseTo(150_000, 2)
+  it('el umbral es inclusivo: justo en el umbral va a publicos', () => {
+    expect(correr(100_000).destino).toBe('publicos')
+    expect(correr(100_000.01).destino).toBe('privados')
   })
 
-  it('las dos dejan el cash afuera y cuadran contra el mismo total', () => {
-    for (const r of [prorrateado, alBloque]) {
-      expect(objetivo(r, 'cash')).toBeCloseTo(40_000, 2)
-      expect(r.porClase.reduce((acc, c) => acc + c.objetivoUsd, 0)).toBeCloseTo(340_000, 2)
+  it('reparte a prorrata del peso de cada receptora', () => {
+    const salida = correr(80_000)
+    const razonAntes = BENCHMARK.fijo / BENCHMARK.variable
+    const razonDespues = salida.benchmark.fijo / salida.benchmark.variable
+    expect(razonDespues).toBeCloseTo(razonAntes, 12)
+  })
+
+  it('no crea ni pierde peso, en las dos direcciones', () => {
+    for (const ticket of [80_000, 500_000]) {
+      expect(suma(correr(ticket).benchmark), String(ticket)).toBeCloseTo(suma(BENCHMARK), 12)
     }
   })
 
-  it('el umbral se puede mover: sobre el, la clase no se disuelve', () => {
-    const conUmbralBajo = prorratearInmobiliario(repartoDe(BASE), {
-      ...bajo,
-      umbralUsd: 300_000,
+  it('si el cliente accede, la clase se queda sin importar el ticket', () => {
+    for (const ticket of [10_000, 80_000, 5_000_000]) {
+      const salida = correr(ticket, { accede: true })
+      expect(salida.disuelta, String(ticket)).toBe(false)
+      expect(salida.benchmark).toBe(BENCHMARK)
+    }
+  })
+
+  it('un inmueble conservado la salva igual que acceder', () => {
+    const salida = correr(80_000, { tienePiso: true })
+    expect(salida.disuelta).toBe(false)
+    expect(salida.benchmark).toBe(BENCHMARK)
+  })
+
+  it('sin peso inmobiliario no hay nada que repartir', () => {
+    const sinInm: Benchmark = { ...BENCHMARK, inm: 0, fijo: 0.43 }
+    const salida = resolverInmobiliario(sinInm, {
+      patrimonioTotalUsd: 80_000,
+      accede: false,
+      tienePiso: false,
+      umbralUsd: 100_000,
     })
-    expect(objetivo(conUmbralBajo, 'inm')).toBeCloseTo(100_000, 2)
+    expect(salida.disuelta).toBe(false)
+    expect(salida.benchmark).toBe(sinInm)
+  })
+
+  it('sin mercados publicos y ticket chico, cae al bloque privado', () => {
+    // Un perfil sin Fijo ni Variable no tiene el destino que le tocaria; el
+    // dinero va al unico bloque que puede recibirlo antes que perderse.
+    const sinPublicos: Benchmark = { ...BENCHMARK, fijo: 0, variable: 0, privados: 0.56 }
+    const salida = resolverInmobiliario(sinPublicos, {
+      patrimonioTotalUsd: 80_000,
+      accede: false,
+      tienePiso: false,
+      umbralUsd: 100_000,
+    })
+
+    expect(salida.disuelta).toBe(true)
+    expect(salida.destino).toBe('privados')
+    expect(suma(salida.benchmark)).toBeCloseTo(suma(sinPublicos), 12)
+  })
+
+  it('sin ningun destino posible, la clase se queda', () => {
+    // Mejor un inmobiliario que el cliente no toma que dinero evaporado.
+    const soloInmYCash: Benchmark = {
+      inm: 0.5,
+      fijo: 0,
+      variable: 0,
+      privados: 0,
+      club: 0,
+      otros: 0,
+      cash: 0.5,
+    }
+    const salida = resolverInmobiliario(soloInmYCash, {
+      patrimonioTotalUsd: 80_000,
+      accede: false,
+      tienePiso: false,
+      umbralUsd: 100_000,
+    })
+    expect(salida.disuelta).toBe(false)
+    expect(salida.benchmark).toBe(soloInmYCash)
   })
 })

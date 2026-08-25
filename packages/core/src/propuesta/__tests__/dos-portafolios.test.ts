@@ -73,6 +73,10 @@ const planCon = (ajustes: readonly AjusteClase[], restricciones: readonly Restri
     pesos: PESOS,
     ticketMinimoUsd: 20_000,
     fallbacks: { fijo: 'Flip - Panda Zen', variable: 'Flip - Cobra achorada' },
+    // El cliente accede al inmobiliario: sin esto la clase se disolveria por
+    // la regla del ticket y este fixture no tendria un `inm` que ajustar. Lo
+    // que se prueba aca es el camino del ajuste, no esa regla.
+    accedeInmobiliario: true,
     ajustes,
     restricciones,
   })

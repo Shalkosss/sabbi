@@ -1,36 +1,40 @@
 /**
  * Ensamblado del plan.
  *
- * Es el equivalente de `CalcularAsignacion` de la macro Benchmark Sabbi v8: la
- * rutina que llama a las demas en orden y produce la propuesta. Las piezas ya
- * estan verificadas contra el caso Ana Tumi por separado; aca se encadenan.
+ * Es el equivalente de `Calcular_Portafolio_Completo` de la macro
+ * `Benchmark Sabbi - Macros v4`: la rutina que llama a las demas en orden y
+ * produce la propuesta.
  *
- * Orden, que no es arbitrario:
+ * El orden no es arbitrario — cada paso trabaja sobre el benchmark que dejo el
+ * anterior, y cambiarlo da otras cifras:
  *
- *  1. Solver de pisos. Reparte el patrimonio entre clases y cierra las que ya
- *     estan cubiertas por lo conservado o por una restriccion. Desde que Club
- *     Deals y Otros son clases propias, este paso tambien hace el neteo por
- *     familia que el motor viejo resolvia a mano dentro de privados.
- *  2. Umbral inmobiliario. Bajo el ticket que fija la macro —500,000 en la v8—
- *     la clase se disuelve y su capital engorda a las otras. Va antes de
- *     repartir instrumentos porque cambia el objetivo de cada clase.
- *  3. Derivacion de residuos. Un Club Deals o un Otros por debajo de su minimo
- *     no imprimen lineas inejecutables: su dinero nuevo pasa al Fondo
- *     Oportunidad de Mercados Privados, que no tiene minimo de inversion.
- *  4. Reparto por clase, sobre el dinero nuevo: cascada v8 en Fijo, motor de
- *     nucleo y satelites en Variable, familia de fondos en Privados, Edifica o
- *     Estrategico en Club, BTC y Oro en Otros.
- *  5. Prorrateo de residuales. Barre las lineas inejecutables al final, cuando
+ *  1. Recorte de Cash. En el perfil Conservador el peso de Cash baja cinco
+ *     puntos porcentuales y se reparte pro-rata entre las otras cinco clases.
+ *     Va primero para que todo lo demas trabaje sobre el benchmark corregido.
+ *  2. Clase Otros. Si su benchmark no llega al ticket minimo, deja de existir
+ *     y su peso se suma a Mercados Privados. Antes de comparar contra las
+ *     posiciones conservadas: al reves se contaba su peso dos veces.
+ *  3. Inmobiliario Directo. Si el cliente no accede, su peso se reparte — a
+ *     Mercados Publicos con ticket chico, a Mercados Privados con ticket
+ *     grande. Un inmueble conservado la salva.
+ *  4. Solver de pisos. Reparte el patrimonio entre clases y cierra las que ya
+ *     estan cubiertas por lo conservado o por un ajuste. Cash va blindado.
+ *  5. Segunda vuelta de Otros: pudo pasar el ticket con su benchmark y quedar
+ *     por debajo despues del reparto.
+ *  6. Cascada de privados, sobre el dinero de privados y club juntos. Puede
+ *     devolver monto a Mercados Publicos, asi que va ANTES de repartir ETFs.
+ *  7. Reparto por clase, sobre el dinero nuevo: la misma cascada de ETFs en
+ *     Fijo y en Variable, los subfondos en Privados, la etiqueta en Club, los
+ *     dos instrumentos en Otros.
+ *  8. Prorrateo de residuales. Barre las lineas inejecutables al final, cuando
  *     ya se sabe cuanto le toco a cada una.
  *
  * La funcion es pura: no lee configuracion, no toca la red y no mira el reloj.
- * Los pesos, los pisos, los toggles y la macro —los umbrales con los que se
- * decide— llegan como argumento. Sin macro corre la v8, que es la que fija el
- * golden test de Ana Tumi.
+ * Los pesos, los pisos y los toggles llegan como argumento.
  */
 
-import { REGLAS_V8 } from './domain/reglas.js'
-import type { ClaseResiduo, ReglasMotor } from './domain/reglas.js'
+import { REGLAS_V4 } from './domain/reglas.js'
+import type { ReglasMotor } from './domain/reglas.js'
 import type {
   AjusteAplicado,
   AjusteClase,
@@ -42,30 +46,21 @@ import type {
   RepartoClase,
   ResultadoReparto,
 } from './domain/tipos.js'
-import { NOMBRE_CLASE } from './domain/tipos.js'
+import { CLASES, NOMBRE_CLASE } from './domain/tipos.js'
 import { repartirEtfs } from './rules/cascada.js'
-import { repartirClub } from './rules/club.js'
-import { prorratearInmobiliario } from './rules/inmobiliario.js'
+import { recortarCash } from './rules/cash.js'
+import { resolverInmobiliario } from './rules/inmobiliario.js'
 import type { EstadoInstitucional } from './rules/institucional.js'
-import { repartirOtros } from './rules/otros.js'
-import { repartirPrivados, FONDO_OPORTUNIDAD } from './rules/privados.js'
+import { otrosAbre, repartirOtros } from './rules/otros.js'
+import { lineaClub, planificarPrivados, repartirFondo } from './rules/privados.js'
+import type { PlanPrivados } from './rules/privados.js'
 import { repartirPorClase } from './rules/reparto.js'
 import { prorratearResiduales } from './rules/residuales.js'
-import { repartirVariable } from './rules/variable.js'
 
 const EPS = 1e-6
 
 /** Un centavo. Por debajo, una diferencia es ruido de coma flotante. */
 const TOL = 0.01
-
-/**
- * Clases que pueden absorber el residuo de Club y Otros, en orden de preferencia.
- *
- * La macro elige cual va primero; el resto queda como respaldo en este orden,
- * porque una clase fijada por un ajuste del asesor no puede recibir dinero que
- * el asesor no pidio.
- */
-const CANDIDATAS_RESIDUO: readonly ClaseResiduo[] = ['privados', 'cash', 'fijo', 'variable']
 
 /** Orden de bloques de la propuesta. Es el de la hoja Allocation detallado. */
 const ORDEN_CLASES: readonly ClaseModelo[] = [
@@ -100,19 +95,22 @@ export interface EntradaPlan {
   readonly pesos: PesosProductos
   /** Pisos por clase: posiciones conservadas y restricciones del asesor. */
   readonly pisos: readonly Piso[]
-  /** Ticket minimo ejecutable de una posicion. */
-  readonly ticketMinimoUsd: number
   /** Instrumento de consolidacion cuando una clase no llega a un ticket. */
   readonly fallbacks: { readonly fijo: string; readonly variable: string }
-  /** Toggle de flujos. Saca a los fondos mutuos del reparto de privados. */
+  /** Toggle de flujos. Cambia el destino de privados y del club deal. */
   readonly necesitaFlujos?: boolean
   /**
-   * Check institucional. `auto` reproduce v8 — split abierto con la nota al
-   * pie —; solo un forzado del asesor cambia el reparto.
+   * Check institucional. `auto` abre el split con la nota al pie; solo un
+   * forzado del asesor cambia el reparto.
    */
   readonly institucional?: EstadoInstitucional
-  /** Conserva Inmobiliario Directo aunque el ticket no llegue a 500,000. */
-  readonly inmFijado?: boolean
+  /**
+   * El cliente accede a Inmobiliario Directo.
+   *
+   * Es el Si/No de la hoja. En `true` la clase se conserva sin importar el
+   * ticket. Una restriccion sobre la clase tiene el mismo efecto.
+   */
+  readonly accedeInmobiliario?: boolean
   /**
    * Montos que el asesor clavo por clase, en las dos direcciones.
    *
@@ -124,17 +122,20 @@ export interface EntradaPlan {
    * La macro: los umbrales y minimos con los que se calcula.
    *
    * Es lo que la mesa edita en la pantalla de Macro y lo que hace que dos
-   * corridas del mismo cliente den portafolios distintos. Sin ella manda la
-   * v8, que es la que fija el golden test de Ana Tumi.
-   *
-   * `ticketMinimoUsd` viaja aparte y gana: es el unico numero de la macro que
-   * el asesor puede mover propuesta por propuesta.
+   * corridas del mismo cliente den portafolios distintos. Sin ella, la v4.
    */
   readonly reglas?: ReglasMotor
+  /**
+   * Ticket minimo de esta propuesta.
+   *
+   * Gana sobre el de la macro: es el unico numero que el asesor mueve
+   * propuesta por propuesta.
+   */
+  readonly ticketMinimoUsd?: number
 }
 
 export interface Plan {
-  /** Reparto por clase, con el umbral inmobiliario y los residuos aplicados. */
+  /** Reparto por clase, con el inmobiliario y los residuos aplicados. */
   readonly reparto: ResultadoReparto
   readonly lineas: readonly LineaPlan[]
   /** Suma de todas las lineas. Debe igualar el patrimonio invertible. */
@@ -152,114 +153,109 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     benchmark,
     pesos,
     pisos,
-    ticketMinimoUsd,
     fallbacks,
     necesitaFlujos = false,
     institucional = 'auto',
-    inmFijado = false,
+    accedeInmobiliario = false,
     ajustes = [],
-    reglas = REGLAS_V8,
+    reglas = REGLAS_V4,
   } = entrada
 
-  const { destino: reglaInmobiliario, umbralUsd: umbralInmobiliarioUsd } = reglas.inmobiliario
-
+  const ticketMinimoUsd = entrada.ticketMinimoUsd ?? reglas.ticketMinimoUsd
   if (ticketMinimoUsd <= 0) {
     throw new Error(`El ticket minimo debe ser mayor que cero, se recibio ${ticketMinimoUsd}.`)
   }
 
   const avisos: string[] = []
+  const redondo = (monto: number): string =>
+    monto.toLocaleString('en-US', { maximumFractionDigits: 0 })
 
-  const inicial = repartirPorClase(benchmark, patrimonioTotalUsd, pisos, ajustes)
-  const conInmobiliario = prorratearInmobiliario(inicial, {
+  // ── 1. Recorte de Cash del Conservador ────────────────────────────────
+  const conCash = recortarCash(benchmark, perfil, reglas.cash.recorteConservadorPp)
+  if (conCash !== benchmark) {
+    avisos.push(
+      `Perfil Conservador: se le recortaron ${(reglas.cash.recorteConservadorPp * 100).toFixed(1)} ` +
+        'puntos de Cash y se repartieron entre las demás clases.',
+    )
+  }
+
+  const escala = CLASES.reduce((acc, c) => acc + conCash[c], 0)
+  const enDinero = (peso: number) => (escala > 0 ? (patrimonioTotalUsd * peso) / escala : 0)
+
+  // ── 2. La clase Otros existe o se pliega ──────────────────────────────
+  const otrosEnDinero = enDinero(conCash.otros)
+  const otrosVive = otrosAbre(otrosEnDinero, ticketMinimoUsd)
+  const conOtros: Benchmark = otrosVive
+    ? conCash
+    : { ...conCash, otros: 0, privados: conCash.privados + conCash.otros }
+
+  if (!otrosVive && conCash.otros > EPS) {
+    avisos.push(
+      `Otros: su parte del modelo (${redondo(otrosEnDinero)}) no llega al ticket mínimo de ` +
+        `${redondo(ticketMinimoUsd)} y su peso pasó a Mercados Privados.`,
+    )
+  }
+
+  // ── 3. Inmobiliario Directo ───────────────────────────────────────────
+  const pisoInm = pisos.reduce((acc, p) => (p.clase === 'inm' ? acc + p.montoUsd : acc), 0)
+  const fijoInm = ajustes.some((a) => a.clase === 'inm' && a.modo === 'fijar' && a.montoUsd > EPS)
+
+  const inm = resolverInmobiliario(conOtros, {
     patrimonioTotalUsd,
-    inmFijado,
-    regla: reglaInmobiliario,
-    umbralUsd: umbralInmobiliarioUsd,
+    accede: accedeInmobiliario,
+    tienePiso: pisoInm > EPS || fijoInm,
+    umbralUsd: reglas.inmobiliario.umbralUsd,
   })
 
-  avisos.push(...avisosDeAjustes(inicial.ajustes))
-
-  const inmInicial = claseDe(inicial, 'inm')
-  if (patrimonioTotalUsd < umbralInmobiliarioUsd && inmInicial.objetivoUsd > EPS) {
-    const umbral = umbralInmobiliarioUsd.toLocaleString('en-US')
-    const adonde =
-      reglaInmobiliario === 'alternativos'
-        ? 'su capital paso entero al bloque de Privados, Club y Otros'
-        : 'su capital se prorrateo entre las clases invertibles'
-
+  if (inm.disuelta) {
     avisos.push(
-      claseDe(conInmobiliario, 'inm').objetivoUsd > EPS
-        ? `Inmobiliario Directo: ticket bajo ${umbral} pero conservado por restriccion.`
-        : `Inmobiliario Directo: ticket bajo ${umbral}; ${adonde}.`,
+      inm.destino === 'publicos'
+        ? 'Inmobiliario Directo: el cliente no accede y el ticket no llega a ' +
+            `${redondo(reglas.inmobiliario.umbralUsd)}; su parte se repartió entre Renta Fija y ` +
+            'Renta Variable.'
+        : 'Inmobiliario Directo: el cliente no accede; su parte pasó a Mercados Privados, con ' +
+            `${(reglas.inmobiliario.parteClub * 100).toFixed(0)}% destinado al club deal.`,
     )
   }
 
-  if (necesitaFlujos) {
-    avisos.push(
-      'Flujos activos: los fondos mutuos quedan fuera de Mercados Privados por iliquidos.',
-    )
-  }
+  // Lo que el inmobiliario aporto a privados y club, para el objetivo del club.
+  const inmAPrivados = inm.destino === 'privados' ? enDinero(inm.pesoMovido) : 0
 
-  // El automatico no se avisa: es lo que el motor hace siempre. Un forzado si,
-  // porque cambia el reparto respecto de la referencia.
-  if (institucional === 'no') {
-    avisos.push(
-      'Check institucional forzado a no: los fondos mutuos no se abren y su capital queda ' +
-        'en el Fondo Oportunidad.',
-    )
-  } else if (institucional === 'si') {
-    avisos.push(
-      'Check institucional forzado a si: los fondos mutuos se abren sin la nota de ' +
-        'disponibilidad.',
-    )
-  }
+  // ── 4. Solver de pisos, con Cash blindado ─────────────────────────────
+  const inicial = repartirPorClase(inm.benchmark, patrimonioTotalUsd, pisos, ajustes)
+  avisos.push(...avisosDeAjustes(inicial.ajustes, redondo))
 
-  // Los montos que no llegan al minimo de su clase van al Fondo Oportunidad,
-  // que no tiene minimo. El reparto se ajusta para que cada clase siga
-  // cuadrando contra sus lineas.
-  const club = repartirClub(claseDe(conInmobiliario, 'club').dineroNuevoUsd, {
-    necesitaFlujos,
-    minUsd: reglas.club.minUsd,
-    umbralClaseAUsd: reglas.club.umbralClaseAUsd,
+  // ── 5. Otros pudo caer por debajo del ticket en el reparto ────────────
+  const trasOtros = replegarOtros(inicial, ticketMinimoUsd, otrosVive, avisos, redondo)
+
+  // ── 6. Cascada de privados: club, fondo y lo que vuelve a publicos ────
+  const librePrivados = claseDe(trasOtros, 'privados').dineroNuevoUsd
+  const libreClub = claseDe(trasOtros, 'club').dineroNuevoUsd
+
+  const plan = planificarPrivados({
+    libreUsd: librePrivados + libreClub,
+    // Lo que le tocaria al club sin minimos: su peso mas la parte del
+    // inmobiliario que se derivo aca.
+    objetivoClubUsd: libreClub + inmAPrivados * reglas.inmobiliario.parteClub,
+    umbrales: reglas.privados,
   })
-  const otros = repartirOtros(
-    claseDe(conInmobiliario, 'otros').dineroNuevoUsd,
-    pesos.otros,
-    reglas.otros.minUsd,
-    reglas.otros.minLineaUsd,
-  )
 
-  const residuoClub = club === null ? claseDe(conInmobiliario, 'club').dineroNuevoUsd : 0
-  const residuoOtros = otros === null ? claseDe(conInmobiliario, 'otros').dineroNuevoUsd : 0
-
-  // Su casa natural es el Fondo Oportunidad, que no tiene minimo. Solo cambia
-  // cuando el asesor fijo Mercados Privados y esa clase ya no puede crecer.
-  const destino = destinoDeResiduos(conInmobiliario, reglas.residuos.destino)
-  const dondeCae =
-    destino.clase === 'privados' ? FONDO_OPORTUNIDAD : NOMBRE_CLASE[destino.clase]
-
-  if (residuoClub > EPS) {
+  if (plan.aPublicosUsd > EPS) {
     avisos.push(
-      `Club Deals: el dinero nuevo (${residuoClub.toFixed(2)}) no llega al minimo de ` +
-        `${reglas.club.minUsd.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
+      `Mercados Privados: el dinero nuevo (${redondo(plan.aPublicosUsd)}) no alcanza ni para el ` +
+        `Fondo Oportunidad (${redondo(reglas.privados.minFondoUsd)}) ni para un club deal ` +
+        `(${redondo(reglas.privados.minClubUsd)}), y volvió a Mercados Públicos.`,
     )
-  }
-  if (residuoOtros > EPS) {
+  } else if (libreClub > EPS && plan.clubUsd <= EPS) {
     avisos.push(
-      `Otros: el dinero nuevo (${residuoOtros.toFixed(2)}) no llega al minimo de ` +
-        `${reglas.otros.minUsd.toLocaleString('en-US')} y pasa al ${dondeCae}.`,
-    )
-  }
-  if ((residuoClub > EPS || residuoOtros > EPS) && destino.pisaUnAjuste) {
-    avisos.push(
-      'El residuo de Club Deals y Otros no cabía en ninguna clase libre y fue a ' +
-        `${NOMBRE_CLASE[destino.clase]}, que estaba fijada: ese monto quedó por encima de lo ` +
-        'que pediste.',
+      `Club Deals: no llega a su mínimo de ${redondo(reglas.privados.minClubUsd)}; su dinero ` +
+        'quedó en el Fondo Oportunidad.',
     )
   }
 
-  const reparto = derivarResiduos(conInmobiliario, residuoClub, residuoOtros, destino.clase)
+  const reparto = asentarPrivados(trasOtros, plan)
 
+  // ── 7. Las lineas de cada clase ───────────────────────────────────────
   const lineas = ORDEN_CLASES.flatMap((clase) =>
     lineasDeClase(clase, reparto, {
       pisos,
@@ -270,8 +266,6 @@ export function generarPlan(entrada: EntradaPlan): Plan {
       necesitaFlujos,
       institucional,
       reglas,
-      club,
-      otros,
       fijadas: new Set(reparto.porClase.filter((c) => c.fijada).map((c) => c.clase)),
     }),
   )
@@ -288,20 +282,113 @@ export function generarPlan(entrada: EntradaPlan): Plan {
 }
 
 /**
+ * Segunda vuelta de la clase Otros.
+ *
+ * Pudo pasar el ticket con su benchmark original y quedar por debajo despues
+ * del reparto: si el asesor clavo otra clase, el prorrateo recorta a las
+ * libres. Su dinero nuevo se pliega a Mercados Privados, que es la misma
+ * decision del paso 2 tomada sobre el monto ya repartido.
+ */
+function replegarOtros(
+  reparto: ResultadoReparto,
+  ticketMinimoUsd: number,
+  otrosVive: boolean,
+  avisos: string[],
+  redondo: (monto: number) => string,
+): ResultadoReparto {
+  if (!otrosVive) return reparto
+
+  const otros = claseDe(reparto, 'otros')
+  if (otros.dineroNuevoUsd <= EPS) return reparto
+  if (otrosAbre(otros.dineroNuevoUsd, ticketMinimoUsd)) return reparto
+
+  const mover = otros.dineroNuevoUsd
+  avisos.push(
+    `Otros: después del reparto le quedaron ${redondo(mover)}, por debajo del ticket mínimo de ` +
+      `${redondo(ticketMinimoUsd)}. Su dinero nuevo pasó a Mercados Privados.`,
+  )
+
+  return {
+    ...reparto,
+    porClase: reparto.porClase.map((c) => {
+      if (c.clase === 'otros') {
+        return { ...c, objetivoUsd: c.pisoUsd, dineroNuevoUsd: 0, cerrada: true }
+      }
+      if (c.clase === 'privados') {
+        return {
+          ...c,
+          objetivoUsd: c.objetivoUsd + mover,
+          dineroNuevoUsd: c.dineroNuevoUsd + mover,
+          cerrada: false,
+        }
+      }
+      return c
+    }),
+  }
+}
+
+/**
+ * Deja el reparto diciendo lo que el plan de privados decidio.
+ *
+ * El club y el fondo se reparten el dinero de las dos clases juntas, asi que el
+ * objetivo de cada una cambia; lo que vuelve a Mercados Publicos se prorratea
+ * entre Fijo y Variable a proporcion de lo que ya tenian. Cash nunca recibe.
+ * El total no se mueve: es el mismo dinero contado en otra clase.
+ */
+function asentarPrivados(
+  reparto: ResultadoReparto,
+  plan: PlanPrivados,
+): ResultadoReparto {
+  const conNuevo = (actual: RepartoClase, dineroNuevo: number): RepartoClase => ({
+    ...actual,
+    objetivoUsd: actual.pisoUsd + dineroNuevo,
+    dineroNuevoUsd: dineroNuevo,
+    cerrada: dineroNuevo <= TOL,
+  })
+
+  const conPrivados: RepartoClase[] = reparto.porClase.map((c) => {
+    if (c.clase === 'privados') return conNuevo(c, plan.fondoUsd)
+    if (c.clase === 'club') return conNuevo(c, plan.clubUsd)
+    return c
+  })
+
+  if (plan.aPublicosUsd <= EPS) return { ...reparto, porClase: conPrivados }
+
+  const de = (clase: ClaseModelo) =>
+    conPrivados.find((c) => c.clase === clase)?.dineroNuevoUsd ?? 0
+  const base = de('fijo') + de('variable')
+
+  return {
+    ...reparto,
+    porClase: conPrivados.map((c) => {
+      if (c.clase !== 'fijo' && c.clase !== 'variable') return c
+      // Sin base, todo a Renta Fija: es el destino mas conservador de los dos.
+      const parte =
+        base > EPS
+          ? plan.aPublicosUsd * (c.dineroNuevoUsd / base)
+          : c.clase === 'fijo'
+            ? plan.aPublicosUsd
+            : 0
+      return {
+        ...c,
+        objetivoUsd: c.objetivoUsd + parte,
+        dineroNuevoUsd: c.dineroNuevoUsd + parte,
+        cerrada: c.dineroNuevoUsd + parte <= TOL,
+      }
+    }),
+  }
+}
+
+/**
  * Devuelve el reparto a lo que dicen las lineas.
  *
  * El prorrateo de residuales barre entre clases: una linea de Fijo que no llega
  * al ticket desaparece y su monto engorda a las de Variable, que si lo superan.
- * Es lo que hace la macro y esta bien — lo que no puede quedar es el reparto
- * diciendo que Fijo tiene 228,123 cuando sus lineas suman 214,492.
+ * Lo que no puede quedar es el reparto diciendo que Fijo tiene 228,123 cuando
+ * sus lineas suman 214,492 — la seccion 6 imprimiria una clase cuyo total no es
+ * la suma de sus filas, y el blotter no cuadraria.
  *
- * Esa diferencia no era cosmetica. La seccion 6 imprimia una clase cuyo total
- * no era la suma de sus filas, y el blotter calculaba las compras de cada clase
- * sobre las lineas que le quedaban: la clase que se quedo sin ninguna aportaba
- * cero, las compras no cuadraban contra las ventas y la propuesta se marcaba
- * como no publicable.
- *
- * El total no se mueve — el barrido conserva el dinero — solo la reparticion.
+ * El total no se mueve —el barrido conserva el dinero— solo la reparticion.
  */
 function realinearConLasLineas(
   reparto: ResultadoReparto,
@@ -322,10 +409,6 @@ function realinearConLasLineas(
   return { ...reparto, porClase }
 }
 
-/** Dolares redondos para un aviso: los centavos no ayudan a decidir. */
-const redondo = (monto: number): string =>
-  monto.toLocaleString('en-US', { maximumFractionDigits: 0 })
-
 /**
  * Los ajustes que el piso no dejo cumplir.
  *
@@ -334,7 +417,10 @@ const redondo = (monto: number): string =>
  * el piso y lo escribe: un ajuste aplicado a medias en silencio es una cifra
  * que despues nadie puede explicar.
  */
-function avisosDeAjustes(ajustes: readonly AjusteAplicado[]): string[] {
+function avisosDeAjustes(
+  ajustes: readonly AjusteAplicado[],
+  redondo: (monto: number) => string,
+): string[] {
   return ajustes
     .filter((ajuste) => ajuste.aplicadoUsd > ajuste.pedidoUsd + TOL)
     .map((ajuste) => {
@@ -350,80 +436,6 @@ function avisosDeAjustes(ajustes: readonly AjusteAplicado[]): string[] {
     })
 }
 
-/**
- * Adonde va el dinero de Club y Otros que no llego a su minimo.
- *
- * Su casa natural es Mercados Privados, que tiene el Fondo Oportunidad y por
- * eso no tiene minimo. Pero una clase fijada por el asesor no puede recibir
- * dinero extra sin dejar de estar fijada, asi que el residuo busca la primera
- * clase libre. Si no hay ninguna vuelve a Privados y el llamador lo avisa: es
- * preferible un ajuste desbordado y dicho que un portafolio que no cuadra.
- */
-function destinoDeResiduos(
-  reparto: ResultadoReparto,
-  preferida: ClaseResiduo,
-): {
-  readonly clase: ClaseModelo
-  readonly pisaUnAjuste: boolean
-} {
-  const fijada = (clase: ClaseModelo) =>
-    reparto.porClase.find((c) => c.clase === clase)?.fijada ?? false
-
-  // La de la macro primero; las demas quedan en su orden como respaldo.
-  const orden = [preferida, ...CANDIDATAS_RESIDUO.filter((c) => c !== preferida)]
-
-  const libre = orden.find((clase) => !fijada(clase))
-  return libre === undefined
-    ? { clase: preferida, pisaUnAjuste: true }
-    : { clase: libre, pisaUnAjuste: false }
-}
-
-/**
- * Mueve el dinero nuevo de Club y Otros que no abrio hacia su clase destino.
- *
- * Ajusta el reparto — no solo las lineas — para que el objetivo de cada clase
- * siga siendo la suma de sus lineas. El total no cambia: es el mismo dinero
- * contado en otra clase.
- */
-function derivarResiduos(
-  reparto: ResultadoReparto,
-  residuoClub: number,
-  residuoOtros: number,
-  destino: ClaseModelo,
-): ResultadoReparto {
-  const residuo = residuoClub + residuoOtros
-  if (residuo <= EPS) return reparto
-
-  const porClase: RepartoClase[] = reparto.porClase.map((c) => {
-    if (c.clase === 'club' && residuoClub > EPS) {
-      return {
-        ...c,
-        objetivoUsd: c.objetivoUsd - residuoClub,
-        dineroNuevoUsd: 0,
-        cerrada: true,
-      }
-    }
-    if (c.clase === 'otros' && residuoOtros > EPS) {
-      return {
-        ...c,
-        objetivoUsd: c.objetivoUsd - residuoOtros,
-        dineroNuevoUsd: 0,
-        cerrada: true,
-      }
-    }
-    if (c.clase === destino) {
-      return {
-        ...c,
-        objetivoUsd: c.objetivoUsd + residuo,
-        dineroNuevoUsd: c.dineroNuevoUsd + residuo,
-      }
-    }
-    return c
-  })
-
-  return { ...reparto, porClase }
-}
-
 interface ContextoClase {
   readonly pisos: readonly Piso[]
   readonly pesos: PesosProductos
@@ -432,12 +444,7 @@ interface ContextoClase {
   readonly fallbacks: { readonly fijo: string; readonly variable: string }
   readonly necesitaFlujos: boolean
   readonly institucional: EstadoInstitucional
-  /** La macro con la que se esta calculando. */
   readonly reglas: ReglasMotor
-  /** Resultado de `repartirClub`, ya evaluado para derivar residuos. */
-  readonly club: ReturnType<typeof repartirClub>
-  /** Resultado de `repartirOtros`, ya evaluado para derivar residuos. */
-  readonly otros: ReturnType<typeof repartirOtros>
   /**
    * Clases que el asesor clavo.
    *
@@ -465,12 +472,11 @@ function lineasDeClase(
   // Privados, Club y Otros resuelven sus minimos propios: sus lineas nuevas no
   // ceden en el prorrateo de residuales y solo reciben en ultima instancia.
   if (clase === 'privados') {
-    const nuevas = repartirPrivados(dineroNuevoUsd, {
+    const nuevas = repartirFondo(dineroNuevoUsd, {
       perfil: ctx.perfil,
       necesitaFlujos: ctx.necesitaFlujos,
       institucional: ctx.institucional,
       minSubfondoUsd: ctx.reglas.privados.minSubfondoUsd,
-      minDividendosGlobalUsd: ctx.reglas.privados.minDividendosGlobalUsd,
     }).map(
       (l): LineaPlan => ({
         instrumento: l.instrumento,
@@ -484,15 +490,19 @@ function lineasDeClase(
   }
 
   if (clase === 'club') {
+    const linea = lineaClub(dineroNuevoUsd, {
+      necesitaFlujos: ctx.necesitaFlujos,
+      umbralClaseAUsd: ctx.reglas.privados.umbralClaseAUsd,
+    })
     const nuevas: LineaPlan[] =
-      ctx.club === null
+      linea === null
         ? []
-        : [{ instrumento: ctx.club.instrumento, clase, usd: ctx.club.usd, residuales: 'reserva' }]
+        : [{ instrumento: linea.instrumento, clase, usd: linea.usd, residuales: 'reserva' }]
     return [...conservadas, ...nuevas]
   }
 
   if (clase === 'otros') {
-    const nuevas: LineaPlan[] = (ctx.otros ?? []).map((l) => ({
+    const nuevas: LineaPlan[] = repartirOtros(dineroNuevoUsd, ctx.pesos.otros).map((l) => ({
       instrumento: l.instrumento,
       clase,
       usd: l.usd,
@@ -503,22 +513,11 @@ function lineasDeClase(
 
   if (clase === 'fijo' || clase === 'variable') {
     const exenta = ctx.fijadas.has(clase)
-    // Cada motor mira sus propios ajustes — la cascada, los de la poda; el de
-    // nucleo y satelites, los del rescate — y puede tener su propio ticket. En
-    // cero manda el general, que es el que el asesor puede pisar desde la
-    // ficha: un ticket por clase que ganara siempre le sacaria esa palanca.
-    const nuevas = (clase === 'fijo'
-      ? repartirEtfs(ctx.pesos.fijo, dineroNuevoUsd, {
-          ticketMinimo: ticketDeClase(ctx.reglas.ticketFijoUsd, ctx.ticketMinimoUsd),
-          fallback: ctx.fallbacks.fijo,
-          ajustes: ctx.reglas.fijo,
-        })
-      : repartirVariable(ctx.pesos.variable, dineroNuevoUsd, {
-          ticketMinimo: ticketDeClase(ctx.reglas.ticketVariableUsd, ctx.ticketMinimoUsd),
-          fallback: ctx.fallbacks.variable,
-          ajustes: ctx.reglas.variable,
-        })
-    ).map(
+    // Los dos bloques pasan por la misma cascada: es la regla de la v4.
+    const nuevas = repartirEtfs(ctx.pesos[clase], dineroNuevoUsd, {
+      ticketMinimo: ctx.ticketMinimoUsd,
+      fallback: ctx.fallbacks[clase],
+    }).map(
       (a): LineaPlan => ({
         instrumento: a.nombre,
         clase,
@@ -530,24 +529,13 @@ function lineasDeClase(
   }
 
   // Cash e inmobiliario quedan fuera del prorrateo de residuales: el cash por
-  // la regla de aislamiento de v8, el inmobiliario por ser linea de seccion.
+  // la regla de aislamiento, el inmobiliario por ser linea de seccion.
   const instrumento = clase === 'inm' ? INMOBILIARIO_TBD : LINEA_CASH
   return [
     ...conservadas,
     { instrumento, clase, usd: dineroNuevoUsd, residuales: 'exenta' as const },
   ]
 }
-
-/**
- * El ticket con el que se mide una clase de mercados publicos.
- *
- * El general es el unico umbral que el asesor pisa propuesta por propuesta
- * desde la ficha; el de la clase es una decision de la mesa que vive en la
- * macro. Por eso el de clase solo manda cuando esta puesto: en cero se hereda
- * el general y el asesor conserva su palanca.
- */
-const ticketDeClase = (propio: number, general: number): number =>
-  propio > 0 ? propio : general
 
 function claseDe(reparto: ResultadoReparto, clase: ClaseModelo) {
   const encontrada = reparto.porClase.find((c) => c.clase === clase)

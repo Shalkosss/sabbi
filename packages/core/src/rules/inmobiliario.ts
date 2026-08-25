@@ -1,124 +1,132 @@
 /**
  * Umbral de Inmobiliario Directo.
  *
- * Port de `ProrratearInmobiliario` de la macro Benchmark Sabbi v8. Es la regla
- * que menos se ve en la especificacion y mas mueve las cifras: por debajo del
- * ticket que fija la macro —500,000 en la v8— la clase inmobiliaria no existe.
+ * Port del PASO PREVIO B de `AjustarPorPosicionesFijas` de la macro v4. Es la
+ * regla que menos se ve en la especificacion y mas mueve las cifras.
  *
- * No es un toggle sino un umbral con escape manual. Se corre despues del solver
- * de pisos y antes de repartir cada clase en instrumentos, igual que en la
- * macro: el objetivo de `inm` se disuelve y su capital se prorratea entre Fijo,
- * Variable y Privados en proporcion a lo que ya tenian. Cash no participa.
+ * La pregunta no es cuanto le toca a la clase sino si el cliente la puede
+ * ejecutar. Si accede, se queda con su peso sin importar el ticket. Si no
+ * accede, su benchmark se reparte y el destino depende del tamano:
  *
- * A donde va ese capital es un campo de la macro y no una constante: cual de
- * las dos reglas es la buena lo decide la mesa mirando la matriz.
+ *   ticket <= umbral  ->  Mercados Publicos, entre Fijo y Variable a prorrata
+ *   ticket >  umbral  ->  Mercados Privados, con un tercio al club deal
+ *
+ * El corte por ticket no es cosmetico. Con un ticket chico la clase de
+ * privados ya viene ajustada, y meterle mas solo la deja atrapada en los
+ * minimos del Fondo Oportunidad y del club deal: el dinero entraria a una
+ * clase que no lo puede colocar. Por eso abajo del umbral va a publicos, que
+ * es donde si se puede ejecutar.
+ *
+ * Cash nunca recibe este monto —no es destino de dinero que busca retorno— y
+ * Otros tampoco, que es satelite.
  *
  * El escape es el piso: un inmueble que el cliente conserva, o una restriccion
- * del asesor sobre la clase, la clavan y la regla no se aplica. En la macro son
- * la misma cosa — las posiciones conservadas entran como restricciones — y aqui
- * tambien: ambas llegan como piso de la clase. Un ajuste que fija la clase hace
- * lo mismo por la puerta de adelante.
+ * del asesor sobre la clase, la clavan y la regla no se aplica. En la macro
+ * son la misma cosa y aqui tambien: ambas llegan como piso de la clase.
  *
- * Una clase fijada tampoco recibe: si el asesor clavo Renta Fija en 200,000, el
- * capital del inmobiliario disuelto no puede empujarla a 240,000. El prorrateo
- * se reparte entre las que quedan libres.
+ * Se corre despues del recorte de Cash y antes del solver de pisos, que es el
+ * orden de la macro.
  */
 
-import { REGLAS_V8 } from '../domain/reglas.js'
-import type { ReglaInmobiliario } from '../domain/reglas.js'
-import type { ClaseModelo, RepartoClase, ResultadoReparto } from '../domain/tipos.js'
+import type { Benchmark, ClaseModelo } from '../domain/tipos.js'
+import { CLASES } from '../domain/tipos.js'
 
-export type { ReglaInmobiliario }
+const EPS = 1e-9
 
-/** Debajo de este ticket, Inmobiliario Directo se disuelve. */
-export const UMBRAL_INMOBILIARIO = REGLAS_V8.inmobiliario.umbralUsd
-
-/**
- * Las clases que absorben el capital del inmobiliario disuelto.
- *
- * En la macro eran Fijo, Variable y Privados; Club y Otros entran porque antes
- * vivian dentro de Privados y el prorrateo proporcional les daba su parte a
- * traves de la clase madre. Cash sigue sin participar.
- */
-const RECEPTORAS: ReadonlySet<ClaseModelo> = new Set([
-  'fijo',
-  'variable',
-  'privados',
-  'club',
-  'otros',
-])
-
-const EPS = 1e-6
-const TOL = 0.01
-
-/*
- * Las dos reglas reparten el mismo dinero y las dos dejan al cash afuera; lo
- * que cambia es quien lo recibe, y sobre un perfil Moderado la diferencia es
- * de casi siete puntos en Renta Fija. Por eso es un campo de la macro y no una
- * constante: cual de las dos es la buena lo decide la mesa mirando la matriz.
- */
-
-/** Las clases del bloque alternativo, que es quien recibe con `alternativos`. */
-const ALTERNATIVAS: ReadonlySet<ClaseModelo> = new Set(['privados', 'club', 'otros'])
+/** A donde fue a parar el peso del inmobiliario, para poder explicarlo. */
+export interface ResultadoInmobiliario {
+  readonly benchmark: Benchmark
+  /** `true` cuando la clase se disolvio. */
+  readonly disuelta: boolean
+  /** Peso que se movio. Cero cuando la clase se conserva. */
+  readonly pesoMovido: number
+  /** A donde fue: `null` cuando no se movio nada. */
+  readonly destino: 'publicos' | 'privados' | null
+}
 
 export interface OpcionesInmobiliario {
   /** Ticket de la propuesta: el patrimonio invertible total. */
   readonly patrimonioTotalUsd: number
-  /** Fuerza la conservacion de la clase aunque el ticket no llegue al umbral. */
-  readonly inmFijado?: boolean
-  /** A donde va el capital disuelto. Por defecto, el reparto de la macro v8. */
-  readonly regla?: ReglaInmobiliario
-  /** Debajo de este ticket la clase se disuelve. Por defecto, 500,000. */
-  readonly umbralUsd?: number
+  /**
+   * El cliente accede a Inmobiliario Directo.
+   *
+   * Es el Si/No de la hoja. En `true` la clase se conserva pase lo que pase.
+   */
+  readonly accede: boolean
+  /** La clase trae un piso: un inmueble conservado o una restriccion. */
+  readonly tienePiso: boolean
+  /** Ticket a partir del cual la clase se puede ejecutar. */
+  readonly umbralUsd: number
 }
 
 /**
- * Disuelve Inmobiliario Directo y prorratea su capital, si corresponde.
+ * Reparte el peso de Inmobiliario Directo cuando el cliente no lo puede tomar.
  *
- * Devuelve el reparto intacto cuando la regla no aplica, de modo que el llamador
- * puede invocarla siempre sin preguntar.
+ * Devuelve el benchmark intacto cuando la regla no aplica, de modo que el
+ * llamador puede invocarla siempre sin preguntar.
  */
-export function prorratearInmobiliario(
-  reparto: ResultadoReparto,
+export function resolverInmobiliario(
+  benchmark: Benchmark,
   opciones: OpcionesInmobiliario,
-): ResultadoReparto {
-  const {
-    patrimonioTotalUsd,
-    inmFijado = false,
-    regla = 'prorratear',
-    umbralUsd = UMBRAL_INMOBILIARIO,
-  } = opciones
+): ResultadoInmobiliario {
+  const { patrimonioTotalUsd, accede, tienePiso, umbralUsd } = opciones
+  const intacto: ResultadoInmobiliario = {
+    benchmark,
+    disuelta: false,
+    pesoMovido: 0,
+    destino: null,
+  }
 
-  if (patrimonioTotalUsd >= umbralUsd) return reparto
+  if (accede || tienePiso || benchmark.inm <= EPS) return intacto
 
-  const inm = reparto.porClase.find((c) => c.clase === 'inm')
-  if (!inm || inm.objetivoUsd <= EPS) return reparto
-  if (inmFijado || inm.fijada || inm.pisoUsd > EPS) return reparto
+  const peso = benchmark.inm
+  const alPublico = patrimonioTotalUsd <= umbralUsd
+  const receptoras: readonly ClaseModelo[] = alPublico
+    ? ['fijo', 'variable']
+    : ['privados', 'club']
 
-  const receptoras = regla === 'alternativos' ? ALTERNATIVAS : RECEPTORAS
-  const recibe = (c: RepartoClase) => receptoras.has(c.clase) && !c.fijada
+  const base = receptoras.reduce((acc, clase) => acc + benchmark[clase], 0)
 
-  const base = reparto.porClase.reduce((acc, c) => (recibe(c) ? acc + c.objetivoUsd : acc), 0)
-  if (base <= EPS) return reparto
+  // Perfil sin las clases que deberian recibir: el unico destino posible es el
+  // otro bloque. Si tampoco tiene peso, la regla no se aplica y la clase se
+  // queda — mejor un inmobiliario que el cliente no toma que dinero perdido.
+  if (base <= EPS) {
+    const alternativas: readonly ClaseModelo[] = alPublico
+      ? ['privados', 'club']
+      : ['fijo', 'variable']
+    const baseAlterna = alternativas.reduce((acc, clase) => acc + benchmark[clase], 0)
+    if (baseAlterna <= EPS) return intacto
 
-  const factor = (base + inm.objetivoUsd) / base
-
-  const porClase: RepartoClase[] = reparto.porClase.map((c) => {
-    if (c.clase === 'inm') {
-      return { ...c, objetivoUsd: 0, dineroNuevoUsd: 0, cerrada: true }
-    }
-    if (!recibe(c)) return c
-
-    const objetivoUsd = c.objetivoUsd * factor
     return {
-      ...c,
-      objetivoUsd,
-      dineroNuevoUsd: Math.max(0, objetivoUsd - c.pisoUsd),
-      // Una clase que estaba cerrada en su piso deja de estarlo al recibir
-      // capital nuevo del inmobiliario.
-      cerrada: objetivoUsd <= c.pisoUsd + TOL,
+      benchmark: repartir(benchmark, alternativas, baseAlterna, peso),
+      disuelta: true,
+      pesoMovido: peso,
+      destino: alPublico ? 'privados' : 'publicos',
     }
-  })
+  }
 
-  return { ...reparto, porClase }
+  return {
+    benchmark: repartir(benchmark, receptoras, base, peso),
+    disuelta: true,
+    pesoMovido: peso,
+    destino: alPublico ? 'publicos' : 'privados',
+  }
+}
+
+/** Pone `inm` en cero y reparte su peso entre las receptoras, a prorrata. */
+function repartir(
+  benchmark: Benchmark,
+  receptoras: readonly ClaseModelo[],
+  base: number,
+  peso: number,
+): Benchmark {
+  const recibe = new Set(receptoras)
+
+  return Object.fromEntries(
+    CLASES.map((clase) => {
+      if (clase === 'inm') return [clase, 0]
+      if (!recibe.has(clase)) return [clase, benchmark[clase]]
+      return [clase, benchmark[clase] + peso * (benchmark[clase] / base)]
+    }),
+  ) as Benchmark
 }

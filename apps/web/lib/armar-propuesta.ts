@@ -119,12 +119,13 @@ export function construirPropuesta(
     // El ticket mínimo es el único número de la macro que el asesor mueve
     // propuesta por propuesta. Vacío en la ficha, manda el de la macro.
     ticketMinimoUsd:
-      parametros.ticketMinimoUsd > 0 ? parametros.ticketMinimoUsd : macro.reglas.ticketEtfUsd,
+      parametros.ticketMinimoUsd > 0 ? parametros.ticketMinimoUsd : macro.reglas.ticketMinimoUsd,
     fallbacks: FALLBACKS,
     usPerson: parametros.usPerson,
     necesitaFlujos: parametros.necesitaFlujos,
     institucional: parametros.institucional,
     incluirInmueblesDeRenta: parametros.incluirInmueblesDeRenta,
+    accedeInmobiliario: parametros.accedeInmobiliario,
     colchonLiquidezUsd: parametros.colchonLiquidezUsd,
   }
 
@@ -176,12 +177,11 @@ export function construirPropuesta(
       ...derivacion.entrada,
       pisos: [],
       ajustes: [],
-      inmFijado: false,
     }),
     pisos: derivacion.entrada.pisos,
     benchmark: derivacion.entrada.benchmark,
     parametros: {
-      ticketMinimoUsd: derivacion.entrada.ticketMinimoUsd,
+      ticketMinimoUsd: derivacion.entrada.ticketMinimoUsd ?? macro.reglas.ticketMinimoUsd,
       colchonLiquidezUsd: parametros.colchonLiquidezUsd,
       fxPenUsd: parametros.fxPenUsd,
     },

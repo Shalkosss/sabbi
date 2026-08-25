@@ -35,6 +35,14 @@ export interface Parametros {
   readonly usPerson: boolean
   readonly institucional: EstadoInstitucional
   readonly incluirInmueblesDeRenta: boolean
+  /**
+   * El cliente accede a Inmobiliario Directo.
+   *
+   * No es lo mismo que `incluirInmueblesDeRenta`: ese dice si los inmuebles
+   * que el cliente ya tiene cuentan como patrimonio financiero, este dice si
+   * el modelo le puede proponer inmobiliario nuevo.
+   */
+  readonly accedeInmobiliario: boolean
   readonly colchonLiquidezUsd: number
   readonly ticketMinimoUsd: number
   readonly fxPenUsd: number

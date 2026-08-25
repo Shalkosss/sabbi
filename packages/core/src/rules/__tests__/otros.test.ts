@@ -1,56 +1,62 @@
 import { describe, expect, it } from 'vitest'
 
-import { OTROS_BTC, OTROS_ORO, repartirOtros } from '../otros.js'
+import { otrosAbre, OTROS_BTC, OTROS_ORO, repartirOtros } from '../otros.js'
 
-/** Particion Moderado de la hoja Allocation detallado, renormalizada. */
-const PESOS_MODERADO = {
-  [OTROS_BTC]: 0.0046 / 0.005525,
-  [OTROS_ORO]: 0.000925 / 0.005525,
-}
+/**
+ * La clase Otros.
+ *
+ * En la v4 el umbral no es un numero propio sino el mismo ticket minimo que
+ * decide si un ETF es ejecutable: es la misma pregunta — «este monto se puede
+ * colocar» — y tenerla escrita dos veces era como se separaban.
+ */
 
-const monto = (r: readonly { instrumento: string; usd: number }[] | null, nombre: string) =>
-  r?.find((x) => x.instrumento === nombre)?.usd ?? 0
+const PESOS = { [OTROS_BTC]: 0.84, [OTROS_ORO]: 0.16 }
+
+describe('otrosAbre', () => {
+  it('abre desde el ticket minimo', () => {
+    expect(otrosAbre(20_000, 20_000)).toBe(true)
+    expect(otrosAbre(19_000, 20_000)).toBe(false)
+  })
+
+  it('un centavo de diferencia no decide nada', () => {
+    expect(otrosAbre(19_999.995, 20_000)).toBe(true)
+  })
+
+  it('sin monto no abre', () => {
+    expect(otrosAbre(0, 20_000)).toBe(false)
+  })
+
+  it('sigue al ticket que se le pase', () => {
+    expect(otrosAbre(12_000, 10_000)).toBe(true)
+    expect(otrosAbre(12_000, 50_000)).toBe(false)
+  })
+})
 
 describe('repartirOtros', () => {
-  it('no se abre por debajo del mínimo de la clase', () => {
-    expect(repartirOtros(9_999, PESOS_MODERADO)).toBeNull()
-    expect(repartirOtros(0, PESOS_MODERADO)).toBeNull()
+  it('sin monto no abre lineas', () => {
+    expect(repartirOtros(0, PESOS)).toEqual([])
   })
 
-  it('con monto chico todo queda en BTC: el oro no llega a su mínimo', () => {
-    // 16.74% de 30,000 son 5,022 de oro: por debajo de 10,000.
-    const r = repartirOtros(30_000, PESOS_MODERADO)
-    expect(monto(r, OTROS_BTC)).toBeCloseTo(30_000, 6)
-    expect(r?.some((x) => x.instrumento === OTROS_ORO)).toBe(false)
+  it('reparte por peso y cierra contra el monto', () => {
+    const lineas = repartirOtros(50_000, PESOS)
+
+    expect(lineas.map((l) => l.instrumento)).toEqual([OTROS_BTC, OTROS_ORO])
+    expect(lineas[0]?.usd).toBeCloseTo(42_000, 6)
+    expect(lineas[1]?.usd).toBeCloseTo(8_000, 6)
+    expect(lineas.reduce((acc, l) => acc + l.usd, 0)).toBeCloseTo(50_000, 6)
   })
 
-  it('abre las dos líneas cuando ambas superan el mínimo', () => {
-    const r = repartirOtros(100_000, PESOS_MODERADO)
-    expect(monto(r, OTROS_BTC)).toBeCloseTo(100_000 * (0.0046 / 0.005525), 4)
-    expect(monto(r, OTROS_ORO)).toBeCloseTo(100_000 * (0.000925 / 0.005525), 4)
+  it('renormaliza pesos que no suman uno', () => {
+    const lineas = repartirOtros(50_000, { [OTROS_BTC]: 0.0046, [OTROS_ORO]: 0.000925 })
+    expect(lineas.reduce((acc, l) => acc + l.usd, 0)).toBeCloseTo(50_000, 6)
   })
 
-  it('siempre cierra exacto contra el monto', () => {
-    for (const m of [10_000, 30_000, 59_000, 100_000, 1_000_000]) {
-      const r = repartirOtros(m, PESOS_MODERADO)
-      expect(r?.reduce((acc, x) => acc + x.usd, 0)).toBeCloseTo(m, 6)
-    }
+  it('sin pesos, todo a BTC', () => {
+    expect(repartirOtros(30_000, {})).toEqual([{ instrumento: OTROS_BTC, usd: 30_000 }])
   })
 
-  it('sin pesos, todo va a BTC', () => {
-    const r = repartirOtros(50_000, {})
-    expect(monto(r, OTROS_BTC)).toBe(50_000)
-  })
-
-  it('con un solo instrumento en el perfil, la línea se lleva todo', () => {
-    // Conservador: el oro pesa cero.
-    const r = repartirOtros(25_000, { [OTROS_BTC]: 1 })
-    expect(r).toStrictEqual([{ instrumento: OTROS_BTC, usd: 25_000 }])
-  })
-
-  it('es puro', () => {
-    expect(repartirOtros(100_000, PESOS_MODERADO)).toStrictEqual(
-      repartirOtros(100_000, PESOS_MODERADO),
-    )
+  it('sale ordenado de mayor a menor', () => {
+    const lineas = repartirOtros(50_000, { [OTROS_ORO]: 0.9, [OTROS_BTC]: 0.1 })
+    expect(lineas[0]?.instrumento).toBe(OTROS_ORO)
   })
 })

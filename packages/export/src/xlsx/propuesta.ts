@@ -18,7 +18,7 @@
  */
 
 import { NOMBRE_CLASE } from '@sabbi/core'
-import type { ClaseModelo, Cta, Propuesta, Rango } from '@sabbi/core'
+import type { Cta, Propuesta, Rango } from '@sabbi/core'
 
 import { COLOR } from '../pptx/rediseno/marca.js'
 import { escribirLibro } from './libro.js'
@@ -475,7 +475,7 @@ export function armarXlsxPropuesta(propuesta: Propuesta, opciones: OpcionesXlsx)
     agregar(fila(t('No hay compras: no se liberó dinero.', TENUE)))
   }
   for (const c of propuesta.seccion7.compras) {
-    agregar(fila(t(c.instrumento), t(NOMBRE_CLASE[c.clase as ClaseModelo], TENUE), n(c.usd)))
+    agregar(fila(t(c.instrumento), t(NOMBRE_CLASE[c.clase], TENUE), n(c.usd)))
   }
   agregar(
     fila(

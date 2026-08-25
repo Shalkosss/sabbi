@@ -9,10 +9,10 @@
 # No corre `next build`: eso ya lo hace Vercel en cada PR, y ademas publica un
 # preview navegable. Repetirlo aca seria pagar dos veces por la misma respuesta.
 #
-# Tampoco corre `npm run lint`. El script existe pero apunta a un eslint que el
-# repo no declara como dependencia y que no tiene archivo de configuracion: hoy
-# falla en cualquier checkout limpio. Ponerlo aca seria un rojo permanente que
-# entrena a todos a ignorar el CI.
+# El lint si corre, desde que el repo declara ESLint y tiene configuracion. Lo
+# que busca no es estilo —el formato no vale un rojo— sino lo que el typecheck
+# no ve: una promesa sin esperar, un `catch` que se traga el error, restos de un
+# refactor a medias.
 
 name: Verificar
 
@@ -49,8 +49,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # Corre aunque el typecheck haya fallado. Las dos respuestas son utiles y
-      # tenerlas juntas ahorra una vuelta entera de arreglar-empujar-esperar.
+      # Corren aunque el typecheck haya fallado. Las tres respuestas son utiles
+      # y tenerlas juntas ahorra una vuelta entera de arreglar-empujar-esperar.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint
+
       - name: Tests
         if: ${{ !cancelled() }}
         run: npm test

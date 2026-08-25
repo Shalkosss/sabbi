@@ -167,6 +167,6 @@ export async function catalogoDeAssetClass(): Promise<readonly string[]> {
 
   const { data } = await supabase.from('asset_class_map').select('asset_class')
 
-  const nombres = new Set((data ?? []).map((fila) => (fila as { asset_class: string }).asset_class))
+  const nombres = new Set((data ?? []).map((fila) => (fila).asset_class))
   return [...nombres].sort((a, b) => a.localeCompare(b))
 }

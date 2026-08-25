@@ -115,11 +115,11 @@ export async function listasDeValidacion(): Promise<ListasCatalogo> {
     clasesActivo: (clases.data ?? []).map((f) => (f as { nombre: string }).nombre),
     regiones: (regiones.data ?? []).map((f) => (f as { nombre: string }).nombre),
     subyacentes: (subyacentes.data ?? []).map((f) => {
-      const fila = f as { nombre: string; clase_activo: string }
+      const fila = f
       return { nombre: fila.nombre, claseActivo: fila.clase_activo }
     }),
-    gestores: (gestores.data ?? []) as ListasCatalogo['gestores'],
-    administradores: (administradores.data ?? []) as ListasCatalogo['administradores'],
+    gestores: (gestores.data ?? []),
+    administradores: (administradores.data ?? []),
   }
 }
 
@@ -127,5 +127,5 @@ export async function listasDeValidacion(): Promise<ListasCatalogo> {
 export async function idsDescuadrados(): Promise<ReadonlySet<string>> {
   const supabase = await clienteServidor()
   const { data } = await supabase.from('productos_descuadrados').select('id')
-  return new Set((data ?? []).map((f) => (f as { id: string }).id))
+  return new Set((data ?? []).map((f) => (f).id))
 }

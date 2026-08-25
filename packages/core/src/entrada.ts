@@ -151,7 +151,7 @@ export function redistribuirInmobiliario(benchmark: Benchmark): Benchmark {
   const factor = (resto + benchmark.inm) / resto
   return Object.fromEntries(
     CLASES.map((clase) => [clase, clase === 'inm' ? 0 : benchmark[clase] * factor]),
-  ) as Record<ClaseModelo, number> as Benchmark
+  ) as Record<ClaseModelo, number>
 }
 
 /** Lo que el cliente conserva de una posicion: su valor menos lo que vende. */

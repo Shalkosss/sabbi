@@ -1,21 +1,22 @@
 'use client'
 
 import { CLASES, NOMBRE_CLASE } from '@sabbi/core'
-import type { AjusteClase, ClaseModelo, Restriccion } from '@sabbi/core'
+import type { AjusteClase, ClaseModelo } from '@sabbi/core'
 import { useId, useState } from 'react'
 
-import type { ProductoOfrecible } from '../lib/catalogo'
+import type { ActivoAgregado, ProductoOfrecible } from '../lib/catalogo'
 import { NOMBRE_CLASE_CORTO, ORDEN_CLASES } from '../lib/clases'
 import { usdCorto } from '../lib/formato'
 import { CampoMonto } from './CampoMonto'
+import { CampoNumero } from './CampoNumero'
 import estilos from './AjustesObjetivo.module.css'
 
 interface Props {
-  readonly agregados: readonly Restriccion[]
+  readonly agregados: readonly ActivoAgregado[]
   readonly ajustes: readonly AjusteClase[]
   readonly productos: readonly ProductoOfrecible[]
   readonly patrimonioUsd: number
-  readonly cambiarActivo: (activo: Restriccion) => void
+  readonly cambiarActivo: (activo: ActivoAgregado) => void
   readonly quitarActivo: (id: string) => void
   readonly cambiarAjuste: (clase: ClaseModelo, ajuste: AjusteClase | null) => void
 }
@@ -24,6 +25,56 @@ interface Props {
 type Modo = 'modelo' | 'fijar' | 'excluir'
 
 const CLASE_POR_DEFECTO: ClaseModelo = 'variable'
+
+/** Lo que la mesa usa de verdad. El catálogo guarda el texto tal cual. */
+const FRECUENCIAS = ['Mensual', 'Trimestral', 'Semestral', 'Anual', 'Al vencimiento'] as const
+
+/** Fracción a porcentaje editable, sin arrastrar la basura del punto flotante. */
+const aPct = (fraccion: number | null): string =>
+  fraccion === null ? '' : String(Number((fraccion * 100).toFixed(4)))
+
+/**
+ * Un rango de porcentajes: mínimo y máximo, en una celda.
+ *
+ * El catálogo guarda rangos y no números porque eso es lo que un producto
+ * declara —«entre 6% y 8%»— y aplanarlo a un promedio afirmaría una precisión
+ * que nadie tiene. Dejar los dos vacíos es decir que no se sabe, que es
+ * distinto de decir que es cero: la propuesta cuenta las líneas sin dato y lo
+ * dice en una línea aparte.
+ */
+function Rango({
+  min,
+  max,
+  etiqueta,
+  cambiar,
+}: {
+  readonly min: number | null
+  readonly max: number | null
+  readonly etiqueta: string
+  readonly cambiar: (min: number | null, max: number | null) => void
+}) {
+  const aFraccion = (valor: number | null) => (valor === null ? null : valor / 100)
+
+  return (
+    <span className={estilos.rango}>
+      <CampoNumero
+        className={`${estilos.numeroPct} mono`}
+        texto={aPct(min)}
+        placeholder="—"
+        aria-label={`Mínimo de ${etiqueta}, en porcentaje`}
+        alCambiar={(valor) => cambiar(aFraccion(valor), max)}
+      />
+      <span className={estilos.guion}>–</span>
+      <CampoNumero
+        className={`${estilos.numeroPct} mono`}
+        texto={aPct(max)}
+        placeholder="—"
+        aria-label={`Máximo de ${etiqueta}, en porcentaje`}
+        alCambiar={(valor) => cambiar(min, aFraccion(valor))}
+      />
+    </span>
+  )
+}
 
 /**
  * Lo que el asesor le hace al portafolio objetivo.
@@ -52,7 +103,7 @@ export function AjustesObjetivo({
   const listaId = useId()
 
   const ajusteDe = (clase: ClaseModelo) => ajustes.find((a) => a.clase === clase) ?? null
-  const claseDeProducto = new Map(productos.map((p) => [p.nombre, p.clase]))
+  const delCatalogo = new Map(productos.map((p) => [p.nombre, p]))
 
   const agregar = () => {
     cambiarActivo({
@@ -61,14 +112,25 @@ export function AjustesObjetivo({
       montoUsd: 0,
       clase: CLASE_POR_DEFECTO,
       productoId: null,
+      retMin: null,
+      retMax: null,
+      distMin: null,
+      distMax: null,
+      distFrecuencia: null,
     })
   }
 
-  // Elegir del menú trae la clase puesta: es el dato que el catálogo ya sabe y
-  // que nadie debería tener que volver a decidir.
-  const renombrar = (activo: Restriccion, nombre: string) => {
-    const delCatalogo = claseDeProducto.get(nombre) ?? null
-    cambiarActivo({ ...activo, nombre, clase: delCatalogo ?? activo.clase })
+  // Elegir del menú trae la clase y el enlace al catálogo puestos: son los
+  // datos que el catálogo ya sabe y que nadie debería volver a decidir. El
+  // enlace es lo que hace que la línea salga después con su retorno.
+  const renombrar = (activo: ActivoAgregado, nombre: string) => {
+    const producto = delCatalogo.get(nombre)
+    cambiarActivo({
+      ...activo,
+      nombre,
+      clase: producto?.clase ?? activo.clase,
+      productoId: producto?.id ?? activo.productoId,
+    })
   }
 
   const cambiarModo = (clase: ClaseModelo, modo: Modo) => {
@@ -144,8 +206,12 @@ export function AjustesObjetivo({
         <div className={estilos.seccion}>
           <h3 className={estilos.subtitulo}>Activos agregados</h3>
           <p className={estilos.ayuda}>
-            Una línea que el modelo no propone. Sale del mismo dinero, no lo agranda.{' '}
-            <span className={estilos.aparte}>Del catálogo, viene con su retorno.</span>
+            Una línea que el modelo no propone y el asesor quiere igual. Clava ese monto dentro
+            del ticket: no agranda el patrimonio, sale del mismo dinero. Elegir del catálogo trae
+            su rentabilidad puesta; un activo nuevo <b>se da de alta en el catálogo</b> con lo que
+            escribas acá, así no hay que volver a cargarlo en la próxima propuesta. Sin
+            rentabilidad la línea sale con la celda vacía, y una celda vacía en una tabla de
+            retornos se lee como un cero.
           </p>
 
           {agregados.length > 0 && (
@@ -157,6 +223,17 @@ export function AjustesObjetivo({
                   <th scope="col" className={estilos.derecha}>
                     Monto
                   </th>
+                  <th scope="col" className={estilos.derecha} title="Rentabilidad anual esperada">
+                    Rent. min–max
+                  </th>
+                  <th
+                    scope="col"
+                    className={estilos.derecha}
+                    title="La parte de la rentabilidad que se reparte en efectivo"
+                  >
+                    Distrib. min–max
+                  </th>
+                  <th scope="col">Frecuencia</th>
                   <th scope="col" aria-label="Quitar" />
                 </tr>
               </thead>
@@ -196,6 +273,47 @@ export function AjustesObjetivo({
                         aria-label="Monto del activo, en dólares"
                         alCambiar={(valor) => cambiarActivo({ ...activo, montoUsd: valor ?? 0 })}
                       />
+                    </td>
+
+                    <td className={estilos.derecha}>
+                      <Rango
+                        min={activo.retMin}
+                        max={activo.retMax}
+                        etiqueta="rentabilidad"
+                        cambiar={(retMin, retMax) => cambiarActivo({ ...activo, retMin, retMax })}
+                      />
+                    </td>
+
+                    <td className={estilos.derecha}>
+                      <Rango
+                        min={activo.distMin}
+                        max={activo.distMax}
+                        etiqueta="distribución"
+                        cambiar={(distMin, distMax) =>
+                          cambiarActivo({ ...activo, distMin, distMax })
+                        }
+                      />
+                    </td>
+
+                    <td>
+                      <select
+                        className={estilos.frecuencia}
+                        value={activo.distFrecuencia ?? ''}
+                        aria-label="Frecuencia de distribución"
+                        onChange={(e) =>
+                          cambiarActivo({
+                            ...activo,
+                            distFrecuencia: e.target.value === '' ? null : e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">No distribuye</option>
+                        {FRECUENCIAS.map((frecuencia) => (
+                          <option key={frecuencia} value={frecuencia}>
+                            {frecuencia}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <button

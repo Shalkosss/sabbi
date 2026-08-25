@@ -159,6 +159,7 @@ export type CategoriaCta =
   | 'venta_total'
   | 'parcial_vende'
   | 'parcial_conserva'
+  | 'venta_condicionada'
   | 'sin_marcar'
 
 export interface FilaResumenCta {

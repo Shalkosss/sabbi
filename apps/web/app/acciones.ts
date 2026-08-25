@@ -17,6 +17,7 @@ import type { FichaParseada } from '@sabbi/io'
 import { redirect } from 'next/navigation'
 
 import { FALLBACKS } from '../lib/catalogo'
+import type { ActivoAgregado } from '../lib/catalogo'
 import { guardarActivoAgregado, guardarAjusteDeClase } from '../lib/datos/ajustes'
 import { guardarFichaNueva } from '../lib/datos/fichas'
 import { guardarAnotacion } from '../lib/datos/propuestas'
@@ -88,7 +89,7 @@ export async function guardarCambioParametros(
 /** Autoguardado de un activo agregado al portafolio objetivo. */
 export async function guardarCambioActivo(
   propuestaId: string,
-  activo: Restriccion,
+  activo: ActivoAgregado,
   eliminado: boolean,
 ): Promise<{ readonly error?: string }> {
   return guardarActivoAgregado(propuestaId, activo, eliminado)

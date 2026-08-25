@@ -7,7 +7,7 @@
  * paso posterior.
  */
 
-import type { ClaseModelo, Cta, Plaza } from '@sabbi/core'
+import type { ClaseModelo, Cta, DestinoVenta, Plaza } from '@sabbi/core'
 
 import type { Moneda } from './valores.js'
 
@@ -49,6 +49,14 @@ export interface PosicionFicha {
   readonly esInvertible: boolean
   readonly cta: Cta
   readonly montoVentaParcial: number
+  /**
+   * Reparto de una venta condicionada. Vacio en cualquier otra decision.
+   *
+   * El parser nunca lo llena — la ficha no trae a donde va el dinero de una
+   * venta, eso lo decide la mesa con el cliente — pero viaja con la posicion
+   * desde la revision hasta el motor.
+   */
+  readonly destinos?: readonly DestinoVenta[]
   readonly editadoManualmente: boolean
 }
 

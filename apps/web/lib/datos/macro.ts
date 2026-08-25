@@ -185,7 +185,7 @@ function traducir(crudo: string): string {
     )
   }
   if (crudo.includes('does not exist') || crudo.includes('relation')) {
-    return 'La tabla de macros todavía no está en esta base. Corré la migración 0010.'
+    return 'La tabla de macros todavía no está en esta base. Corré las migraciones 0010 y 0011.'
   }
   return crudo
 }

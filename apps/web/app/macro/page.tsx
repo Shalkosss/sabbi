@@ -15,11 +15,12 @@ import { asesorActual } from '../../lib/supabase/servidor'
  * propuesta, en la matriz del benchmark y en los dos decks — los tres llaman
  * al mismo motor con este mismo objeto y no tienen otra fuente.
  *
- * La edita cualquier asesor. Un umbral mal puesto no rompe una propuesta sino
- * todas, y aun así el candado no es la respuesta: quien calibra el modelo es
- * la mesa, y pedir permiso por cada prueba es como se termina calibrando en
- * una hoja aparte. Lo que protege el modelo es que nada se sobreescribe —
- * cada guardado deja una versión con su autor, su fecha y su nota.
+ * La edita cualquier asesor con sesión. Es la herramienta con la que la mesa
+ * calibra el modelo, y un permiso que obliga a pedirle a otro que teclee un
+ * número no protege el modelo: hace que se calibre en una hoja suelta que
+ * después nadie puede auditar. Lo que lo hace seguro es que nada se
+ * sobreescribe — cada guardado es una versión nueva con su autor y su nota, y
+ * volver a la anterior es guardar otra vez.
  */
 export default async function Pagina({
   searchParams,
@@ -49,7 +50,6 @@ export default async function Pagina({
       <EditorMacro
         guardada={activa.macro}
         deFabrica={MACRO_DE_FABRICA}
-        puedeEditar
         esDeFabrica={activa.esDeFabrica}
         problema={activa.problema}
         guardadaEn={activa.guardadaEn}

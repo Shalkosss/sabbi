@@ -1,0 +1,60 @@
+# Lo que tiene que estar verde antes de mirar un PR.
+#
+# Hasta ahora el unico check del repo era el de Vercel, que comprueba que la
+# app compile. Compilar no es lo mismo que estar bien: los 562 tests fijan el
+# caso Ana Tumi al centavo y el motor entero, y nadie los estaba corriendo mas
+# que a mano. Un PR que rompa el golden test llegaba a la revision con el tilde
+# verde de Vercel puesto.
+#
+# No corre `next build`: eso ya lo hace Vercel en cada PR, y ademas publica un
+# preview navegable. Repetirlo aca seria pagar dos veces por la misma respuesta.
+#
+# El lint si corre, desde que el repo declara ESLint y tiene configuracion. Lo
+# que busca no es estilo —el formato no vale un rojo— sino lo que el typecheck
+# no ve: una promesa sin esperar, un `catch` que se traga el error, restos de un
+# refactor a medias.
+
+name: Verificar
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# Un push nuevo sobre la misma rama cancela la corrida anterior: lo que importa
+# es si el ultimo commit esta bien, no el que ya quedo atras.
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # La misma que pide `engines` en el package.json de la raiz.
+          node-version: '20'
+          cache: npm
+
+      # `ci` y no `install`: instala exactamente lo que dice el lockfile y falla
+      # si el lockfile y el package.json no coinciden, que es justo lo que un
+      # CI tiene que detectar.
+      - name: Instalar
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Corren aunque el typecheck haya fallado. Las tres respuestas son utiles
+      # y tenerlas juntas ahorra una vuelta entera de arreglar-empujar-esperar.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint
+
+      - name: Tests
+        if: ${{ !cancelled() }}
+        run: npm test

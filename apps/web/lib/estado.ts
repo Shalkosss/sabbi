@@ -5,9 +5,10 @@ import type {
   EstadoInstitucional,
   Perfil,
   PosicionRevisada,
-  Restriccion,
 } from '@sabbi/core'
 import type { Aviso, DatosCliente, FilaIgnorada, PortafolioModelo, PosicionFicha } from '@sabbi/io'
+
+import type { ActivoAgregado } from './catalogo'
 
 /**
  * Estado de la pantalla de revisión.
@@ -51,7 +52,7 @@ export interface Parametros {
  * ficha, lo que cambia es cómo se reparte.
  */
 export interface AjustesObjetivo {
-  readonly agregados: readonly Restriccion[]
+  readonly agregados: readonly ActivoAgregado[]
   readonly ajustes: readonly AjusteClase[]
 }
 
@@ -80,7 +81,7 @@ export type Accion =
   | { readonly tipo: 'editar'; readonly id: string; readonly cambios: Partial<PosicionEditada> }
   | { readonly tipo: 'cta'; readonly id: string; readonly cta: Cta }
   | { readonly tipo: 'parametros'; readonly cambios: Partial<Parametros> }
-  | { readonly tipo: 'activo'; readonly activo: Restriccion }
+  | { readonly tipo: 'activo'; readonly activo: ActivoAgregado }
   | { readonly tipo: 'quitar-activo'; readonly id: string }
   /** `ajuste` en `null` saca el ajuste y devuelve la clase al benchmark. */
   | { readonly tipo: 'ajuste'; readonly clase: ClaseModelo; readonly ajuste: AjusteClase | null }
@@ -139,6 +140,10 @@ export const cambiosDeCta = (posicion: PosicionEditada, cta: Cta): Partial<Posic
   // Cambiar de decisión limpia el monto: un "conservar" con un monto a vender
   // colgado es la clase de dato que descuadra todo.
   montoVentaParcial: cta === 'venta_parcial' ? posicion.montoVentaParcial : 0,
+  // Lo mismo con el reparto. Se conserva al volver a marcar venta condicionada
+  // dentro de la misma sesión —cambiar sin querer y deshacer no puede borrar lo
+  // que costó teclear— pero no viaja pegado a ninguna otra decisión.
+  destinos: cta === 'venta_condicionada' ? (posicion.destinos ?? []) : [],
 })
 
 /** Reductor de la pantalla. */
@@ -197,6 +202,7 @@ export const aRevisadas = (posiciones: readonly PosicionEditada[]): readonly Pos
     esInvertible: posicion.esInvertible,
     cta: posicion.cta,
     montoVentaParcial: posicion.montoVentaParcial,
+    destinos: posicion.destinos ?? [],
   }))
 
 /** Una venta parcial por encima de la posición no se puede guardar: la base la rechaza. */

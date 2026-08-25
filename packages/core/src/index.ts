@@ -2,11 +2,15 @@ export * from './domain/tipos.js'
 export {
   CAMPOS_DE_MACRO,
   REGLAS_V8,
+  conTextoDeMacro,
   conValorDeMacro,
+  textoDeMacro,
   valorDeMacro,
 } from './domain/reglas.js'
 export type {
   CampoDeMacro,
+  ClaseResiduo,
+  OpcionDeCampo,
   ReglaInmobiliario,
   ReglasCascada,
   ReglasClub,
@@ -14,7 +18,9 @@ export type {
   ReglasMotor,
   ReglasOtros,
   ReglasPrivados,
+  ReglasResiduos,
   ReglasVariable,
+  UnidadDeMacro,
 } from './domain/reglas.js'
 export { repartirPorClase } from './rules/reparto.js'
 export { repartirEtfs } from './rules/cascada.js'

@@ -79,6 +79,39 @@ describe('validarMacro', () => {
     expect(validarMacro(rota).ok).toBe(false)
   })
 
+  it('acepta una macro guardada antes de las palancas nuevas', () => {
+    // Es el caso que de verdad pasa: en la base hay payloads con la forma
+    // vieja. Si el esquema los rechazara, el motor caeria en la de fabrica y la
+    // mesa veria cambiar todas sus cifras sin haber tocado nada.
+    const vieja = valida() as { reglas: Record<string, unknown> }
+    delete vieja.reglas['ticketFijoUsd']
+    delete vieja.reglas['ticketVariableUsd']
+    delete vieja.reglas['residuos']
+    delete (vieja.reglas['otros'] as Record<string, unknown>)['minLineaUsd']
+    delete (vieja.reglas['variable'] as Record<string, unknown>)['nucleo']
+
+    const salida = validarMacro(vieja)
+    expect(salida.ok).toBe(true)
+    // Y los defectos son los neutros: la macro vieja calcula igual que antes.
+    if (salida.ok) expect(salida.macro.reglas).toEqual(REGLAS_V8)
+  })
+
+  it('rechaza un nucleo de Renta Variable vacio', () => {
+    // Sin nucleo el bloque entero cae al instrumento de consolidacion, que no
+    // es una calibracion sino un portafolio roto.
+    const rota = valida() as { reglas: { variable: { nucleo: string } } }
+    rota.reglas.variable.nucleo = '   '
+
+    expect(validarMacro(rota).ok).toBe(false)
+  })
+
+  it('rechaza un destino de residuos que el motor no conoce', () => {
+    const rota = valida() as { reglas: { residuos: { destino: string } } }
+    rota.reglas.residuos.destino = 'inm'
+
+    expect(validarMacro(rota).ok).toBe(false)
+  })
+
   it('rechaza lo que no es una macro', () => {
     expect(validarMacro(null).ok).toBe(false)
     expect(validarMacro({}).ok).toBe(false)

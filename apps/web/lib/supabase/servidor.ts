@@ -57,5 +57,5 @@ export async function asesorActual(): Promise<Asesor | null> {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  return (data as Asesor | null) ?? null
+  return (data) ?? null
 }

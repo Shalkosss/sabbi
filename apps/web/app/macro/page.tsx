@@ -15,9 +15,11 @@ import { asesorActual } from '../../lib/supabase/servidor'
  * propuesta, en la matriz del benchmark y en los dos decks — los tres llaman
  * al mismo motor con este mismo objeto y no tienen otra fuente.
  *
- * Editarla es de admin, igual que el catálogo: un producto mal cargado sale en
- * una propuesta, un umbral mal puesto sale en todas. Verla es de cualquiera,
- * porque esta pantalla es también la documentación del modelo.
+ * La edita cualquier asesor. Un umbral mal puesto no rompe una propuesta sino
+ * todas, y aun así el candado no es la respuesta: quien calibra el modelo es
+ * la mesa, y pedir permiso por cada prueba es como se termina calibrando en
+ * una hoja aparte. Lo que protege el modelo es que nada se sobreescribe —
+ * cada guardado deja una versión con su autor, su fecha y su nota.
  */
 export default async function Pagina({
   searchParams,
@@ -47,7 +49,7 @@ export default async function Pagina({
       <EditorMacro
         guardada={activa.macro}
         deFabrica={MACRO_DE_FABRICA}
-        puedeEditar={asesor.rol === 'admin'}
+        puedeEditar
         esDeFabrica={activa.esDeFabrica}
         problema={activa.problema}
         guardadaEn={activa.guardadaEn}

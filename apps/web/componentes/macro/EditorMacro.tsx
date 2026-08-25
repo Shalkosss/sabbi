@@ -133,8 +133,8 @@ export function EditorMacro(props: Props) {
 
       {!puedeEditar && (
         <p className={estilos.soloLectura}>
-          Estás viendo la macro, no editándola. Cambiarla es de admin: un umbral mal puesto no
-          rompe una propuesta, las rompe todas.
+          Estás viendo la macro, no editándola. Tu usuario no tiene ficha de asesor, así que no
+          hay a quién atribuirle una versión nueva.
         </p>
       )}
 

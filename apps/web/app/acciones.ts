@@ -19,10 +19,10 @@ import { redirect } from 'next/navigation'
 import { FALLBACKS } from '../lib/catalogo'
 import type { ActivoAgregado } from '../lib/catalogo'
 import { guardarActivoAgregado, guardarAjusteDeClase } from '../lib/datos/ajustes'
-import { guardarFichaNueva } from '../lib/datos/fichas'
-import { guardarAnotacion } from '../lib/datos/propuestas'
+import { cargarObjetivo, guardarFichaNueva } from '../lib/datos/fichas'
+import { anotacionesDeLinea, guardarAnotacion } from '../lib/datos/propuestas'
 import { guardarParametros, guardarPosicion } from '../lib/datos/revision'
-import type { Parametros, PosicionEditada } from '../lib/estado'
+import type { ObjetivoCompartido, Parametros, PosicionEditada } from '../lib/estado'
 
 /**
  * Parseo de la ficha en el servidor.
@@ -86,6 +86,19 @@ export async function guardarCambioParametros(
   return guardarParametros(propuestaId, clienteId, parametros)
 }
 
+/**
+ * Relectura de lo que cuelga de la propuesta.
+ *
+ * La pide la revisión cuando el otro asesor avisó que guardó algo que no es
+ * una posición. Va por el servidor y no por el canal a propósito: así lee con
+ * la sesión de quien pregunta —las mismas políticas que la primera carga— y
+ * las tablas de ajustes no tienen que publicar sus borrados, que en Postgres
+ * viajan sin pasar por RLS.
+ */
+export async function leerObjetivo(fichaId: string): Promise<ObjetivoCompartido | null> {
+  return cargarObjetivo(fichaId)
+}
+
 /** Autoguardado de un activo agregado al portafolio objetivo. */
 export async function guardarCambioActivo(
   propuestaId: string,
@@ -102,6 +115,20 @@ export async function guardarCambioAjuste(
   eliminado: boolean,
 ): Promise<{ readonly error?: string }> {
   return guardarAjusteDeClase(propuestaId, ajuste, eliminado)
+}
+
+/**
+ * Relectura de las anotaciones de la propuesta.
+ *
+ * Igual que `leerObjetivo`: cuando el otro asesor avisa que escribió algo, esta
+ * pantalla vuelve a leer por el servidor en vez de recibir el texto por el
+ * canal. Una anotación es texto de un cliente y no tiene por qué viajar por un
+ * canal al que cualquiera con sesión se puede suscribir.
+ */
+export async function leerAnotaciones(
+  propuestaId: string,
+): Promise<ReadonlyMap<string, AnotacionLinea>> {
+  return anotacionesDeLinea(propuestaId)
 }
 
 /**

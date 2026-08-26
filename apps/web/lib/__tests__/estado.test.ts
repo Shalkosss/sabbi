@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CLAVE_PARAMETROS,
   aRevisadas,
   avisosVigentes,
   camposTrasEditar,
   cambiosDeCta,
+  claveActivo,
+  claveAjuste,
   reducir,
   ventaParcialInvalida,
 } from '../estado'
 import type { EstadoRevision, PosicionEditada } from '../estado'
+import type { ActivoAgregado } from '../catalogo'
 
 const posicion = (parche: Partial<PosicionEditada> = {}): PosicionEditada => ({
   id: 'p1',
@@ -303,5 +307,125 @@ describe('un cambio que llega del otro asesor', () => {
 
     expect(despues.posiciones).toHaveLength(1)
     expect(despues.posiciones[0]?.id).toBe('p1')
+  })
+})
+
+const activo = (parche: Partial<ActivoAgregado> = {}): ActivoAgregado => ({
+  id: 'a1',
+  nombre: 'Sabbi Deuda Privada',
+  montoUsd: 100_000,
+  clase: 'privados',
+  productoId: null,
+  retMin: null,
+  retMax: null,
+  distMin: null,
+  distMax: null,
+  distFrecuencia: null,
+  ...parche,
+})
+
+/**
+ * La relectura del objetivo, que no es una fila sino la propuesta entera.
+ *
+ * Los parametros, los activos agregados y los ajustes de clase viven en tres
+ * tablas, se agregan y se borran: del otro lado no llega el cambio sino el
+ * aviso, y esta pantalla vuelve a leer. Lo que hay que fijar es que esa
+ * relectura no le borre a nadie lo que esta escribiendo.
+ */
+describe('la relectura que dispara el otro asesor', () => {
+  const sincronizar = (
+    estado: EstadoRevision,
+    remoto: Partial<Pick<EstadoRevision, 'parametros' | 'agregados' | 'ajustes'>>,
+    mias: readonly string[] = [],
+  ) =>
+    reducir(estado, {
+      tipo: 'sincronizar',
+      parametros: remoto.parametros ?? estado.parametros,
+      agregados: remoto.agregados ?? [],
+      ajustes: remoto.ajustes ?? [],
+      mias: new Set(mias),
+    })
+
+  it('trae los parametros de la base', () => {
+    const estado = revision([posicion()])
+
+    const despues = sincronizar(estado, {
+      parametros: { ...estado.parametros, colchonLiquidezUsd: 50_000 },
+    })
+
+    expect(despues.parametros.colchonLiquidezUsd).toBe(50_000)
+  })
+
+  it('no pisa los parametros mientras este asesor los esta tecleando', () => {
+    // El caso real: uno escribe el colchon de liquidez y al otro se le guarda
+    // un ajuste a mitad de palabra. Perder lo tecleado es peor que ver el
+    // numero del otro un segundo mas tarde.
+    const estado = revision([posicion()])
+    const tecleando = { ...estado.parametros, colchonLiquidezUsd: 12 }
+
+    const despues = sincronizar(
+      { ...estado, parametros: tecleando },
+      { parametros: { ...estado.parametros, colchonLiquidezUsd: 50_000 } },
+      [CLAVE_PARAMETROS],
+    )
+
+    expect(despues.parametros).toBe(tecleando)
+  })
+
+  it('el activo que agrego el otro aparece, y el que borro se va', () => {
+    const estado = { ...revision([posicion()]), agregados: [activo()] }
+
+    const despues = sincronizar(estado, { agregados: [activo({ id: 'a2', nombre: 'Otro' })] })
+
+    expect(despues.agregados.map((a) => a.id)).toStrictEqual(['a2'])
+  })
+
+  it('el activo que este asesor acaba de tocar no lo pisa la relectura', () => {
+    const mio = activo({ montoUsd: 250_000 })
+    const estado = { ...revision([posicion()]), agregados: [mio] }
+
+    const despues = sincronizar(estado, { agregados: [activo({ montoUsd: 100_000 })] }, [
+      claveActivo('a1'),
+    ])
+
+    expect(despues.agregados).toStrictEqual([mio])
+  })
+
+  it('el activo que agregue y todavia no llego a la base no desaparece', () => {
+    // El guardado sale por una cola y tarda. Que el activo recien agregado se
+    // borre de la pantalla porque el otro toco un ajuste medio segundo antes
+    // seria imposible de entender para quien lo agrego.
+    const mio = activo({ id: 'nuevo' })
+    const estado = { ...revision([posicion()]), agregados: [mio] }
+
+    const despues = sincronizar(estado, { agregados: [activo()] }, [claveActivo('nuevo')])
+
+    expect(despues.agregados.map((a) => a.id)).toStrictEqual(['a1', 'nuevo'])
+  })
+
+  it('los ajustes de clase siguen la misma regla', () => {
+    const mio = { clase: 'fijo', modo: 'fijar', montoUsd: 300_000 } as const
+    const estado = { ...revision([posicion()]), ajustes: [mio] }
+
+    const despues = sincronizar(
+      estado,
+      {
+        ajustes: [
+          { clase: 'fijo', modo: 'fijar', montoUsd: 10 },
+          { clase: 'variable', modo: 'excluir', montoUsd: 0 },
+        ],
+      },
+      [claveAjuste('fijo')],
+    )
+
+    expect(despues.ajustes).toStrictEqual([mio, { clase: 'variable', modo: 'excluir', montoUsd: 0 }])
+  })
+
+  it('no toca las posiciones, que llegan por su propio camino', () => {
+    const estado = revision([posicion()])
+
+    const despues = sincronizar(estado, {})
+
+    expect(despues.posiciones).toBe(estado.posiciones)
   })
 })

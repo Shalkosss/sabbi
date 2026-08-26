@@ -327,3 +327,12 @@
   margin-top: 10px;
   flex-wrap: wrap;
 }
+
+/* Quién más está escribiendo, pegado al estado de guardado: es la misma
+   pregunta —qué le está pasando a esto que estoy editando—. */
+.pieCompania {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}

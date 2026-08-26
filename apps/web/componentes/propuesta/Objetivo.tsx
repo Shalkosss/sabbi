@@ -3,10 +3,12 @@
 import type { AnotacionLinea, Propuesta } from '@sabbi/core'
 import { useState } from 'react'
 
-import { guardarCambioAnotacion } from '../../app/acciones'
+import { guardarCambioAnotacion, leerAnotaciones } from '../../app/acciones'
 import { useAutoguardado } from '../../lib/autoguardado'
 import { NOMBRE_CLASE } from '../../lib/clases'
 import { pct1, puntos, rangoPct, rangoUsd, usdTabla } from '../../lib/formato'
+import { useCompania, useMias } from '../../lib/tiempo-real'
+import { Companeros } from '../Cursores'
 import { Guardado } from '../Guardado'
 import { Cuadre, Seccion, Tabla } from './Seccion'
 import estilos from './Propuesta.module.css'
@@ -20,13 +22,17 @@ import estilos from './Propuesta.module.css'
  * diferencia tiene un origen concreto: una posición conservada que clavó su
  * clase.
  */
+const VACIA: AnotacionLinea = { descripcion: '', proposito: '' }
+
 interface Props {
   readonly propuesta: Propuesta
   /** Sin propuesta abierta no hay donde guardar lo que el asesor escriba. */
   readonly propuestaId: string
+  /** Quién es, para la sala: las dos columnas se llenan de a dos. */
+  readonly asesor: { readonly id: string; readonly nombre: string }
 }
 
-export function Objetivo({ propuesta, propuestaId }: Props) {
+export function Objetivo({ propuesta, propuestaId, asesor }: Props) {
   const { seccion6 } = propuesta
   const { parametros } = seccion6
 
@@ -34,17 +40,74 @@ export function Objetivo({ propuesta, propuestaId }: Props) {
   // la misma cola que el resto de la aplicacion. El valor de partida es el que
   // vino del servidor dentro de cada linea.
   const [anotaciones, setAnotaciones] = useState<ReadonlyMap<string, AnotacionLinea>>(new Map())
-  const { estado: guardado, encolar } = useAutoguardado<AnotacionLinea>((clave, anotacion) =>
-    guardarCambioAnotacion(propuestaId, clave, anotacion),
-  )
+  const { marcar: marcarMia, mias, alSoltar } = useMias()
+
+  const { companeros, avisar } = useCompania({
+    sala: propuestaId === '' ? '' : `propuesta:${propuestaId}`,
+    yo: { asesorId: asesor.id, nombre: asesor.nombre },
+    // Sin contenedor no hay cursores, y acá no hacen falta: lo único que se
+    // edita en la propuesta son estas dos columnas, y el nombre de quien está
+    // escribiendo al lado del estado de guardado dice lo que hay que saber.
+    alRefrescar: () => {
+      void releer()
+    },
+  })
+
+  const { estado: guardado, encolar } = useAutoguardado<AnotacionLinea>(async (clave, anotacion) => {
+    const resultado = await guardarCambioAnotacion(propuestaId, clave, anotacion)
+    if (resultado.error === undefined) avisar()
+    return resultado
+  })
 
   const anotacionDe = (instrumento: string, base: AnotacionLinea): AnotacionLinea =>
     anotaciones.get(instrumento) ?? base
 
   const anotar = (instrumento: string, base: AnotacionLinea, cambio: Partial<AnotacionLinea>) => {
     const siguiente = { ...anotacionDe(instrumento, base), ...cambio }
+    // Desde acá y por unos segundos esta línea es mía: si el otro guarda la
+    // suya y esta pantalla vuelve a leer, lo que estoy tecleando no se pisa.
+    marcarMia(instrumento)
     setAnotaciones((previas) => new Map(previas).set(instrumento, siguiente))
     encolar(instrumento, siguiente)
+  }
+
+  /**
+   * Vuelve a leer las anotaciones cuando el otro asesor guardó una.
+   *
+   * Las que vinieron con el render no se pueden usar de respaldo después de
+   * releer: una anotación que alguien borró no vuelve en la lectura, y
+   * mostrarla otra vez sería resucitarla. Por eso las que estaban escritas y
+   * ya no están se fijan vacías en vez de dejarse caer al valor del render.
+   */
+  const releer = async () => {
+    const frescas = await leerAnotaciones(propuestaId)
+    const tocadas = mias()
+
+    setAnotaciones((previas) => {
+      const siguientes = new Map(frescas)
+
+      for (const grupo of seccion6.grupos) {
+        for (const linea of grupo.lineas) {
+          const escrita = linea.descripcion !== '' || linea.proposito !== ''
+          if (escrita && !siguientes.has(linea.instrumento)) {
+            siguientes.set(linea.instrumento, VACIA)
+          }
+        }
+      }
+
+      for (const [instrumento, anotacion] of previas) {
+        if (tocadas.has(instrumento)) siguientes.set(instrumento, anotacion)
+      }
+
+      return siguientes
+    })
+
+    // Lo que se dejó sin pisar porque este asesor lo está escribiendo se vuelve
+    // a pedir cuando lo suelte: si no, la línea se queda con un texto que la
+    // base ya no tiene y el próximo guardado lo escribiría de vuelta.
+    alSoltar(() => {
+      void releer()
+    })
   }
 
   // Una celda vacía en una tabla de retornos se lee como un cero. Se cuentan
@@ -168,7 +231,10 @@ export function Objetivo({ propuesta, propuestaId }: Props) {
           Descripción y propósito los escribe el asesor: son las dos columnas del anexo del
           deck que ningún dato puede llenar. Se guardan solas.
         </p>
-        <Guardado estado={guardado} sinGuardar={0} />
+        <span className={estilos.pieCompania}>
+          <Companeros companeros={companeros} />
+          <Guardado estado={guardado} sinGuardar={0} />
+        </span>
       </div>
 
       <Cuadre

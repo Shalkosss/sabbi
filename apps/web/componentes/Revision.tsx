@@ -10,15 +10,21 @@ import {
   guardarCambioAjuste,
   guardarCambioParametros,
   guardarCambioPosicion,
+  leerObjetivo,
 } from '../app/acciones'
 import type { PlanResumido } from '../app/acciones'
 import { useAutoguardado } from '../lib/autoguardado'
 import type { ActivoAgregado, ProductoOfrecible } from '../lib/catalogo'
 import {
+  CLAVE_PARAMETROS,
+  PREFIJO_ACTIVO,
+  PREFIJO_AJUSTE,
   aRevisadas,
   avisosVigentes,
   cambiosDeCta,
   camposTrasEditar,
+  claveActivo,
+  claveAjuste,
   reducir,
   ventaParcialInvalida,
 } from '../lib/estado'
@@ -39,18 +45,13 @@ import { TablaPosiciones } from './TablaPosiciones'
 import estilos from './Revision.module.css'
 
 /**
- * Claves de la cola de autoguardado.
- *
- * Las posiciones se encolan por su uuid, así que un prefijo con dos puntos no
- * puede chocar con ninguna. Borrar viaja por la misma cola que guardar —con la
- * bandera `eliminado`— y no por una acción aparte: la cola garantiza que no
- * haya dos envíos de la misma clave en vuelo, y sin esa garantía un borrado
- * podría llegar antes que el guardado que lo precede.
+ * Borrar viaja por la misma cola que guardar —con la bandera `eliminado`— y no
+ * por una acción aparte: la cola garantiza que no haya dos envíos de la misma
+ * clave en vuelo, y sin esa garantía un borrado podría llegar antes que el
+ * guardado que lo precede. Las claves salen de `estado.ts` porque las comparten
+ * la cola, la marca de «esto lo estoy tocando yo» y la fusión con lo que llega
+ * del otro asesor.
  */
-const CLAVE_PARAMETROS = 'parametros'
-const PREFIJO_ACTIVO = 'activo:'
-const PREFIJO_AJUSTE = 'ajuste:'
-
 type ActivoEnCola = ActivoAgregado & { readonly eliminado: boolean }
 type AjusteEnCola = AjusteClase & { readonly eliminado: boolean }
 
@@ -89,7 +90,63 @@ export function Revision({ inicial, asesor, productos }: Props) {
   const [fichaAbierta, setFichaAbierta] = useState(true)
   const [calculando, calcular] = useTransition()
 
-  const { estado: guardado, encolar } = useAutoguardado<Cambio>(async (clave, cambios) => {
+  // El bloque sobre el que se miden los cursores de todos. Los dos lados usan
+  // el mismo, así que la posición viaja como fracción de él y no en píxeles.
+  const lienzo = useRef<HTMLDivElement | null>(null)
+  const { marcar: marcarMia, mias, alSoltar } = useMias()
+
+  /**
+   * Vuelve a leer lo que cuelga de la propuesta.
+   *
+   * Se llama cuando el otro asesor avisó que guardó algo que no es una
+   * posición: los parámetros, un activo agregado, un ajuste de clase. Se lee
+   * entero y de una vez —son tres tablas cortas— y el reductor se queda con lo
+   * que este asesor esté tocando en ese momento.
+   */
+  const refrescarObjetivo = async () => {
+    const objetivo = await leerObjetivo(estado.fichaId)
+    if (objetivo === null) return
+
+    // Un cambio de afuera invalida el plan igual que uno de acá: las cifras
+    // calculadas dejaron de corresponder a lo que está en pantalla.
+    setDesactualizado(true)
+    setRechazo([])
+    despacharCrudo({ tipo: 'sincronizar', ...objetivo, mias: mias() })
+
+    // Lo que no se aplicó porque este asesor lo estaba tocando se vuelve a
+    // pedir en cuanto lo suelte: quedarse con un valor que la base ya no tiene
+    // termina escribiéndolo de vuelta en el próximo guardado.
+    alSoltar(() => {
+      void refrescarObjetivo()
+    })
+  }
+
+  const { companeros, cursores, avisar } = useCompania({
+    // Sin ficha no hay sala. No pasa en la pantalla normal —la ficha viene de
+    // la ruta— pero un id vacío abriría un canal llamado `ficha:` en el que
+    // caerían todas las fichas sin id a la vez.
+    sala: estado.fichaId === '' ? '' : `ficha:${estado.fichaId}`,
+    yo: { asesorId: asesor.id, nombre: asesor.nombre },
+    contenedor: lienzo,
+    alRefrescar: () => {
+      void refrescarObjetivo()
+    },
+    posiciones: {
+      fichaId: estado.fichaId,
+      mias,
+      // Un cambio de afuera invalida el plan igual que uno de acá: las cifras
+      // calculadas dejaron de corresponder a las posiciones que están en
+      // pantalla, y mostrarlas juntas es la forma más rápida de mandar mal una
+      // propuesta.
+      alCambiar: (posicion) => {
+        setDesactualizado(true)
+        setRechazo([])
+        despacharCrudo({ tipo: 'remoto', posicion })
+      },
+    },
+  })
+
+  const guardar = async (clave: string, cambios: Cambio): Promise<{ readonly error?: string }> => {
     if (clave.startsWith(PREFIJO_ACTIVO)) {
       const { eliminado, ...activo } = cambios as ActivoEnCola
       return guardarCambioActivo(estado.propuestaId, activo, eliminado)
@@ -105,30 +162,26 @@ export function Revision({ inicial, asesor, productos }: Props) {
       return { error: 'Esta ficha no tiene una propuesta abierta. Volvé a subirla.' }
     }
     return guardarCambioParametros(estado.propuestaId, estado.clienteId, cambios as Parametros)
+  }
+
+  /** Lo que no es una posición y por eso viaja avisando, no publicándose. */
+  const esDelObjetivo = (clave: string) =>
+    clave === CLAVE_PARAMETROS ||
+    clave.startsWith(PREFIJO_ACTIVO) ||
+    clave.startsWith(PREFIJO_AJUSTE)
+
+  const { estado: guardado, encolar } = useAutoguardado<Cambio>(async (clave, cambios) => {
+    const resultado = await guardar(clave, cambios)
+    // El aviso sale después de que la base confirmó, no antes: avisar de un
+    // cambio que todavía no se escribió hace que el otro lea lo viejo y se
+    // quede con eso hasta el próximo aviso. Las posiciones no avisan —la base
+    // publica cada `update` y la fila llega sola—; el resto vive en tablas que
+    // no se publican, así que el aviso es lo único que tiene el otro lado.
+    if (resultado.error === undefined && esDelObjetivo(clave)) avisar()
+    return resultado
   })
 
   const posicionesSinGuardar = estado.posiciones.filter(ventaParcialInvalida).length
-
-  // El bloque sobre el que se miden los cursores de todos. Los dos lados usan
-  // el mismo, así que la posición viaja como fracción de él y no en píxeles.
-  const lienzo = useRef<HTMLDivElement | null>(null)
-  const { marcar: marcarMia, mias } = useMias()
-
-  const { companeros, cursores } = useCompania({
-    fichaId: estado.fichaId,
-    yo: { asesorId: asesor.id, nombre: asesor.nombre },
-    mias,
-    contenedor: lienzo,
-    // Un cambio de afuera invalida el plan igual que uno de acá: las cifras
-    // calculadas dejaron de corresponder a las posiciones que están en
-    // pantalla, y mostrarlas juntas es la forma más rápida de mandar mal una
-    // propuesta.
-    alCambiarPosicion: (posicion) => {
-      setPlan(null)
-      setRechazo([])
-      despacharCrudo({ tipo: 'remoto', posicion })
-    },
-  })
 
   const editar = (id: string, cambios: Partial<PosicionEditada>) => {
     const posicion = estado.posiciones.find((candidata) => candidata.id === id)
@@ -165,6 +218,9 @@ export function Revision({ inicial, asesor, productos }: Props) {
   const cambiarParametros = (cambios: Partial<Parametros>) => {
     setDesactualizado(true)
     setRechazo([])
+    // Desde acá y por unos segundos, los parámetros son míos: una relectura
+    // disparada por el otro asesor no me borra el número a medio teclear.
+    marcarMia(CLAVE_PARAMETROS)
     despacharCrudo({ tipo: 'parametros', cambios })
     encolar(CLAVE_PARAMETROS, { ...estado.parametros, ...cambios })
   }
@@ -172,8 +228,9 @@ export function Revision({ inicial, asesor, productos }: Props) {
   const cambiarActivo = (activo: ActivoAgregado) => {
     setDesactualizado(true)
     setRechazo([])
+    marcarMia(claveActivo(activo.id))
     despacharCrudo({ tipo: 'activo', activo })
-    encolar(`${PREFIJO_ACTIVO}${activo.id}`, { ...activo, eliminado: false })
+    encolar(claveActivo(activo.id), { ...activo, eliminado: false })
   }
 
   const quitarActivo = (id: string) => {
@@ -181,16 +238,18 @@ export function Revision({ inicial, asesor, productos }: Props) {
     if (activo === undefined) return
     setDesactualizado(true)
     setRechazo([])
+    marcarMia(claveActivo(id))
     despacharCrudo({ tipo: 'quitar-activo', id })
-    encolar(`${PREFIJO_ACTIVO}${id}`, { ...activo, eliminado: true })
+    encolar(claveActivo(id), { ...activo, eliminado: true })
   }
 
   const cambiarAjuste = (clase: ClaseModelo, ajuste: AjusteClase | null) => {
     setDesactualizado(true)
     setRechazo([])
+    marcarMia(claveAjuste(clase))
     despacharCrudo({ tipo: 'ajuste', clase, ajuste })
     encolar(
-      `${PREFIJO_AJUSTE}${clase}`,
+      claveAjuste(clase),
       ajuste === null
         ? { clase, modo: 'fijar' as const, montoUsd: 0, eliminado: true }
         : { ...ajuste, eliminado: false },

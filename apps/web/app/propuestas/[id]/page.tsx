@@ -8,6 +8,7 @@ import { Blotter } from '../../../componentes/propuesta/Blotter'
 import { Distribucion } from '../../../componentes/propuesta/Distribucion'
 import { FotoActual } from '../../../componentes/propuesta/FotoActual'
 import { Objetivo } from '../../../componentes/propuesta/Objetivo'
+import { SeguirFicha } from '../../../componentes/propuesta/SeguirFicha'
 import { Vistas } from '../../../componentes/propuesta/Vistas'
 import { construirPropuesta } from '../../../lib/armar-propuesta'
 import { macroParaCalcular } from '../../../lib/datos/macro'
@@ -156,6 +157,12 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         </ul>
       )}
 
+      {/*
+        La propuesta se arma de la ficha en cada lectura, así que mientras uno
+        la lee y el otro corrige, esto la vuelve a pedir. No dibuja nada.
+      */}
+      <SeguirFicha fichaId={cargada.revision.fichaId} />
+
       <Vistas propuesta={propuesta} />
 
       {/*
@@ -171,7 +178,11 @@ export default async function Pagina({ params }: { params: Promise<{ id: string 
         </summary>
         <FotoActual propuesta={propuesta} />
         <Distribucion propuesta={propuesta} />
-        <Objetivo propuesta={propuesta} propuestaId={cargada.propuestaId} />
+        <Objetivo
+          propuesta={propuesta}
+          propuestaId={cargada.propuestaId}
+          asesor={{ id: asesor.id, nombre: asesor.nombre }}
+        />
         <Blotter propuesta={propuesta} />
       </details>
     </div>,

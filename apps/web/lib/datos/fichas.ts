@@ -4,7 +4,7 @@ import { decisionInicial, PERFILES } from '@sabbi/core'
 import type { Perfil } from '@sabbi/core'
 import type { FichaParseada } from '@sabbi/io'
 
-import type { EstadoRevision, Parametros } from '../estado'
+import type { EstadoRevision, ObjetivoCompartido, Parametros } from '../estado'
 import { asesorActual, clienteServidor } from '../supabase/servidor'
 import { cargarAjustesObjetivo } from './ajustes'
 import { macroParaCalcular } from './macro'
@@ -310,18 +310,69 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
     posiciones,
     agregados,
     ajustes,
-    parametros: {
-      perfil: (propuesta?.perfil ?? 'Moderado') as Parametros['perfil'],
-      necesitaFlujos: cliente?.necesita_flujos ?? false,
-      usPerson: cliente?.us_person ?? false,
-      institucional: (propuesta?.institucional_override ?? 'auto') as Parametros['institucional'],
-      incluirInmueblesDeRenta: propuesta?.toggle_inm_seccion_propia ?? true,
-      accedeInmobiliario: propuesta?.accede_inmobiliario ?? false,
-      colchonLiquidezUsd: propuesta?.colchon_liquidez_usd ?? 0,
-      ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? (await ticketEtfPorDefecto()),
-      fxPenUsd: propuesta?.fx ?? 3.4,
-    },
+    parametros: await parametrosDe(propuesta, cliente),
   }
+}
+
+/** Los parámetros, que salen mitad de la propuesta y mitad del cliente. */
+async function parametrosDe(
+  propuesta: FilaPropuesta | null | undefined,
+  cliente: { necesita_flujos: boolean; us_person: boolean } | null | undefined,
+): Promise<Parametros> {
+  return {
+    perfil: (propuesta?.perfil ?? 'Moderado') as Parametros['perfil'],
+    necesitaFlujos: cliente?.necesita_flujos ?? false,
+    usPerson: cliente?.us_person ?? false,
+    institucional: (propuesta?.institucional_override ?? 'auto') as Parametros['institucional'],
+    incluirInmueblesDeRenta: propuesta?.toggle_inm_seccion_propia ?? true,
+    accedeInmobiliario: propuesta?.accede_inmobiliario ?? false,
+    colchonLiquidezUsd: propuesta?.colchon_liquidez_usd ?? 0,
+    ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? (await ticketEtfPorDefecto()),
+    fxPenUsd: propuesta?.fx ?? 3.4,
+  }
+}
+
+/**
+ * Lo que cuelga de la propuesta, releído para una pantalla que ya está abierta.
+ *
+ * Es la mitad de `cargarRevision`: los parámetros, los activos agregados y los
+ * ajustes de clase, sin las posiciones ni el catálogo ni los avisos. Lo llama
+ * la revisión cuando el otro asesor avisa que guardó algo, así que corre
+ * varias veces por sesión y no puede pagar la carga entera —completar cada
+ * posición contra el catálogo es la parte cara de la lectura y acá no cambió
+ * nada de eso—.
+ *
+ * `null` si la ficha no existe o este asesor no la puede ver: RLS manda igual
+ * que en la primera carga, porque es la misma sesión y las mismas políticas.
+ */
+export async function cargarObjetivo(fichaId: string): Promise<ObjetivoCompartido | null> {
+  const supabase = await clienteServidor()
+
+  const { data: ficha } = await supabase
+    .from('fichas')
+    .select('id, clients(necesita_flujos, us_person)')
+    .eq('id', fichaId)
+    .maybeSingle<{ id: string; clients: { necesita_flujos: boolean; us_person: boolean } | null }>()
+
+  if (ficha === null || ficha === undefined) return null
+
+  const { data: propuesta } = await supabase
+    .from('proposals')
+    .select(
+      'id, perfil, institucional_override, toggle_inm_seccion_propia, accede_inmobiliario, fx, ' +
+        'colchon_liquidez_usd, ticket_minimo_etf_usd',
+    )
+    .eq('ficha_id', fichaId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<FilaPropuesta>()
+
+  const [{ agregados, ajustes }, parametros] = await Promise.all([
+    cargarAjustesObjetivo(propuesta?.id ?? ''),
+    parametrosDe(propuesta, ficha.clients),
+  ])
+
+  return { parametros, agregados, ajustes }
 }
 
 interface FilaListada {

@@ -269,6 +269,34 @@ lee como un cero. Entra como `origen = 'ficha'` y sin `ofrecer`, así que no se
 cuela en el menú neteable de su clase (confundir esas dos listas produjo el
 bug v37.25) y queda en la cola de productos incompletos.
 
+## La misma ficha, dos asesores
+
+Dos personas pueden trabajar la misma ficha a la vez, ver el cursor de la otra
+y ver sus cambios sin recargar. Lo que hace que eso no sea peor que no tenerlo
+es una sola regla: **lo que llega de afuera nunca pisa lo que se está
+escribiendo acá**. Cuando alguien toca algo, ese algo queda suyo unos segundos
+—desde la última tecla, no desde que suelta el campo— y en ese rato ningún
+cambio ajeno lo toca. Sin eso, dos personas en la misma fila se borran la
+palabra a medio escribir y ninguna entiende por qué.
+
+Por el canal de la ficha viajan tres cosas distintas y conviene no
+confundirlas:
+
+| Qué | Cómo viaja | Por qué así |
+|---|---|---|
+| Los cursores | `broadcast`, ~16 por segundo | Son efímeros: no se guardan, no se recuperan al recargar y no importa si se pierde uno. La posición va como fracción del bloque de la ficha y no en píxeles, así cae en la fila que corresponde aunque las dos pantallas midan distinto. |
+| Las posiciones | `postgres_changes` sobre `ficha_positions` | Es lo único que se edita celda por celda y muchas veces por minuto. La fila llega entera —`replica identity full`— y respeta RLS: nadie recibe una fila que no podría leer con un `select`. |
+| Todo lo demás | un aviso por `broadcast`, y quien lo recibe vuelve a leer por el servidor | Los parámetros, los activos agregados, los ajustes de clase y las anotaciones de la propuesta viven en cuatro tablas, se agregan y se borran. Un `delete` de Postgres viaja por Realtime **sin pasar por RLS**, así que publicar esas tablas llevaría la fila borrada a cualquiera suscrito. Por el canal va el aviso; el dato se lee por el servidor, con la sesión de quien pregunta. |
+
+La propuesta se arma de la ficha en cada lectura, así que también sigue la sala
+de su ficha: mientras uno la lee y el otro corrige, se vuelve a pedir al
+servidor dos segundos después del último cambio. Quien está leyendo la
+propuesta no aparece como presente en la ficha, porque no lo está.
+
+El color de cada asesor sale de su id y no de un contador: «el cursor verde es
+Marco» solo sirve de algo si el verde es Marco en las dos pantallas, hoy y la
+semana que viene.
+
 ## El Excel
 
 Es el documento de trabajo de la mesa: el que se anota, se filtra y se manda
@@ -339,6 +367,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 8 | Biblioteca compartida y versionado | |
 | 9 | Asistencia opcional de IA | |
 | — | Macro editable, versionada y con historial | hecho |
+| — | Ficha y propuesta compartidas: cursores y cambios en vivo | hecho |
 
 ### Pendientes con el equipo
 

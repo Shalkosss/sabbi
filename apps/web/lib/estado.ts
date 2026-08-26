@@ -65,13 +65,23 @@ export interface AjustesObjetivo {
 }
 
 /**
+ * Lo que cuelga de la propuesta y las dos pantallas comparten.
+ *
+ * Es lo que se vuelve a leer entero cuando el otro asesor avisa que guardó
+ * algo: no viaja fila por fila como las posiciones, viaja de una vez.
+ */
+export interface ObjetivoCompartido extends AjustesObjetivo {
+  readonly parametros: Parametros
+}
+
+/**
  * Una revisión completa, tal como sale de la base.
  *
  * Los tres identificadores viajan con ella porque cada cambio va a una tabla
  * distinta: las celdas a `ficha_positions`, el perfil regulatorio al cliente y
  * el resto de parámetros a la propuesta.
  */
-export interface EstadoRevision extends AjustesObjetivo {
+export interface EstadoRevision extends ObjetivoCompartido {
   readonly fichaId: string
   readonly propuestaId: string
   readonly clienteId: string
@@ -82,8 +92,23 @@ export interface EstadoRevision extends AjustesObjetivo {
   readonly ignoradas: readonly FilaIgnorada[]
   readonly modelo: PortafolioModelo | null
   readonly posiciones: readonly PosicionEditada[]
-  readonly parametros: Parametros
 }
+
+/**
+ * Las claves con las que se identifica cada cosa que se guarda sola.
+ *
+ * Las usan tres: la cola de autoguardado —que garantiza un envío por clave en
+ * vuelo—, la marca de «esto lo estoy tocando yo» y la fusión con lo que llega
+ * del otro asesor. Que sean las mismas en los tres lados es lo que hace que
+ * una tecla escrita acá no la pise una relectura de allá. Las posiciones se
+ * encolan por su uuid, así que un prefijo con dos puntos no puede chocar con
+ * ninguna.
+ */
+export const CLAVE_PARAMETROS = 'parametros'
+export const PREFIJO_ACTIVO = 'activo:'
+export const PREFIJO_AJUSTE = 'ajuste:'
+export const claveActivo = (id: string): string => `${PREFIJO_ACTIVO}${id}`
+export const claveAjuste = (clase: ClaseModelo): string => `${PREFIJO_AJUSTE}${clase}`
 
 export type Accion =
   | { readonly tipo: 'editar'; readonly id: string; readonly cambios: Partial<PosicionEditada> }
@@ -102,6 +127,29 @@ export type Accion =
    * de que no sea una posición que este asesor esté tocando.
    */
   | { readonly tipo: 'remoto'; readonly posicion: PosicionEditada }
+  /**
+   * Todo lo que cuelga de la propuesta, releído de la base.
+   *
+   * Las posiciones viajan fila por fila porque la base publica cada `update`.
+   * Los parámetros, los activos agregados y los ajustes de clase no: viven en
+   * tres tablas distintas, se agregan y se borran, y seguir cada `insert` y
+   * cada `delete` por separado obligaría a publicar filas que un borrado
+   * manda sin pasar por RLS. Así que del otro lado no llega el cambio sino el
+   * aviso, esta pantalla vuelve a leer por el servidor —con la sesión del
+   * asesor, como todo lo demás— y lo que vuelve entra por acá de una vez.
+   *
+   * `mias` son las claves que esta pantalla está tocando ahora. Lo que está
+   * en esa lista no se pisa: el asesor puede estar tecleando el colchón de
+   * liquidez justo cuando llega la relectura, y perder lo tecleado a mitad de
+   * palabra es peor que ver el número del otro un segundo más tarde.
+   */
+  | {
+      readonly tipo: 'sincronizar'
+      readonly parametros: Parametros
+      readonly agregados: readonly ActivoAgregado[]
+      readonly ajustes: readonly AjusteClase[]
+      readonly mias: ReadonlySet<string>
+    }
 
 /** Campos que el asesor puede corregir. El resto es derivado o de sistema. */
 export const EDITABLES: ReadonlySet<string> = new Set([
@@ -213,7 +261,44 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
         ajustes: accion.ajuste === null ? resto : [...resto, accion.ajuste],
       }
     }
+
+    case 'sincronizar':
+      return {
+        ...estado,
+        parametros: accion.mias.has(CLAVE_PARAMETROS) ? estado.parametros : accion.parametros,
+        agregados: fusionar(estado.agregados, accion.agregados, accion.mias, (a) =>
+          claveActivo(a.id),
+        ),
+        ajustes: fusionar(estado.ajustes, accion.ajustes, accion.mias, (a) =>
+          claveAjuste(a.clase),
+        ),
+      }
   }
+}
+
+/**
+ * Lo que vino de la base, con lo que esta pantalla está tocando por encima.
+ *
+ * El orden lo manda la base —es el que verán las dos pantallas cuando nadie
+ * esté escribiendo—, y lo que todavía no llegó a la base pero es mío se queda
+ * al final en vez de desaparecer: el activo que acabo de agregar no puede
+ * borrarse de mi pantalla porque el otro asesor tocó un ajuste medio segundo
+ * antes de que mi guardado saliera.
+ */
+function fusionar<T>(
+  locales: readonly T[],
+  remotos: readonly T[],
+  mias: ReadonlySet<string>,
+  claveDe: (elemento: T) => string,
+): readonly T[] {
+  const mios = new Map(
+    locales.filter((elemento) => mias.has(claveDe(elemento))).map((e) => [claveDe(e), e]),
+  )
+
+  const fusionados = remotos.map((remoto) => mios.get(claveDe(remoto)) ?? remoto)
+  const llegados = new Set(remotos.map(claveDe))
+
+  return [...fusionados, ...[...mios.values()].filter((mio) => !llegados.has(claveDe(mio)))]
 }
 
 /** Proyecta las posiciones a lo que el motor entiende. */

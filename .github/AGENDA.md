@@ -14,12 +14,6 @@ y ahí se quedan hasta que el equipo las tome.
 
 ## Por hacer
 
-- [ ] **La lámina 4 del deck réplica tiene las barras del cliente de
-      referencia.** Los totales y los porcentajes ya salen, pero las doce
-      barras conservan el alto del deck original, así que no coinciden con los
-      números que tienen encima. Hay que recalcular alto y posición desde la
-      propuesta. `npm run revisar-deck` la lista como «geometria».
-
 - [ ] **La lámina 10 sale a medias.** Las tres ventas y las tres compras
       mayores ya se arman; falta el resto del bloque. `npm run revisar-deck` la
       marca como «parcial» y dice qué es lo que queda.
@@ -44,6 +38,12 @@ y ahí se quedan hasta que el equipo las tome.
 
 Cada punto resuelto baja acá con el número de su pull request, para que la
 noche siguiente no lo vuelva a tomar.
+
+- [x] **La lámina 4 del deck réplica tenía las barras del cliente de
+      referencia.** `grafico.ts` les da a las seis barras el alto que les toca,
+      mueve sus etiquetas y rotula el eje con el escalón que haga falta. La
+      serie del objetivo se borra en vez de quedar dibujada: no se puede mapear
+      contra la sección 6. `revisar-deck` ya no lista ninguna como «geometria».
 
 - [x] **`npm run lint` no corría.** ESLint quedó instalado con config plana, el
       repositorio sin hallazgos y el paso agregado a `verificar.yml`. Entró en

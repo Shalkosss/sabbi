@@ -93,6 +93,15 @@ export type Accion =
   | { readonly tipo: 'quitar-activo'; readonly id: string }
   /** `ajuste` en `null` saca el ajuste y devuelve la clase al benchmark. */
   | { readonly tipo: 'ajuste'; readonly clase: ClaseModelo; readonly ajuste: AjusteClase | null }
+  /**
+   * Una posición que cambió del otro lado y llegó por el canal de la ficha.
+   *
+   * Reemplaza la fila entera y no la mezcla: lo que llega es la fila de la
+   * base, que es la verdad, y mezclarla con lo que hay en pantalla daría una
+   * posición que no existe en ningún lado. Quien despacha esto ya se aseguró
+   * de que no sea una posición que este asesor esté tocando.
+   */
+  | { readonly tipo: 'remoto'; readonly posicion: PosicionEditada }
 
 /** Campos que el asesor puede corregir. El resto es derivado o de sistema. */
 export const EDITABLES: ReadonlySet<string> = new Set([
@@ -170,6 +179,14 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
         ...estado,
         posiciones: estado.posiciones.map((posicion) =>
           posicion.id === accion.id ? aplicar(posicion, cambiosDeCta(posicion, accion.cta)) : posicion,
+        ),
+      }
+
+    case 'remoto':
+      return {
+        ...estado,
+        posiciones: estado.posiciones.map((posicion) =>
+          posicion.id === accion.posicion.id ? accion.posicion : posicion,
         ),
       }
 

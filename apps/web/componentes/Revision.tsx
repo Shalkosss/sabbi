@@ -2,7 +2,7 @@
 
 import { evaluarRevision, posicionesIncompletas } from '@sabbi/core'
 import type { AjusteClase, Bloqueo, ClaseModelo, Cta } from '@sabbi/core'
-import { useMemo, useReducer, useState, useTransition } from 'react'
+import { useMemo, useReducer, useRef, useState, useTransition } from 'react'
 
 import {
   calcularPlan,
@@ -24,8 +24,10 @@ import {
 } from '../lib/estado'
 import type { EstadoRevision, Parametros, PosicionEditada } from '../lib/estado'
 import { plural } from '../lib/formato'
+import { useCompania, useMias } from '../lib/tiempo-real'
 import { AjustesObjetivo } from './AjustesObjetivo'
 import { Avisos } from './Avisos'
+import { Companeros, Cursores } from './Cursores'
 import { BarraAccion } from './BarraAccion'
 import type { Salida } from './BarraAccion'
 import { BarraParametros } from './BarraParametros'
@@ -56,7 +58,8 @@ type Cambio = Partial<PosicionEditada> | Parametros | ActivoEnCola | AjusteEnCol
 
 interface Props {
   readonly inicial: EstadoRevision
-  readonly asesor: { readonly nombre: string; readonly rol: string }
+  /** `id` va para la presencia: es lo que identifica a cada uno en el canal. */
+  readonly asesor: { readonly id: string; readonly nombre: string; readonly rol: string }
   /** El menú ofrecible, para el desplegable de activos agregados. */
   readonly productos: readonly ProductoOfrecible[]
 }
@@ -106,6 +109,27 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
   const posicionesSinGuardar = estado.posiciones.filter(ventaParcialInvalida).length
 
+  // El bloque sobre el que se miden los cursores de todos. Los dos lados usan
+  // el mismo, así que la posición viaja como fracción de él y no en píxeles.
+  const lienzo = useRef<HTMLDivElement | null>(null)
+  const { marcar: marcarMia, mias } = useMias()
+
+  const { companeros, cursores } = useCompania({
+    fichaId: estado.fichaId,
+    yo: { asesorId: asesor.id, nombre: asesor.nombre },
+    mias,
+    contenedor: lienzo,
+    // Un cambio de afuera invalida el plan igual que uno de acá: las cifras
+    // calculadas dejaron de corresponder a las posiciones que están en
+    // pantalla, y mostrarlas juntas es la forma más rápida de mandar mal una
+    // propuesta.
+    alCambiarPosicion: (posicion) => {
+      setPlan(null)
+      setRechazo([])
+      despacharCrudo({ tipo: 'remoto', posicion })
+    },
+  })
+
   const editar = (id: string, cambios: Partial<PosicionEditada>) => {
     const posicion = estado.posiciones.find((candidata) => candidata.id === id)
     if (posicion === undefined) return
@@ -119,6 +143,9 @@ export function Revision({ inicial, asesor, productos }: Props) {
     // lado de posiciones nuevas es la forma más rápida de mandar mal una propuesta.
     setDesactualizado(true)
     setRechazo([])
+    // Desde acá y por unos segundos, esta posición es mía: ningún cambio que
+    // llegue del otro asesor la va a pisar mientras la estoy escribiendo.
+    marcarMia(id)
     despacharCrudo({ tipo: 'editar', id, cambios })
 
     const siguiente = { ...posicion, ...cambios }
@@ -265,8 +292,15 @@ export function Revision({ inicial, asesor, productos }: Props) {
         { texto: 'Fichas', ruta: '/' },
         { texto: cliente.nombre ?? estado.archivo },
       ]}
-      acciones={<Guardado estado={guardado} sinGuardar={posicionesSinGuardar} />}
+      acciones={
+        <>
+          <Companeros companeros={companeros} />
+          <Guardado estado={guardado} sinGuardar={posicionesSinGuardar} />
+        </>
+      }
     >
+      <div ref={lienzo} className={estilos.lienzo}>
+      <Cursores cursores={cursores} />
       <Cabecera
         cliente={cliente}
         archivo={estado.archivo}
@@ -380,6 +414,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
         alApretar={alCalcular}
         salidas={salidas}
       />
+      </div>
     </Marco>
   )
 }

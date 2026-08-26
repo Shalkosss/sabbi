@@ -266,3 +266,42 @@ describe('avisosVigentes', () => {
     expect(avisosVigentes([nuevo], [conClase])).toStrictEqual([nuevo])
   })
 })
+
+describe('un cambio que llega del otro asesor', () => {
+  it('reemplaza la fila entera y no la mezcla con lo que habia', () => {
+    // Lo que llega es la fila de la base, que es la verdad. Mezclarla con lo
+    // que hay en pantalla daria una posicion que no existe en ningun lado.
+    const antes = posicion({ cta: 'venta_parcial', montoVentaParcial: 50_000, nota: 'mia' })
+    const desdeLaBase = posicion({ cta: 'conservar', montoVentaParcial: 0, nota: '' })
+
+    const despues = reducir(revision([antes]), { tipo: 'remoto', posicion: desdeLaBase })
+
+    expect(despues.posiciones[0]).toStrictEqual(desdeLaBase)
+  })
+
+  it('no toca las demas posiciones', () => {
+    const otra = posicion({ id: 'p2', institucionProducto: 'Bono' })
+    const estado = revision([posicion(), otra])
+
+    const despues = reducir(estado, {
+      tipo: 'remoto',
+      posicion: posicion({ cta: 'venta_total' }),
+    })
+
+    expect(despues.posiciones[1]).toBe(otra)
+  })
+
+  it('una posicion que esta pantalla no conoce no agrega una fila', () => {
+    // Una fila nueva llega por una recarga, no por un update: agregarla aca
+    // dejaria una posicion sin el resto de lo que la acompaña.
+    const estado = revision([posicion()])
+
+    const despues = reducir(estado, {
+      tipo: 'remoto',
+      posicion: posicion({ id: 'desconocida' }),
+    })
+
+    expect(despues.posiciones).toHaveLength(1)
+    expect(despues.posiciones[0]?.id).toBe('p1')
+  })
+})

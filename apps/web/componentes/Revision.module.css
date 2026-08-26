@@ -41,3 +41,17 @@
   flex: none;
   padding: 0 26px 22px;
 }
+
+/*
+  El lienzo sobre el que se dibujan los cursores de los demás.
+  `position: relative` no es decorativo: la capa de cursores se posiciona
+  contra este bloque, y las coordenadas viajan como fracción de él. Si el
+  ancestro posicionado fuera otro, los cursores caerían en otra fila.
+*/
+.lienzo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+}

@@ -1,0 +1,186 @@
+name: Claude de noche
+
+# El turno de noche. Todos los días de semana a la 1 de la mañana en Lima,
+# Claude toma lo primero sin marcar de `.github/AGENDA.md`, lo trabaja y deja
+# un pull request. No hace falta que tu computadora esté encendida ni que tú
+# le pidas nada.
+#
+# GitHub apaga los cron de un repositorio público después de 60 días sin
+# actividad. Un commit cualquiera lo vuelve a encender.
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      encargo:
+        description: 'Qué trabajar en esta corrida. Vacío, toma lo primero de la agenda.'
+        required: false
+        default: ''
+
+jobs:
+  # Si el nocturno anterior sigue esperando revisión, esta noche no arranca:
+  # dos pull requests automáticos sin revisar valen menos que uno.
+  guardia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      seguir: ${{ steps.decidir.outputs.seguir }}
+    steps:
+      - id: decidir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          A_PEDIDO: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          # Si la consulta falla, el turno arranca igual: la guardia ahorra una
+          # corrida, no decide si el trabajo vale la pena.
+          pendientes=$(gh pr list --repo "$REPO" --state open --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("claude/nocturno-"))] | length' || echo 0)
+          if [ "$A_PEDIDO" = "true" ] || [ "${pendientes:-0}" -eq 0 ]; then
+            echo "seguir=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "seguir=no" >> "$GITHUB_OUTPUT"
+            echo "Hay $pendientes pull request nocturno sin revisar. Esta noche no se abre otro." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  avanzar:
+    needs: guardia
+    if: needs.guardia.outputs.seguir == 'si'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    env:
+      RAMA: claude/nocturno-${{ github.run_number }}
+      NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: clave-de-relleno-para-ci
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar
+        run: npm ci
+
+      - name: Preparar la rama
+        run: |
+          git config user.name 'Claude'
+          git config user.email 'claude@sabbi.local'
+          git switch -c "$RAMA"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Un cron no tiene autor humano, así que la corrida queda a nombre de
+          # quien tocó el `cron` por última vez. Si eso termina siendo el bot de
+          # Actions, sin esta línea la acción se niega a arrancar.
+          allowed_bots: 'github-actions[bot]'
+          prompt: |
+            Es de noche y el equipo duerme. Tienes el repositorio para ti hasta
+            la mañana, y lo que dejes escrito se revisa recién entonces.
+
+            El encargo de esta corrida es: ${{ github.event.inputs.encargo }}
+
+            Si esa línea vino vacía, abre `.github/AGENDA.md` y toma el primer
+            punto sin marcar. Uno solo. Un pull request que hace una cosa
+            entera se mergea a la mañana; uno que toca cinco se queda sin
+            revisar toda la semana.
+
+            El orden:
+
+            1. Lee `CLAUDE.md` y el README antes de tocar código. Las siete
+               reglas del proyecto no se negocian.
+            2. Haz el trabajo completo, con sus tests. `npm run typecheck`,
+               `npm run lint` y `npm test` tienen que pasar; las dependencias ya
+               están instaladas.
+            3. Marca en `.github/AGENDA.md` el punto que resolviste y explica
+               en una línea qué quedó hecho.
+            4. Commitea con `git commit` en el estilo del repositorio:
+               minúscula, castellano y contando qué gana quien usa la app. No
+               empujes la rama ni abras el pull request: de eso se encargan los
+               pasos siguientes del workflow.
+
+            Los límites:
+
+            - El repositorio es público. Nunca commitees nada de `reference/`
+              ni nombres, patrimonios o tenencias de clientes reales.
+            - No toques `.github/workflows/`.
+            - Si el punto de la agenda resulta que necesita una decisión de la
+              mesa, no la tomes tú: escríbelo en la agenda como pendiente del
+              equipo, toma el punto siguiente y sigue.
+            - Si el motor cambia, corre el golden test de Ana Tumi y deja
+              escrito en el commit si el resultado se movió y por qué.
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
+
+      - name: Verificar lo que quedó
+        id: verificacion
+        continue-on-error: true
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Publicar la rama
+        id: publicar
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Claude dejó cambios sin commitear. Se guardan igual para poder leerlos."
+            git add -A
+            git commit -m 'wip: lo que quedó a medias en la corrida nocturna'
+          fi
+          if [ "$(git rev-list --count "${{ github.sha }}..HEAD")" -eq 0 ]; then
+            echo "La corrida no produjo ningún commit."
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git push origin "HEAD:$RAMA"
+          echo "hay=si" >> "$GITHUB_OUTPUT"
+
+      - name: Abrir el pull request
+        if: steps.publicar.outputs.hay == 'si'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE: ${{ github.event.repository.default_branch || github.ref_name }}
+          TITULO: 'Turno de noche #${{ github.run_number }}'
+          ESTADO: ${{ steps.verificacion.outcome }}
+          BORRADOR: ${{ steps.verificacion.outcome == 'success' && 'no' || '1' }}
+          CORRIDA: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$ESTADO" = 'success' ]; then
+            VEREDICTO='El typecheck y los tests pasan sobre esta rama.'
+          else
+            VEREDICTO='El typecheck o los tests fallan. Por eso el pull request está en borrador: léelo antes que nada.'
+          fi
+          CUERPO=$(cat <<'TXT'
+          Trabajo de una corrida nocturna. Claude tomó un punto de
+          `.github/AGENDA.md` y lo dejó resuelto hasta donde llegó.
+
+          VEREDICTO_CORRIDA
+
+          El pull request no dispara el CI por sí solo, porque lo abrió el token
+          de Actions. La verificación que ves arriba corrió dentro de la misma
+          corrida, sobre exactamente estos commits.
+
+          Bitácora: URL_CORRIDA
+          TXT
+          )
+          CUERPO=${CUERPO//VEREDICTO_CORRIDA/$VEREDICTO}
+          CUERPO=${CUERPO//URL_CORRIDA/$CORRIDA}
+          export CUERPO
+          bash .github/scripts/abrir-pr.sh

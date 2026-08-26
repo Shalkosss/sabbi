@@ -1,0 +1,51 @@
+name: Bug
+description: Algo que ya existe y no hace lo que debería.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        No pegues nombres, patrimonios ni tenencias de clientes reales: este
+        repositorio es público. Si el caso sale de una ficha real, cambia los
+        montos y los nombres antes de contarlo.
+
+  - type: textarea
+    id: pasa
+    attributes:
+      label: Qué pasa
+      placeholder: Al recalcular el plan, la clase Otros se queda en cero aunque el cliente tenga BTC conservado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: deberia
+    attributes:
+      label: Qué debería pasar
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducir
+    attributes:
+      label: Cómo reproducirlo
+      description: Los pasos mínimos, con datos inventados.
+      placeholder: |
+        1. Subir una ficha con una posición de IBIT por 30,000.
+        2. Marcarla como conservada.
+        3. Calcular el plan.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: donde
+    attributes:
+      label: Dónde aparece
+      options:
+        - El motor (packages/core)
+        - La lectura de la ficha o del catálogo (packages/io)
+        - El Excel o los decks (packages/export)
+        - La app (apps/web)
+        - La base de datos (supabase)
+        - No sé
+    validations:
+      required: true

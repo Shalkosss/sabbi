@@ -13,13 +13,20 @@
 # que busca no es estilo —el formato no vale un rojo— sino lo que el typecheck
 # no ve: una promesa sin esperar, un `catch` que se traga el error, restos de un
 # refactor a medias.
+#
+# Corre tambien en cada push a `claude/**`, y eso no es por gusto: un pull
+# request abierto con el token de Actions no dispara el evento `pull_request`,
+# asi que las ramas que abren los turnos automaticos llegarian a la revision
+# sin un solo check corrido. `workflow_dispatch` esta para poder relanzarla a
+# mano cuando una corrida se cae por algo que no es el codigo.
 
 name: Verificar
 
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [master, 'claude/**']
+  workflow_dispatch:
 
 # Un push nuevo sobre la misma rama cancela la corrida anterior: lo que importa
 # es si el ultimo commit esta bien, no el que ya quedo atras.

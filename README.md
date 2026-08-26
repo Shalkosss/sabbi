@@ -352,6 +352,17 @@ que no puede envejecer en silencio.
 npm run revisar-deck    # el inventario, lámina por lámina
 ```
 
+## Claude trabajando solo
+
+El repositorio tiene turnos automáticos: Claude contesta cuando lo nombran en un
+issue, implementa el que le asignes y avanza de noche con la cola de
+`.github/AGENDA.md`. Cada corrida termina en un pull request que alguien tiene
+que revisar. Nada se mergea solo.
+
+`.github/AUTOMATIZACION.md` cuenta qué hace cada workflow, los tres pasos de
+configuración que solo puede dar un administrador del repositorio y qué mirar
+cuando una corrida no arranca.
+
 ## Estado
 
 | Fase | Alcance | Estado |

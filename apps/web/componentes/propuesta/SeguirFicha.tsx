@@ -1,30 +1,57 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { createContext, useContext, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 
 import { useCompania } from '../../lib/tiempo-real'
 
 /**
- * La propuesta que se actualiza sola mientras alguien corrige la ficha.
+ * La propuesta atada a la sala de su ficha.
  *
- * La propuesta no guarda cifras propias: se arma en el servidor en cada
- * lectura, a partir de la revisión y del mismo motor que corrió el asesor. Eso
- * la deja siempre bien calculada y siempre expuesta a quedar vieja — mientras
- * uno la lee, el otro está corrigiendo la ficha de la que sale, y no hay nada
- * en la pantalla que lo diga.
+ * Las dos pantallas miran lo mismo desde distinto lado y ninguna se enteraba de
+ * la otra. Una propuesta borrador no guarda cifras: se arma en el servidor en
+ * cada lectura, a partir de la revisión y del mismo motor que corrió el asesor.
+ * Eso la deja siempre bien calculada y siempre expuesta a quedar vieja, porque
+ * mientras uno la lee el otro está corrigiendo la ficha de la que sale.
  *
- * Esto escucha la sala de la ficha y pide al servidor que vuelva a armarla. Lo
- * que hace `router.refresh()` es exactamente lo que hace falta: vuelve a
- * ejecutar los componentes de servidor y mezcla el resultado sin tocar el
- * estado del navegador, así que lo que alguien esté escribiendo en una
- * anotación no se pierde en la actualización.
+ * Va en las dos direcciones:
+ *
+ *  - **De la ficha a la propuesta**, con `router.refresh()`, que vuelve a
+ *    ejecutar los componentes de servidor y mezcla el resultado sin tocar el
+ *    estado del navegador: lo que alguien esté escribiendo en una anotación no
+ *    se pierde en la actualización.
+ *  - **De la propuesta a la ficha**, con `avisar()`, que es lo que llama el
+ *    botón de publicar. Publicar congela los parámetros y abrir una versión
+ *    nueva mueve el id al que van a parar los guardados; una ficha abierta que
+ *    no se entera de ninguna de las dos cosas se lo descubre de a un error por
+ *    tecla.
  *
  * No se anuncia en la sala. Quien lee la propuesta no está en la ficha, y
- * ponerlo en la lista de presentes de la ficha —con su cursor y todo— le diría
- * a los dos asesores algo que no es cierto.
+ * ponerlo en la lista de presentes —con su cursor y todo— le diría a los dos
+ * asesores algo que no es cierto.
  */
-export function SeguirFicha({ fichaId }: { readonly fichaId: string }) {
+
+const Sala = createContext<{ readonly avisar: () => void }>({ avisar: () => undefined })
+
+/** Para avisarle a la ficha desde cualquier parte de la propuesta. */
+export const usarSalaDeLaFicha = () => useContext(Sala)
+
+interface Props {
+  readonly fichaId: string
+  /**
+   * Volver a pedir la página cuando la ficha cambie.
+   *
+   * En `false` para una propuesta publicada: sale del snapshot y no cambia
+   * aunque la ficha cambie, así que refrescarla sería pedirle al servidor lo
+   * mismo una y otra vez. La sala se abre igual, porque desde una publicada
+   * todavía se abre una versión nueva y de eso la ficha sí tiene que enterarse.
+   */
+  readonly seguir: boolean
+  readonly children: ReactNode
+}
+
+export function SeguirFicha({ fichaId, seguir, children }: Props) {
   const router = useRouter()
 
   /**
@@ -38,6 +65,7 @@ export function SeguirFicha({ fichaId }: { readonly fichaId: string }) {
   const espera = useRef<number | null>(null)
 
   const pedirDeNuevo = () => {
+    if (!seguir) return
     if (espera.current !== null) window.clearTimeout(espera.current)
     espera.current = window.setTimeout(() => {
       espera.current = null
@@ -52,7 +80,7 @@ export function SeguirFicha({ fichaId }: { readonly fichaId: string }) {
     [],
   )
 
-  useCompania({
+  const { avisar } = useCompania({
     sala: fichaId === '' ? '' : `ficha:${fichaId}`,
     // El nombre no viaja a ninguna parte: sin `track` no hay presencia que
     // mostrar. Va el id igual para que el eco del propio cursor se descarte.
@@ -68,5 +96,5 @@ export function SeguirFicha({ fichaId }: { readonly fichaId: string }) {
     },
   })
 
-  return null
+  return <Sala.Provider value={{ avisar }}>{children}</Sala.Provider>
 }

@@ -288,10 +288,14 @@ confundirlas:
 | Las posiciones | `postgres_changes` sobre `ficha_positions` | Es lo único que se edita celda por celda y muchas veces por minuto. La fila llega entera —`replica identity full`— y respeta RLS: nadie recibe una fila que no podría leer con un `select`. |
 | Todo lo demás | un aviso por `broadcast`, y quien lo recibe vuelve a leer por el servidor | Los parámetros, los activos agregados, los ajustes de clase y las anotaciones de la propuesta viven en cuatro tablas, se agregan y se borran. Un `delete` de Postgres viaja por Realtime **sin pasar por RLS**, así que publicar esas tablas llevaría la fila borrada a cualquiera suscrito. Por el canal va el aviso; el dato se lee por el servidor, con la sesión de quien pregunta. |
 
-La propuesta se arma de la ficha en cada lectura, así que también sigue la sala
-de su ficha: mientras uno la lee y el otro corrige, se vuelve a pedir al
-servidor dos segundos después del último cambio. Quien está leyendo la
-propuesta no aparece como presente en la ficha, porque no lo está.
+Una propuesta borrador se arma de la ficha en cada lectura, así que también
+sigue la sala de su ficha: mientras uno la lee y el otro corrige, se vuelve a
+pedir al servidor dos segundos después del último cambio. Y va en las dos
+direcciones, porque publicar y abrir una versión nueva le cambian la pantalla a
+quien tenga la ficha abierta: la primera le congela los parámetros y la segunda
+le mueve el id al que van a parar sus guardados. Sin ese aviso, el corte se
+descubre de a un error por tecla. Quien está leyendo la propuesta no aparece
+como presente en la ficha, porque no lo está.
 
 El color de cada asesor sale de su id y no de un contador: «el cursor verde es
 Marco» solo sirve de algo si el verde es Marco en las dos pantallas, hoy y la
@@ -317,7 +321,10 @@ leyéndolo con el lector del propio repo — si el archivo que sale no se puede
 volver a leer, no es un xlsx, y comparar bytes del zip no lo notaría.
 
 Se descarga desde la propuesta y se genera en el momento, por la misma razón
-que los decks: un archivo guardado en disco es una copia que envejece sola.
+que los decks: un archivo guardado en disco es una copia que envejece sola. En
+el momento no quiere decir recalculado siempre: de una propuesta publicada sale
+el snapshot con el que se publicó. El archivo se escribe ahora, las cifras son
+las de entonces.
 
 ## Los dos decks
 
@@ -358,6 +365,50 @@ que no puede envejecer en silencio.
 npm run revisar-deck    # el inventario, lámina por lámina
 ```
 
+## La biblioteca y las versiones
+
+`/propuestas` es lo que el equipo tiene armado, de quien sea. Las propuestas se
+leen entre todos desde el día uno —así están escritas las políticas de la base—
+pero hasta acá no había forma de encontrarlas: se llegaba a una por la ficha que
+la abrió, y quien cubría a un colega el lunes no tenía cómo abrir lo que había
+dejado el viernes.
+
+Cada fila dice de quién es y en qué estado está, que es la distinción que
+organiza todo lo demás:
+
+- Un **borrador** no guarda ninguna cifra. Se recalcula en cada lectura con la
+  ficha y la macro de hoy, y por eso nunca puede mostrar un número que el motor
+  ya no produciría. Corregir la ficha mueve la cifra; guardar una macro nueva
+  las mueve todas.
+- Una **publicada** hace exactamente lo contrario, y por la misma razón. Es la
+  que se imprimió y se leyó en una reunión: si el mes que viene alguien corrige
+  el catálogo, esa propuesta no puede cambiar de cifras a espaldas del cliente
+  que ya la tiene.
+
+Publicar es el único momento en que esta herramienta escribe una cifra. Calcula
+una última vez y guarda esa corrida entera en `snapshot`, junto con la macro y
+la versión del motor que la produjeron; desde ahí salen la pantalla, el Excel y
+los dos decks, sin volver a correr nada. La base lo exige además de la
+aplicación: una propuesta marcada como publicada sin snapshot no se puede
+editar y tampoco reconstruir, que es lo peor de los dos mundos.
+
+No se publica cualquier cosa. Los dos cuadres que la propuesta ya calcula —el
+objetivo contra el patrimonio financiero y las compras contra las ventas— son
+la condición, y con ellos dos más: un objetivo vacío no se manda, y tampoco se
+manda dinero sin marcar. El motor trata `sin_marcar` como conservar, y eso está
+bien en un borrador —el asesor todavía no llegó a esa fila— pero publicarlo
+convierte una omisión en una decisión que nadie tomó.
+
+Lo que viene después no es editar: es una **versión nueva**. Nace borrador,
+apunta a la anterior con `reemplaza_a` y hereda los parámetros, los ajustes del
+objetivo y las anotaciones de línea —si no los heredara, corregir una coma
+costaría rehacer a mano todo lo escrito y nadie volvería a publicar—. Lo que no
+hereda son las cifras: se recalculan, que es justamente para lo que se abre.
+
+La anterior queda entera y las dos se ven en la biblioteca. Una cifra que salió
+en la propuesta de un cliente se explica por la macro con la que se calculó, y
+esa explicación tiene que seguir estando el mes que viene.
+
 ## Claude trabajando solo
 
 El repositorio tiene turnos automáticos: Claude contesta cuando lo nombran en un
@@ -381,7 +432,7 @@ cuando una corrida no arranca.
 | 5 | Export a Excel | hecho |
 | 6 | PPT réplica | motor hecho, 9 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
-| 8 | Biblioteca compartida y versionado | |
+| 8 | Biblioteca compartida y versionado | hecho |
 | 9 | Asistencia opcional de IA | |
 | — | Macro editable, versionada y con historial | hecho |
 | — | Ficha y propuesta compartidas: cursores y cambios en vivo | hecho |

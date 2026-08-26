@@ -30,9 +30,16 @@ interface Props {
   readonly propuestaId: string
   /** Quién es, para la sala: las dos columnas se llenan de a dos. */
   readonly asesor: { readonly id: string; readonly nombre: string }
+  /**
+   * Publicada: las dos columnas del asesor se leen pero no se escriben.
+   *
+   * Salieron impresas en el anexo del deck que el cliente ya tiene. Dejarlas
+   * editables ofreceria cambiar un texto que no va a cambiar en ningun lado.
+   */
+  readonly congelada?: boolean
 }
 
-export function Objetivo({ propuesta, propuestaId, asesor }: Props) {
+export function Objetivo({ propuesta, propuestaId, asesor, congelada = false }: Props) {
   const { seccion6 } = propuesta
   const { parametros } = seccion6
 
@@ -43,7 +50,9 @@ export function Objetivo({ propuesta, propuestaId, asesor }: Props) {
   const { marcar: marcarMia, mias, alSoltar } = useMias()
 
   const { companeros, avisar } = useCompania({
-    sala: propuestaId === '' ? '' : `propuesta:${propuestaId}`,
+    // Una propuesta publicada no se edita, así que no hay sala a la que
+    // entrar: nadie va a escribir nada que el otro tenga que ver llegar.
+    sala: propuestaId === '' || congelada ? '' : `propuesta:${propuestaId}`,
     yo: { asesorId: asesor.id, nombre: asesor.nombre },
     // Sin contenedor no hay cursores, y acá no hacen falta: lo único que se
     // edita en la propuesta son estas dos columnas, y el nombre de quien está
@@ -187,8 +196,9 @@ export function Objetivo({ propuesta, propuestaId, asesor }: Props) {
                       <input
                         className={estilos.campoAnotacion}
                         value={anotacionDe(linea.instrumento, linea).descripcion}
-                        placeholder="Descripción — qué es"
+                        placeholder={congelada ? '' : 'Descripción — qué es'}
                         aria-label={`Descripción de ${linea.instrumento}`}
+                        readOnly={congelada}
                         onChange={(e) =>
                           anotar(linea.instrumento, linea, { descripcion: e.target.value })
                         }
@@ -196,8 +206,9 @@ export function Objetivo({ propuesta, propuestaId, asesor }: Props) {
                       <input
                         className={estilos.campoAnotacion}
                         value={anotacionDe(linea.instrumento, linea).proposito}
-                        placeholder="Propósito — para qué está"
+                        placeholder={congelada ? '' : 'Propósito — para qué está'}
                         aria-label={`Propósito de ${linea.instrumento}`}
+                        readOnly={congelada}
                         onChange={(e) =>
                           anotar(linea.instrumento, linea, { proposito: e.target.value })
                         }
@@ -229,12 +240,17 @@ export function Objetivo({ propuesta, propuestaId, asesor }: Props) {
       <div className={estilos.pieAnotaciones}>
         <p className={estilos.bajada}>
           Descripción y propósito los escribe el asesor: son las dos columnas del anexo del
-          deck que ningún dato puede llenar. Se guardan solas.
+          deck que ningún dato puede llenar.{' '}
+          {congelada
+            ? 'Estas son las que salieron publicadas; para cambiarlas hay que abrir una versión nueva.'
+            : 'Se guardan solas.'}
         </p>
-        <span className={estilos.pieCompania}>
-          <Companeros companeros={companeros} />
-          <Guardado estado={guardado} sinGuardar={0} />
-        </span>
+        {!congelada && (
+          <span className={estilos.pieCompania}>
+            <Companeros companeros={companeros} />
+            <Guardado estado={guardado} sinGuardar={0} />
+          </span>
+        )}
       </div>
 
       <Cuadre

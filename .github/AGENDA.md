@@ -18,12 +18,6 @@ y ahí se quedan hasta que el equipo las tome.
       mayores ya se arman; falta el resto del bloque. `npm run revisar-deck` la
       marca como «parcial» y dice qué es lo que queda.
 
-- [ ] **La propuesta no tiene historial.** La fase 8 del README —biblioteca
-      compartida y versionado— empieza por poder listar las propuestas
-      guardadas de un asesor con su fecha y su versión, y por no pisar la
-      anterior cuando se recalcula. Una pantalla de lista y la migración que la
-      sostiene alcanzan para un pull request.
-
 - [ ] **Los scripts de `tools/` no tienen ninguna prueba.** `revisar-deck`,
       `revisar-catalogo` y `exportar-benchmark` se corren a mano y nadie se
       entera si se rompen. Cubrir al menos la lectura y el formato de salida de
@@ -38,6 +32,10 @@ y ahí se quedan hasta que el equipo las tome.
 
 Cada punto resuelto baja acá con el número de su pull request, para que la
 noche siguiente no lo vuelva a tomar.
+
+- [x] **La propuesta no tenía historial.** Fase 8: `/propuestas` lista lo que
+      el equipo tiene armado, publicar congela las cifras en un snapshot y la
+      versión nueva nace borrador apuntando a la anterior.
 
 - [x] **La lámina 4 del deck réplica tenía las barras del cliente de
       referencia.** `grafico.ts` les da a las seis barras el alto que les toca,

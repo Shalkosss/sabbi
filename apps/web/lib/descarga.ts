@@ -2,27 +2,32 @@ import 'server-only'
 
 import type { Propuesta } from '@sabbi/core'
 
-import { construirPropuesta } from './armar-propuesta'
-import {
-  anotacionesDeLinea,
-  cargarPropuesta,
-  catalogoDeAssetClass,
-  catalogoDeProductos,
-} from './datos/propuestas'
-import { macroParaCalcular } from './datos/macro'
+import { propuestaVigente } from './propuesta-vigente'
 import { asesorActual } from './supabase/servidor'
 
 /**
- * Lo que las dos descargas necesitan antes de armar nada.
+ * Lo que las tres descargas necesitan antes de armar nada.
  *
- * Las dos —el deck rediseñado y el réplica— hacen exactamente lo mismo hasta
- * el momento de escribir el archivo: comprobar la sesión, leer la propuesta y
- * correr el motor. Duplicarlo era garantizar que un día una de las dos deje de
- * comprobar algo que la otra sí comprueba.
+ * Las tres —el Excel, el deck rediseñado y el réplica— hacen exactamente lo
+ * mismo hasta el momento de escribir el archivo: comprobar la sesión y
+ * resolver de dónde salen las cifras. Duplicarlo era garantizar que un día una
+ * de las tres deje de comprobar algo que las otras sí comprueban.
+ *
+ * De dónde salen las cifras lo decide `propuestaVigente` y no esta función:
+ * un borrador se recalcula, una publicada se lee de su snapshot. Un archivo
+ * que circula por correo tiene que decir exactamente lo mismo que la pantalla
+ * de la que se bajó, y con qué macro se calculó.
  */
 
 export type Preparada =
-  | { readonly ok: true; readonly propuesta: Propuesta; readonly asesor: string }
+  | {
+      readonly ok: true
+      readonly propuesta: Propuesta
+      readonly asesor: string
+      /** La macro con la que se calculó, para el pie del archivo. */
+      readonly versionMacro: number | null
+      readonly publicada: boolean
+    }
   | { readonly ok: false; readonly respuesta: Response }
 
 const texto = (cuerpo: string, status: number): Response =>
@@ -32,39 +37,28 @@ export async function prepararDescarga(propuestaId: string): Promise<Preparada> 
   const asesor = await asesorActual()
   if (asesor === null) return { ok: false, respuesta: texto('Sin sesión de asesor.', 401) }
 
-  const cargada = await cargarPropuesta(propuestaId)
-  if (cargada === null) return { ok: false, respuesta: texto('No existe esa propuesta.', 404) }
-
-  const [catalogo, assetClassCatalogo, anotaciones, macro] = await Promise.all([
-    catalogoDeProductos(),
-    catalogoDeAssetClass(),
-    anotacionesDeLinea(propuestaId),
-    // El deck no puede calcular con una macro distinta de la que muestra la
-    // pantalla: es la misma propuesta vista de otra manera.
-    macroParaCalcular(),
-  ])
-
-  const resultado = construirPropuesta(cargada.revision, {
-    mandato: cargada.mandato,
-    catalogo,
-    assetClassCatalogo,
-    anotaciones,
-    macro,
-  })
+  const vigente = await propuestaVigente(propuestaId)
+  if (vigente === null) return { ok: false, respuesta: texto('No existe esa propuesta.', 404) }
 
   // El mismo corte que la pantalla: sin propuesta calculada no hay archivo que
   // bajar, y uno con las láminas vacías sería peor que el error.
-  if (!resultado.ok) {
+  if (!vigente.ok) {
     return {
       ok: false,
       respuesta: texto(
-        `La propuesta no se puede calcular todavía: ${resultado.bloqueos.map((b) => b.mensaje).join(' · ')}`,
+        `La propuesta no se puede calcular todavía: ${vigente.bloqueos.map((b) => b.mensaje).join(' · ')}`,
         409,
       ),
     }
   }
 
-  return { ok: true, propuesta: resultado.propuesta, asesor: asesor.nombre }
+  return {
+    ok: true,
+    propuesta: vigente.propuesta,
+    asesor: asesor.nombre,
+    versionMacro: vigente.versionMacro,
+    publicada: vigente.congelada !== null,
+  }
 }
 
 /**

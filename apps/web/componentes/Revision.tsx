@@ -111,7 +111,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
     // calculadas dejaron de corresponder a lo que está en pantalla.
     setDesactualizado(true)
     setRechazo([])
-    despacharCrudo({ tipo: 'sincronizar', ...objetivo, mias: mias() })
+    despacharCrudo({ tipo: 'sincronizar', objetivo, mias: mias() })
 
     // Lo que no se aplicó porque este asesor lo estaba tocando se vuelve a
     // pedir en cuanto lo suelte: quedarse con un valor que la base ya no tiene
@@ -366,6 +366,22 @@ export function Revision({ inicial, asesor, productos }: Props) {
         posiciones={posiciones.length}
         resumen={revision.resumen}
       />
+
+      {/*
+        Publicada, esta pantalla ya no manda sobre nada: los parámetros no se
+        pueden guardar y las cifras que el cliente tiene son las congeladas.
+        Decirlo acá arriba evita que el asesor descubra el corte de a un error
+        por tecla, y deja a un clic el único camino que queda.
+      */}
+      {estado.propuestaPublicada && (
+        <p className={estilos.publicada} role="status">
+          La propuesta de esta ficha ya está publicada, así que sus cifras están congeladas y los
+          parámetros no aceptan cambios.{' '}
+          <a href={`/propuestas/${estado.propuestaId}`}>
+            Abrila para generar una versión nueva →
+          </a>
+        </p>
+      )}
 
       <BarraParametros
         parametros={parametros}

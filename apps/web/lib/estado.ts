@@ -72,6 +72,17 @@ export interface AjustesObjetivo {
  */
 export interface ObjetivoCompartido extends AjustesObjetivo {
   readonly parametros: Parametros
+  /**
+   * Cuál es la propuesta abierta de esta ficha, y si ya salió.
+   *
+   * Viajan con el resto porque las dos cambian desde la otra pantalla y sin
+   * avisar acá: publicar congela los parámetros, y abrir una versión nueva
+   * mueve el id al que van a parar los guardados. Una ficha que no se entera
+   * sigue escribiendo contra una propuesta publicada, y la base le rechaza
+   * cada tecla sin que el asesor entienda por qué.
+   */
+  readonly propuestaId: string
+  readonly propuestaPublicada: boolean
 }
 
 /**
@@ -83,7 +94,6 @@ export interface ObjetivoCompartido extends AjustesObjetivo {
  */
 export interface EstadoRevision extends ObjetivoCompartido {
   readonly fichaId: string
-  readonly propuestaId: string
   readonly clienteId: string
   readonly archivo: string
   readonly hoja: string
@@ -145,9 +155,7 @@ export type Accion =
    */
   | {
       readonly tipo: 'sincronizar'
-      readonly parametros: Parametros
-      readonly agregados: readonly ActivoAgregado[]
-      readonly ajustes: readonly AjusteClase[]
+      readonly objetivo: ObjetivoCompartido
       readonly mias: ReadonlySet<string>
     }
 
@@ -262,17 +270,19 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
       }
     }
 
-    case 'sincronizar':
+    case 'sincronizar': {
+      const { objetivo, mias } = accion
       return {
         ...estado,
-        parametros: accion.mias.has(CLAVE_PARAMETROS) ? estado.parametros : accion.parametros,
-        agregados: fusionar(estado.agregados, accion.agregados, accion.mias, (a) =>
-          claveActivo(a.id),
-        ),
-        ajustes: fusionar(estado.ajustes, accion.ajustes, accion.mias, (a) =>
-          claveAjuste(a.clase),
-        ),
+        // Estas dos no se protegen: no son algo que esta pantalla escriba, son
+        // el estado en el que la dejó la otra.
+        propuestaId: objetivo.propuestaId,
+        propuestaPublicada: objetivo.propuestaPublicada,
+        parametros: mias.has(CLAVE_PARAMETROS) ? estado.parametros : objetivo.parametros,
+        agregados: fusionar(estado.agregados, objetivo.agregados, mias, (a) => claveActivo(a.id)),
+        ajustes: fusionar(estado.ajustes, objetivo.ajustes, mias, (a) => claveAjuste(a.clase)),
       }
+    }
   }
 }
 

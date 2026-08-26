@@ -19,6 +19,11 @@ import { asesorActual, clienteServidor } from '../supabase/servidor'
  * vieja se recalcula hoy con la nueva, y eso es lo que la mesa quiere — es el
  * modelo el que cambió.
  *
+ * La excepción es la propuesta publicada, y es la que confirma la regla: dejó
+ * de ser un cálculo el día que salió hacia un cliente, así que se lee de su
+ * snapshot y esta macro no la toca. Guardar una versión nueva cambia todo lo
+ * que se calcule después; no cambia nada de lo que ya se firmó.
+ *
  * Ante cualquier duda, la de fábrica. Una macro que no valida no se usa a
  * medias: mezclar la mitad guardada con la mitad de fábrica produciría un
  * portafolio que no es ninguno de los dos.

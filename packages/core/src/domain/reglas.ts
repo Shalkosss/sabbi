@@ -94,6 +94,20 @@ export interface ReglasMotor {
 }
 
 /**
+ * Version del motor.
+ *
+ * No es la version de la macro ni la del paquete: identifica el codigo que
+ * convierte un reparto en lineas ejecutables. Una propuesta publicada la
+ * guarda junto a sus cifras, porque el mismo reparto corrido por otro motor
+ * puede dar otras lineas y eso hay que poder verlo un ano despues.
+ *
+ * Que diga `v8` y la macro se llame v4 no es un descuido: son dos cosas que se
+ * versionan por separado y a distinto ritmo. La macro la numera la mesa —hoy
+ * corre la Benchmark Sabbi v4— y el motor se numera solo.
+ */
+export const VERSION_MOTOR = 'v8'
+
+/**
  * La macro v4: la que la mesa corre hoy y la que el motor reproduce.
  *
  * Es el punto de partida de todo. Una macro guardada que se aparte de estos

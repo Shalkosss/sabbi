@@ -11,7 +11,7 @@ import {
   reducir,
   ventaParcialInvalida,
 } from '../estado'
-import type { EstadoRevision, PosicionEditada } from '../estado'
+import type { EstadoRevision, ObjetivoCompartido, PosicionEditada } from '../estado'
 import type { ActivoAgregado } from '../catalogo'
 
 const posicion = (parche: Partial<PosicionEditada> = {}): PosicionEditada => ({
@@ -48,6 +48,7 @@ const posicion = (parche: Partial<PosicionEditada> = {}): PosicionEditada => ({
 const revision = (posiciones: readonly PosicionEditada[]): EstadoRevision => ({
   fichaId: 'f1',
   propuestaId: 'pr1',
+  propuestaPublicada: false,
   clienteId: 'c1',
   archivo: 'ficha.xlsx',
   hoja: 'Ficha',
@@ -335,14 +336,18 @@ const activo = (parche: Partial<ActivoAgregado> = {}): ActivoAgregado => ({
 describe('la relectura que dispara el otro asesor', () => {
   const sincronizar = (
     estado: EstadoRevision,
-    remoto: Partial<Pick<EstadoRevision, 'parametros' | 'agregados' | 'ajustes'>>,
+    remoto: Partial<ObjetivoCompartido>,
     mias: readonly string[] = [],
   ) =>
     reducir(estado, {
       tipo: 'sincronizar',
-      parametros: remoto.parametros ?? estado.parametros,
-      agregados: remoto.agregados ?? [],
-      ajustes: remoto.ajustes ?? [],
+      objetivo: {
+        parametros: remoto.parametros ?? estado.parametros,
+        agregados: remoto.agregados ?? [],
+        ajustes: remoto.ajustes ?? [],
+        propuestaId: remoto.propuestaId ?? estado.propuestaId,
+        propuestaPublicada: remoto.propuestaPublicada ?? estado.propuestaPublicada,
+      },
       mias: new Set(mias),
     })
 
@@ -419,6 +424,27 @@ describe('la relectura que dispara el otro asesor', () => {
     )
 
     expect(despues.ajustes).toStrictEqual([mio, { clase: 'variable', modo: 'excluir', montoUsd: 0 }])
+  })
+
+  it('publicar del otro lado congela esta pantalla', () => {
+    // Publicar pasa en la propuesta, no acá, y a partir de ese momento la base
+    // rechaza cada guardado de la ficha. Enterarse de a un error por tecla es
+    // la peor forma posible de descubrirlo.
+    const estado = revision([posicion()])
+
+    const despues = sincronizar(estado, { propuestaPublicada: true })
+
+    expect(despues.propuestaPublicada).toBe(true)
+  })
+
+  it('la versión nueva mueve el id al que van los guardados', () => {
+    // Abrir una versión nueva crea otra propuesta para la misma ficha. Una
+    // pantalla que no se entera sigue escribiendo contra la publicada.
+    const estado = revision([posicion()])
+
+    const despues = sincronizar(estado, { propuestaId: 'pr2', propuestaPublicada: false })
+
+    expect(despues.propuestaId).toBe('pr2')
   })
 
   it('no toca las posiciones, que llegan por su propio camino', () => {

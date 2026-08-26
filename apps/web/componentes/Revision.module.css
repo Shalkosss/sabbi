@@ -11,6 +11,33 @@
   padding: 14px 26px 0;
 }
 
+/*
+ * La ficha cuya propuesta ya salio hacia un cliente.
+ *
+ * No bloquea la pantalla —la ficha sigue siendo del cliente y se corrige— pero
+ * avisa que los parametros ya no mandan sobre nada publicado.
+ */
+.publicada {
+  flex: none;
+  margin: 14px 26px 0;
+  padding: 11px 16px;
+  background: var(--atencion-suave);
+  border: 1px solid var(--atencion);
+  border-radius: var(--radio-tarjeta);
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.publicada a {
+  color: var(--atencion-texto);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.publicada a:hover {
+  text-decoration: underline;
+}
+
 .observaciones {
   flex: none;
   margin: 0 26px 18px;

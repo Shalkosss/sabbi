@@ -14,17 +14,57 @@
 # verdad con `npm run dev`; para eso esta el preview que Vercel publica en
 # cada PR.
 #
+# Y deja a la vista lo otro que hace falta antes de tocar codigo: que esta
+# haciendo la otra maquina. Este repositorio se trabaja desde dos cuentas y dos
+# portatiles, y las dos sesiones de Claude no se hablan entre ellas — lo unico
+# que comparten es el remoto. Una sesion que arranca sin mirarlo repite trabajo
+# que ya esta hecho, y eso paso.
+#
 # Idempotente: se puede correr dos veces sin romper nada.
 
 set -euo pipefail
 
+cd "${CLAUDE_PROJECT_DIR:-.}"
+
+# ── Que hay abierto ─────────────────────────────────────────────────────────
+# Corre en las dos, en la web y en una maquina propia: es justamente en las
+# maquinas propias donde estan las dos cuentas que se pisan. Nada de esto puede
+# tumbar el arranque, asi que todo va con su salida de emergencia.
+
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  git fetch --prune --quiet origin 2>/dev/null || true
+
+  echo ""
+  echo "Ramas en el remoto, de la mas reciente a la mas vieja:"
+  git for-each-ref refs/remotes/origin \
+    --sort=-committerdate \
+    --format='  %(refname:lstrip=3)%09%(committerdate:relative)%09%(contents:subject)' \
+    2>/dev/null | grep -v '^  HEAD' | head -8 || true
+
+  # `gh` no esta en todas partes. Donde esta, los pull requests abiertos dicen
+  # mas que las ramas: una rama puede ser un resto y un PR es trabajo esperando.
+  if command -v gh >/dev/null 2>&1; then
+    echo ""
+    echo "Pull requests abiertos:"
+    gh pr list --state open --limit 8 \
+      --json number,title,headRefName,updatedAt \
+      --template '{{range .}}  #{{.number}}  {{.title}}  ({{.headRefName}}){{"\n"}}{{end}}' \
+      2>/dev/null || echo "  (gh no pudo consultarlos)"
+  fi
+
+  echo ""
+  echo "Antes de empezar: si una de esas es lo que te acaban de pedir, continuala"
+  echo "en vez de abrir otra. Y empuja tu rama al primer commit, no al ultimo:"
+  echo "es lo unico que le avisa a la otra maquina que esto ya esta tomado."
+  echo ""
+fi
+
+# ── Dependencias ────────────────────────────────────────────────────────────
 # Solo en la web. En una maquina propia el entorno ya es del dueño y no le
 # corresponde a un hook decidir cuando reinstalar sus dependencias.
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
-
-cd "${CLAUDE_PROJECT_DIR:-.}"
 
 # `ci` y no `install`, aunque `install` aproveche mejor el cache del contenedor.
 # La razon es que `install` reescribe el lockfile cuando el npm que corre aca es

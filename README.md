@@ -420,6 +420,15 @@ que revisar. Nada se mergea solo.
 configuración que solo puede dar un administrador del repositorio y qué mirar
 cuando una corrida no arranca.
 
+Y hay una parte que no es automática: este repositorio se trabaja desde dos
+cuentas y dos portátiles, y las dos sesiones de Claude no se hablan entre ellas.
+Lo único que comparten es el remoto, así que el hook de `.claude/hooks/` abre
+cada sesión mostrando las ramas y los pull requests abiertos, y `CLAUDE.md`
+—que es lo primero que lee cualquier sesión— dice qué hacer con eso: continuar
+lo que ya está empezado en vez de abrirlo otra vez, y empujar la rama al primer
+commit, que es lo único que le avisa a la otra máquina que ese trabajo está
+tomado.
+
 ## Estado
 
 | Fase | Alcance | Estado |

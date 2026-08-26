@@ -204,3 +204,162 @@
   text-overflow: ellipsis;
   max-width: 0;
 }
+
+/* ── La tuerca y el actualizar ──────────────────────────────────────────── */
+
+/* Las modificaciones vienen apagadas: un portafolio calculado se lee muchas
+   mas veces de las que se toca, y un campo editable invita a tocarlo. */
+.tuerca {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-boton);
+  background: var(--superficie);
+  color: var(--tinta-3);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.tuerca:hover {
+  color: var(--tinta);
+  border-color: var(--borde-fuerte);
+}
+
+.tuerca:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--anillo);
+}
+
+.tuercaActiva {
+  background: var(--atencion-suave);
+  border-color: var(--atencion);
+  color: var(--atencion-texto);
+  font-weight: 600;
+}
+
+/* El plan que se ve ya no corresponde a lo que hay cargado. No se esconde: se
+   marca, porque esconderlo dejaba la pantalla en blanco justo despues de
+   tocar algo. */
+.desactualizado {
+  margin: 0 0 12px;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--atencion-texto);
+  background: var(--atencion-suave);
+  border-radius: var(--radio-control);
+}
+
+/* ── Modificar desde el objetivo ────────────────────────────────────────── */
+
+.colFijar {
+  width: 190px;
+}
+
+.fijarVacio {
+  background: transparent;
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--tinta-4);
+  cursor: pointer;
+  width: 100%;
+}
+
+.fijarVacio:hover {
+  color: var(--atencion-texto);
+  border-color: var(--atencion);
+  border-style: solid;
+}
+
+.fijado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.soltar {
+  background: transparent;
+  border: none;
+  color: var(--tinta-4);
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: var(--radio-control);
+}
+
+.soltar:hover {
+  color: var(--alerta-texto);
+  background: var(--alerta-suave);
+}
+
+.filaAgregada td {
+  background: var(--atencion-suave);
+}
+
+.texto,
+.selectorClase {
+  width: 100%;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 4px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--tinta);
+}
+
+.texto:focus,
+.selectorClase:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--anillo);
+  outline: none;
+}
+
+/* El `+` va debajo del ultimo instrumento de su clase, que es donde uno mira
+   cuando piensa «a esta clase le falta algo». */
+.filaSumar td {
+  padding: 3px 8px 8px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.sumar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: none;
+  padding: 3px 8px 3px 26px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--tinta-4);
+  cursor: pointer;
+  border-radius: var(--radio-control);
+}
+
+.sumar span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.sumar:hover {
+  color: var(--acento-texto);
+  background: var(--acento-suave);
+}

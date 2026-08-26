@@ -133,6 +133,13 @@ cálculo, y la clase sale del reparto para que el solver prorratee lo que sobra
 entre las que quedan libres. Es el mismo camino que el motor ya usaba con el
 dinero de una clase cerrada.
 
+Las tres se tocan desde el propio portafolio objetivo, que es donde se ve el
+efecto: el monto de una clase se clava en su fila, y debajo del último
+instrumento de cada bloque hay un `+` para sumar un producto ahí mismo. Vienen
+apagadas —la tuerca de la cabecera las abre— porque un portafolio calculado se
+lee muchas más veces de las que se toca. Un cambio no borra el plan: lo marca
+viejo, y **Actualizar** lo vuelve a cuadrar.
+
 Tres palancas, todas sobre el portafolio objetivo y ninguna sobre la ficha:
 
 | Palanca | Qué hace | Dónde vive |

@@ -16,6 +16,7 @@ export type Seccion =
   | 'catalogo'
   | 'macro'
   | 'benchmark'
+  | 'retornos'
   | 'bitacora'
 
 interface Item {
@@ -49,6 +50,13 @@ const SECCIONES: readonly Item[] = [
     // Tres barras de distinto alto: el modelo mirado de lejos.
     icono: 'M3 13V9m5 4V4m5 9v-6',
     ruta: '/benchmark',
+  },
+  {
+    clave: 'retornos',
+    texto: 'Retornos',
+    // Una linea que sube con dos puntos: la serie mensual de un fondo.
+    icono: 'M2 12l4-4 3 2 5-6M2 12h12',
+    ruta: '/retornos/fondos',
   },
   { clave: 'bitacora', texto: 'Bitácora', icono: 'M8 4v4l3 2M8 14A6 6 0 108 2a6 6 0 000 12z', ruta: null },
 ]

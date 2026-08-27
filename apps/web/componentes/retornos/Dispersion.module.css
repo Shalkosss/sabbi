@@ -1,0 +1,92 @@
+/*
+ * El dispersion riesgo-retorno.
+ *
+ * La reja es apenas visible y el cero es firme: lo que se compara es la
+ * posicion relativa de los puntos, no su distancia al borde del panel.
+ */
+
+.marco {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+  background: var(--superficie);
+  padding: 16px;
+}
+
+.grafico {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.reja {
+  stroke: var(--borde-suave);
+  stroke-width: 1;
+}
+
+.ejeCero {
+  stroke: var(--borde-fuerte);
+  stroke-width: 1;
+}
+
+/* Referencia, no dato: punteada y tenue para que no se lea como una serie. */
+.diagonal {
+  stroke: var(--tinta-4);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.5;
+}
+
+.rotuloEje {
+  fill: var(--tinta-3);
+  font-size: 10px;
+  text-anchor: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.tituloEje {
+  fill: var(--tinta-3);
+  font-size: 11px;
+}
+
+.punto {
+  stroke: var(--superficie);
+  stroke-width: 1.5;
+}
+
+.punto:hover {
+  stroke: var(--tinta);
+  stroke-width: 2;
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--tinta-2);
+}
+
+.leyenda li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.muestra {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.vacio {
+  padding: 32px;
+  text-align: center;
+  color: var(--tinta-3);
+  font-size: 13px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+}

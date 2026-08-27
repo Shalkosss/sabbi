@@ -1,0 +1,166 @@
+/*
+ * La tabla maestra de retornos.
+ *
+ * Treinta y pico de columnas que no entran en ninguna pantalla. La apuesta es
+ * la misma que en el catalogo: densidad alta, jerarquia fuerte. El nombre del
+ * fondo pesa y queda fijo; todo lo demas es numero tabular y se lee como una
+ * columna, no como una frase.
+ */
+
+.pantalla {
+  width: 100%;
+  padding: 28px 26px 64px;
+}
+
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+}
+
+.busqueda {
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--tinta);
+  min-width: 240px;
+}
+
+.select {
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--tinta);
+}
+
+.conteo {
+  font-size: 13px;
+  color: var(--tinta-3);
+}
+
+.nota {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* El scroll horizontal vive acá y no en el body: la pagina no se mueve. */
+.marco {
+  overflow-x: auto;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+  background: var(--superficie);
+}
+
+.tabla {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 12.5px;
+}
+
+.tabla th,
+.tabla td {
+  padding: 7px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--hundido);
+  border-bottom: 1px solid var(--borde-fuerte);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--tinta-2);
+  text-transform: uppercase;
+}
+
+.tabla thead th button {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.tabla thead th button:hover {
+  color: var(--acento-texto);
+}
+
+.tabla thead th button:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+.tabla tbody tr:nth-child(even) {
+  background: var(--zebra);
+}
+
+/*
+ * La primera columna acompaña el scroll horizontal. Sin esto, al llegar al
+ * Sharpe de 5Y la fila es una hilera de numeros sin dueño.
+ */
+.fija {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--superficie);
+  border-right: 1px solid var(--borde);
+}
+
+.tabla tbody tr:nth-child(even) .fija {
+  background: var(--zebra);
+}
+
+.thNombre {
+  z-index: 3;
+  background: var(--hundido);
+}
+
+.nombre {
+  font-weight: 600;
+  color: var(--tinta);
+  text-align: left;
+}
+
+.tenue {
+  color: var(--tinta-3);
+}
+
+.numerica {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.negativo {
+  color: var(--negativo, #b4442f);
+}
+
+/* Apagado a proposito: «n/d» no compite con las cifras que si estan. */
+.sinDato {
+  color: var(--tinta-4);
+}
+
+.sufijo {
+  font-size: 10px;
+  color: var(--tinta-4);
+  text-transform: uppercase;
+}
+
+.vacio {
+  padding: 32px;
+  text-align: center;
+  color: var(--tinta-3);
+  font-size: 13px;
+}

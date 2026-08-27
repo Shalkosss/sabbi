@@ -3,15 +3,15 @@
  *
  *   DBPASS='...' node tools/probar-rls.mjs
  *
- * Comprueba la regla central del producto: la biblioteca es del equipo.
- * Cualquier asesor con ficha en `advisors` lee y edita el trabajo de la mesa —
- * una ficha se trabaja de a dos y hay cursores en vivo para eso.
+ * Comprueba la regla central del producto: todos los asesores tienen el mismo
+ * rango. Cualquiera con ficha en `advisors` lee y edita todo el trabajo de la
+ * mesa — fichas, propuestas, catalogo, configuracion y agenda —, tambien una
+ * propuesta ya publicada. Sabbi son cinco personas del mismo nivel.
  *
- * La frontera no desaparecio, se movio: ahora esta entre "asesor de Sabbi" y
- * "cuenta de Auth sin dar de alta". Las cuentas se crean a mano y la fila de
- * `advisors` llega despues, asi que ese hueco existe de verdad y una cuenta a
- * medio dar de alta no puede tocar el patrimonio de nadie. La configuracion y
- * el catalogo siguen siendo de admin.
+ * Queda una sola frontera, y no es de rango: una cuenta de Supabase Auth SIN
+ * fila en `advisors` no escribe nada. Las cuentas se crean a mano y la fila
+ * llega despues, asi que ese hueco existe de verdad y una cuenta a medio dar
+ * de alta no tiene por que tocar el patrimonio de un cliente.
  *
  * Corre dentro de una transaccion que siempre se revierte, asi que no deja
  * datos en la base.
@@ -264,30 +264,45 @@ try {
   })
   comprobar('Ana SI puede agregar una restriccion libre a su propuesta', anaRestringe === 1)
 
-  // ── configuracion: lectura abierta, escritura solo admin ────────────────
+  // ── configuracion y catalogo: ya no son de admin ────────────────────────
   const betoTocaConfig = await intentar(userBeto, async () => {
     const r = await cliente.query(`update config_versions set nota = 'x' returning version`)
     return r.rowCount
   })
-  comprobar('Beto NO puede tocar la configuracion', betoTocaConfig === 0)
+  comprobar('Beto SI puede tocar la configuracion (mismo rango)', betoTocaConfig > 0)
 
-  // ── una propuesta publicada no se sobreescribe ──────────────────────────
+  const sinAltaTocaConfig = await intentar(userSinAlta, async () => {
+    const r = await cliente.query(`update config_versions set nota = 'y' returning version`)
+    return r.rowCount
+  })
+  comprobar('Una cuenta sin dar de alta NO puede tocar la configuracion', sinAltaTocaConfig === 0)
+
+  const betoTocaCatalogo = await intentar(userBeto, async () => {
+    // `limit` no existe en un update: se acota con una subconsulta.
+    const r = await cliente.query(
+      `update products set nombre = nombre
+       where id = (select id from products order by id limit 1) returning id`,
+    )
+    return r.rowCount
+  })
+  comprobar('Beto SI puede editar el catalogo', betoTocaCatalogo > 0)
+
+  // ── una propuesta publicada se sigue trabajando ─────────────────────────
+  // El bloqueo existia para que lo ya enviado al cliente no cambiara sin
+  // rastro. En una mesa donde todos publican, lo que producia era que dos
+  // personas no pudieran terminar el mismo documento.
   await cliente.query(
     `update proposals set estado = 'publicada', published_at = now() where id = $1`,
     [propuesta],
   )
-  let editaPublicada
-  try {
-    await comoUsuario(userAna, () =>
-      cliente.query(`update proposals set titulo = 'otra cosa' where id = $1`, [propuesta]),
+  const editaPublicada = await intentar(userBeto, async () => {
+    const r = await cliente.query(
+      `update proposals set titulo = 'corregida despues de publicar' where id = $1 returning id`,
+      [propuesta],
     )
-    editaPublicada = 'permitido'
-  } catch (error) {
-    editaPublicada = error.message.includes('ya esta publicada')
-      ? 'bloqueado'
-      : `otro error: ${error.message}`
-  }
-  comprobar('Una propuesta publicada no se puede editar', editaPublicada === 'bloqueado')
+    return r.rowCount
+  })
+  comprobar('Una propuesta publicada se puede seguir editando', editaPublicada === 1)
 } finally {
   await cliente.query('rollback')
   await cliente.end()

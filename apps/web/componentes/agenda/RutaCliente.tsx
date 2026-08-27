@@ -26,7 +26,6 @@ interface Props {
   readonly id: string
   readonly abierta: boolean
   readonly atenuada: boolean
-  readonly esAdmin: boolean
   /** Falso mientras la base no tenga la tabla de hitos. */
   readonly puedeMarcar: boolean
   readonly guardando: boolean
@@ -40,15 +39,12 @@ export function RutaCliente({
   id,
   abierta,
   atenuada,
-  esAdmin,
   puedeMarcar,
   guardando,
   alAbrir,
   alEnfocar,
   alAlternar,
 }: Props) {
-  const suya = ruta.mio || esAdmin
-
   return (
     <li
       id={id}
@@ -102,7 +98,8 @@ export function RutaCliente({
           <ol className={estilos.hitosRuta}>
             {ruta.hitos.map((hito) => {
               const cumplido = hito.estado === 'hecho'
-              const marcable = puedeMarcar && suya && hito.clave !== 'ficha'
+              /* El hito de la ficha no se marca: se cumple subiéndola. */
+              const marcable = puedeMarcar && hito.clave !== 'ficha'
 
               return (
                 <li
@@ -162,11 +159,6 @@ export function RutaCliente({
             </Link>
           </p>
 
-          {!suya && puedeMarcar && (
-            <p className={estilos.nota}>
-              La subió otro asesor, así que sus hitos los marca su dueño o un admin.
-            </p>
-          )}
         </div>
       )}
     </li>

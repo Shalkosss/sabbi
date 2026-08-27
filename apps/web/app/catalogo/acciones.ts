@@ -163,7 +163,7 @@ function mensaje(crudo: string): string {
     return 'Cada parte de la composición tiene que estar entre 0% y 100%.'
   }
   if (crudo.includes('row-level security')) {
-    return 'Tu cuenta no tiene permiso para editar el catálogo. Pedile a un admin que lo haga.'
+    return 'Tu cuenta no está dada de alta como asesor de Sabbi, así que no puede escribir en el catálogo.'
   }
   return crudo
 }

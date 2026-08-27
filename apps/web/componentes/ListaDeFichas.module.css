@@ -1,8 +1,13 @@
 /*
- * Lista de fichas guardadas.
+ * Lista de fichas de la mesa.
  *
  * Una fila por ficha, con el nombre del cliente adelante: es lo unico que el
  * asesor recuerda cuando vuelve tres dias despues.
+ *
+ * La lista es de todos, asi que cada fila tiene que decir de quien es. La
+ * propia se marca con el borde del acento y una etiqueta; las demas llevan el
+ * nombre de quien las subio. Ninguna de las dos senales grita: lo primero que
+ * se busca sigue siendo el cliente.
  */
 
 .lista {
@@ -31,6 +36,10 @@
     transform 120ms ease;
 }
 
+.mia {
+  border-left: 2px solid var(--acento);
+}
+
 .tarjeta:hover {
   border-color: var(--acento-borde);
   box-shadow:
@@ -54,6 +63,41 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/*
+ * Quien subio la ficha, delante del nombre del archivo.
+ *
+ * Comparte celda con el archivo en vez de ocupar una columna propia: el nombre
+ * del asesor se lee una vez para ubicarse y despues estorba, y una columna
+ * entera para eso le come el ancho al nombre del cliente, que es lo que
+ * realmente se busca.
+ */
+.autor,
+.tuya {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+
+.autor {
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  color: var(--tinta-3);
+}
+
+.tuya {
+  background: var(--acento-suave);
+  border: 1px solid var(--acento-borde);
+  color: var(--acento-texto);
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
 }
 
 .monto {

@@ -325,6 +325,62 @@ Sus tests fijan lo que un error de un día costaría caro: que el fin de semana 
 cuente, que Fiestas Patrias corra la entrega, y que una ficha subida un sábado
 empiece a contar el lunes.
 
+## Quién ve y quién edita
+
+Una regla, y conviene tenerla escrita porque es la que decide qué pasa cuando
+dos personas trabajan al mismo tiempo:
+
+**La biblioteca es del equipo.** Cualquier asesor con fila en `advisors` lee y
+edita el trabajo de la mesa — fichas, posiciones, clientes y propuestas. No hay
+«mis fichas» y «las de otro»: una ficha la trabaja quien esté disponible, y la
+portada las lista todas con el nombre de quien la subió.
+
+Esto no siempre fue así, y el cambio arregló una contradicción. La migración
+0014 publicó `ficha_positions` por Realtime para que dos asesores vieran los
+cursores del otro sobre la misma ficha, pero las políticas de escritura seguían
+pidiendo ser el creador: la función existía y no se podía usar. La única salida
+era hacer admin al segundo asesor, o sea darle la macro y el catálogo para que
+pudiera corregir un NAV.
+
+La frontera no desapareció, se movió. Ahora está entre **asesor de Sabbi** y
+**cuenta de Auth sin dar de alta**: las cuentas las crea Sabbi a mano y la fila
+de `advisors` llega después, así que ese hueco existe de verdad y una cuenta a
+medio dar de alta no puede tocar el patrimonio de nadie. Lo que sigue cerrado:
+
+| Qué | Quién |
+|---|---|
+| Fichas, posiciones, clientes, propuestas | cualquier asesor dado de alta |
+| Alta de asesores (`advisors`) | solo admin |
+| Macro y catálogo (`config_versions`, `products`) | solo admin |
+| Una propuesta ya publicada | nadie la sobreescribe: se versiona |
+
+```bash
+DBPASS='...' node tools/probar-rls.mjs   # las políticas, con cuatro usuarios de prueba
+```
+
+Ese script corre contra la base real dentro de una transacción que siempre se
+revierte, y comprueba las dos mitades: que Beto pueda corregir la ficha de Ana,
+y que una cuenta sin dar de alta no pueda tocar nada.
+
+### Cuando algo no llega en vivo
+
+Los cursores y los cambios viajan por **dos canales separados**. Los cursores
+son `broadcast` y no dependen de nada del servidor; los cambios son
+`postgres_changes` y sí — la tabla tiene que estar en la publicación
+`supabase_realtime`, que es lo que hace la migración 0014.
+
+Estaban en el mismo canal, y esa era la trampa: si el servidor rechazaba la
+suscripción a los cambios, el canal entero quedaba en error y se llevaba puestos
+los cursores, que no necesitan la base para nada. Peor, fallaba en silencio —
+una pantalla sin cursores se ve igual esté rota o esté sola.
+
+Ahora la barra de la ficha lo dice: **«Sin conexión en vivo»** si no hay canal,
+**«Cursores sí, cambios no»** si falta publicar la tabla. Para lo segundo:
+
+```bash
+npm run migrar -- --dry    # dice si 0014 está aplicada
+```
+
 ## Los retornos de fondos
 
 Un módulo aparte del motor de propuestas: mide los productos del menú, no los

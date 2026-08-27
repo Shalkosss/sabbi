@@ -57,6 +57,9 @@ export interface FichaEnLista {
   readonly archivo: string
   readonly patrimonioUsd: number | null
   readonly fecha: string
+  /** Quién la subió. `null` si esa cuenta ya no está en `advisors`. */
+  readonly asesor: string | null
+  readonly mia: boolean
 }
 
 /**
@@ -328,12 +331,24 @@ interface FilaListada {
   id: string
   archivo_nombre: string | null
   created_at: string
+  created_by: string | null
   patrimonio_total_usd: number | null
   clients: { nombre: string } | null
 }
 
-/** Las fichas que cargó este asesor, de la más reciente a la más vieja. */
-export async function listarFichas(limite = 12): Promise<readonly FichaEnLista[]> {
+/**
+ * Las fichas de la mesa, de la más reciente a la más vieja.
+ *
+ * Antes filtraba por `created_by`, y esa línea era el bug: un asesor no
+ * encontraba la ficha que estaba trabajando con otro, aunque las políticas de
+ * la base siempre lo dejaron leerla. `/agenda` ya listaba las de todos, así
+ * que la app se contradecía según por dónde se entrara.
+ *
+ * Cada fila dice de quién es. Se marca la propia en vez de esconder las demás:
+ * saber que Jacinto ya subió a ese cliente es justamente lo que evita subirlo
+ * dos veces.
+ */
+export async function listarFichas(limite = 24): Promise<readonly FichaEnLista[]> {
   const asesor = await asesorActual()
   if (asesor === null) return []
 
@@ -341,17 +356,31 @@ export async function listarFichas(limite = 12): Promise<readonly FichaEnLista[]
 
   const { data } = await supabase
     .from('fichas')
-    .select('id, archivo_nombre, created_at, patrimonio_total_usd, clients(nombre)')
-    .eq('created_by', asesor.id)
+    .select('id, archivo_nombre, created_at, created_by, patrimonio_total_usd, clients(nombre)')
     .order('created_at', { ascending: false })
     .limit(limite)
     .returns<FilaListada[]>()
 
-  return (data ?? []).map((fila) => ({
+  const filas = data ?? []
+  if (filas.length === 0) return []
+
+  // Los asesores aparte y no como `select` anidado, por lo mismo que en la
+  // agenda: `fichas` ya tiene una clave foránea hacia `advisors` y un embed se
+  // vuelve ambiguo en cuanto alguien agregue la segunda.
+  const { data: asesores } = await supabase
+    .from('advisors')
+    .select('id, nombre')
+    .returns<{ id: string; nombre: string }[]>()
+
+  const nombrePorAsesor = new Map((asesores ?? []).map((fila) => [fila.id, fila.nombre]))
+
+  return filas.map((fila) => ({
     id: fila.id,
     cliente: fila.clients?.nombre ?? 'Sin nombre',
     archivo: fila.archivo_nombre ?? 'ficha.xlsx',
     patrimonioUsd: fila.patrimonio_total_usd,
     fecha: fila.created_at,
+    asesor: fila.created_by === null ? null : (nombrePorAsesor.get(fila.created_by) ?? null),
+    mia: fila.created_by === asesor.id,
   }))
 }

@@ -59,3 +59,36 @@
   height: 7px;
   border-radius: 50%;
 }
+
+/*
+ * Los dos avisos de la conexión en vivo.
+ *
+ * Viven en la barra, al lado de los compañeros, porque es la misma pregunta:
+ * qué le está pasando a esto que estoy editando. Ninguno bloquea nada — se
+ * puede seguir trabajando sin tiempo real — así que son etiquetas y no
+ * banderas rojas.
+ */
+.alerta,
+.aviso {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.alerta {
+  background: var(--alerta-suave);
+  border: 1px solid var(--alerta);
+  color: var(--alerta-texto);
+}
+
+.aviso {
+  background: var(--hundido);
+  border: 1px solid var(--borde-fuerte);
+  color: var(--tinta-3);
+}

@@ -27,7 +27,7 @@ import { plural } from '../lib/formato'
 import { useCompania, useMias } from '../lib/tiempo-real'
 import { AjustesObjetivo } from './AjustesObjetivo'
 import { Avisos } from './Avisos'
-import { Companeros, Cursores } from './Cursores'
+import { Companeros, Cursores, EstadoEnVivo } from './Cursores'
 import { BarraAccion } from './BarraAccion'
 import type { Salida } from './BarraAccion'
 import { BarraParametros } from './BarraParametros'
@@ -114,7 +114,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
   const lienzo = useRef<HTMLDivElement | null>(null)
   const { marcar: marcarMia, mias } = useMias()
 
-  const { companeros, cursores } = useCompania({
+  const { companeros, cursores, estado: estadoCanal, cambiosEnVivo } = useCompania({
     fichaId: estado.fichaId,
     yo: { asesorId: asesor.id, nombre: asesor.nombre },
     mias,
@@ -295,6 +295,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
       acciones={
         <>
           <Companeros companeros={companeros} />
+          <EstadoEnVivo estado={estadoCanal} cambiosEnVivo={cambiosEnVivo} />
           <Guardado estado={guardado} sinGuardar={posicionesSinGuardar} />
         </>
       }

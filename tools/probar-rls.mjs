@@ -3,9 +3,15 @@
  *
  *   DBPASS='...' node tools/probar-rls.mjs
  *
- * Comprueba la regla central del producto: la biblioteca es compartida para
- * leer y privada para escribir. Cualquier asesor ve todas las propuestas de la
- * organizacion, pero solo el dueno o un admin puede modificarlas.
+ * Comprueba la regla central del producto: la biblioteca es del equipo.
+ * Cualquier asesor con ficha en `advisors` lee y edita el trabajo de la mesa —
+ * una ficha se trabaja de a dos y hay cursores en vivo para eso.
+ *
+ * La frontera no desaparecio, se movio: ahora esta entre "asesor de Sabbi" y
+ * "cuenta de Auth sin dar de alta". Las cuentas se crean a mano y la fila de
+ * `advisors` llega despues, asi que ese hueco existe de verdad y una cuenta a
+ * medio dar de alta no puede tocar el patrimonio de nadie. La configuracion y
+ * el catalogo siguen siendo de admin.
  *
  * Corre dentro de una transaccion que siempre se revierte, asi que no deja
  * datos en la base.
@@ -74,10 +80,11 @@ async function intentar(userId, fn) {
 }
 
 try {
-  // Dos asesores y un admin.
+  // Dos asesores, un admin y una cuenta sin dar de alta.
   const userAna = randomUUID()
   const userBeto = randomUUID()
   const userAdmin = randomUUID()
+  const userSinAlta = randomUUID()
 
   // advisors referencia auth.users, asi que los usuarios tienen que existir.
   // Se crean dentro de la transaccion y desaparecen con el rollback.
@@ -85,6 +92,7 @@ try {
     [userAna, 'ana@sabbi.test'],
     [userBeto, 'beto@sabbi.test'],
     [userAdmin, 'admin@sabbi.test'],
+    [userSinAlta, 'sinalta@sabbi.test'],
   ]) {
     await cliente.query(
       `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -117,6 +125,20 @@ try {
   )
   const propuesta = propuestas[0].id
 
+  const { rows: fichas } = await cliente.query(
+    `insert into fichas (client_id, archivo_nombre, created_by)
+     values ($1, 'ficha-de-ana.xlsx', $2) returning id`,
+    [clientes[0].id, idAna],
+  )
+  const ficha = fichas[0].id
+
+  const { rows: posiciones } = await cliente.query(
+    `insert into ficha_positions (ficha_id, origen, institucion_producto, valor_usd)
+     values ($1, 'financiero', 'Fondo X', 100000) returning id`,
+    [ficha],
+  )
+  const posicion = posiciones[0].id
+
   // ── lectura compartida ──────────────────────────────────────────────────
   const vistaPorBeto = await comoUsuario(userBeto, async () => {
     const r = await cliente.query('select count(*)::int n from proposals where id = $1', [propuesta])
@@ -130,15 +152,25 @@ try {
   })
   comprobar('Beto lee el catalogo completo', catalogo === 307)
 
-  // ── escritura restringida ───────────────────────────────────────────────
+  // ── escritura del equipo ────────────────────────────────────────────────
   const betoEscribe = await comoUsuario(userBeto, async () => {
     const r = await cliente.query(
-      `update proposals set titulo = 'secuestrada' where id = $1 returning id`,
+      `update proposals set titulo = 'retomada por Beto' where id = $1 returning id`,
       [propuesta],
     )
     return r.rowCount
   })
-  comprobar('Beto NO puede editar la propuesta de Ana', betoEscribe === 0)
+  comprobar('Beto SI puede editar la propuesta de Ana (es del equipo)', betoEscribe === 1)
+
+  // La frontera de verdad: una cuenta de Auth sin fila en `advisors`.
+  const sinAltaEscribe = await intentar(userSinAlta, async () => {
+    const r = await cliente.query(
+      `update proposals set titulo = 'de nadie' where id = $1 returning id`,
+      [propuesta],
+    )
+    return r.rowCount
+  })
+  comprobar('Una cuenta sin dar de alta NO puede editar nada', sinAltaEscribe === 0)
 
   const anaEscribe = await comoUsuario(userAna, async () => {
     const r = await cliente.query(
@@ -158,6 +190,49 @@ try {
   })
   comprobar('El admin puede editar cualquier propuesta', adminEscribe === 1)
 
+  // ── la ficha se trabaja de a dos ────────────────────────────────────────
+  // Es el caso que motivo el cambio: dos asesores en la misma ficha, uno
+  // corrigiendo posiciones y el otro mirando los cursores. Con la regla vieja
+  // el segundo no podia escribir y la funcion entera no servia para nada.
+
+  const betoCorrigePosicion = await intentar(userBeto, async () => {
+    const r = await cliente.query(
+      `update ficha_positions set valor_usd = 120000 where id = $1 returning id`,
+      [posicion],
+    )
+    return r.rowCount
+  })
+  comprobar('Beto SI puede corregir una posicion de la ficha de Ana', betoCorrigePosicion === 1)
+
+  const betoTocaFicha = await intentar(userBeto, async () => {
+    const r = await cliente.query(
+      `update fichas set patrimonio_total_usd = 120000 where id = $1 returning id`,
+      [ficha],
+    )
+    return r.rowCount
+  })
+  comprobar('Beto SI puede editar la ficha de Ana', betoTocaFicha === 1)
+
+  // Cambiar el perfil escribe en `clients` ademas de en `proposals`: si esta
+  // quedaba cerrada, el guardado fallaba a mitad de camino.
+  const betoTocaCliente = await intentar(userBeto, async () => {
+    const r = await cliente.query(
+      `update clients set necesita_flujos = true where id = $1 returning id`,
+      [clientes[0].id],
+    )
+    return r.rowCount
+  })
+  comprobar('Beto SI puede editar el cliente de la ficha de Ana', betoTocaCliente === 1)
+
+  const sinAltaTocaPosicion = await intentar(userSinAlta, async () => {
+    const r = await cliente.query(
+      `update ficha_positions set valor_usd = 1 where id = $1 returning id`,
+      [posicion],
+    )
+    return r.rowCount
+  })
+  comprobar('Una cuenta sin dar de alta NO puede tocar una posicion', sinAltaTocaPosicion === 0)
+
   // ── restricciones dinamicas heredan el permiso de su propuesta ──────────
   const betoRestringe = await intentar(userBeto, async () => {
     const r = await cliente.query(
@@ -167,7 +242,17 @@ try {
     )
     return r.rowCount
   })
-  comprobar('Beto NO puede agregar restricciones a la propuesta de Ana', betoRestringe === 0)
+  comprobar('Beto SI puede agregar restricciones a la propuesta de Ana', betoRestringe === 1)
+
+  const sinAltaRestringe = await intentar(userSinAlta, async () => {
+    const r = await cliente.query(
+      `insert into proposal_restrictions (proposal_id, nombre, monto_usd, clase)
+       values ($1, 'Colada', 1000, 'variable') returning id`,
+      [propuesta],
+    )
+    return r.rowCount
+  })
+  comprobar('Una cuenta sin dar de alta NO puede agregar restricciones', sinAltaRestringe === 0)
 
   const anaRestringe = await comoUsuario(userAna, async () => {
     const r = await cliente.query(

@@ -17,6 +17,12 @@
 --  de escribir un `false`: un booleano nulable obliga a distinguir tres
 --  estados donde solo hay dos, y la fecha de cumplimiento no tendria sentido en
 --  dos de ellos.
+--
+--  Corre dos veces sin romperse, como la 0014: se puede pegar en el editor de
+--  Supabase y despues dejar que `npm run migrar` la aplique igual. Postgres no
+--  tiene `create policy if not exists`, asi que cada politica se borra antes de
+--  escribirse — que es tambien la forma de corregir una politica sin migracion
+--  nueva.
 -- ============================================================================
 
 create table if not exists agenda_hitos (
@@ -40,9 +46,11 @@ alter table agenda_hitos enable row level security;
 -- La agenda es del equipo: cualquier asesor la ve entera, como la biblioteca
 -- de fichas y propuestas. Marcar es distinto — es afirmar que un trabajo esta
 -- hecho — y por eso sigue la misma regla que la ficha: su dueno o un admin.
+drop policy if exists leer_todos on agenda_hitos;
 create policy leer_todos on agenda_hitos
   for select to authenticated using (true);
 
+drop policy if exists escribir_de_mi_ficha on agenda_hitos;
 create policy escribir_de_mi_ficha on agenda_hitos
   for all to authenticated
   using (exists (select 1 from fichas f

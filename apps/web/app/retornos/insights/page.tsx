@@ -1,5 +1,6 @@
 import { Marco } from '../../../componentes/Marco'
 import { SinAsesor } from '../../../componentes/SinAsesor'
+import { NavRetornos } from '../../../componentes/retornos/NavRetornos'
 import { Insights } from '../../../componentes/retornos/Insights'
 import { metricasDeFondos } from '../../../lib/datos/retornos'
 import { asesorActual } from '../../../lib/supabase/servidor'
@@ -24,6 +25,8 @@ export default async function Pagina() {
       activo="retornos"
       migas={[{ texto: 'Retornos', ruta: '/retornos/fondos' }, { texto: 'Comparativos' }]}
     >
+      <NavRetornos />
+
       {metricas.length === 0 ? (
         <p style={{ padding: '28px 26px', color: 'var(--tinta-3)' }}>
           Todavía no hay fondos cargados.

@@ -180,6 +180,20 @@ export function mesLargo(mes: string | null): string {
   return `${nombres[Number(partes[2]) - 1] ?? '?'} ${partes[1]}`
 }
 
+/**
+ * `2026-03` → `mar 26`. La version de dos digitos, para una columna de meses.
+ *
+ * En la matriz el anio se repite once veces seguidas y el ancho de la columna
+ * lo paga cada fondo: cuatro digitos por fila son cuatro digitos que le faltan
+ * a la grilla. Enero lleva el anio completo, que es donde el ojo lo busca.
+ */
+export function mesCorto(mes: string): string {
+  const largo = mesLargo(mes)
+  if (largo === SIN_DATO) return SIN_DATO
+  const [nombre, anio] = largo.split(' ') as [string, string]
+  return nombre === 'ene' ? `${nombre} ${anio}` : `${nombre} ${anio.slice(2)}`
+}
+
 export function rangoUsd(rango: { readonly min: number; readonly max: number } | null): string {
   if (rango === null) return '—'
   return rango.min === rango.max

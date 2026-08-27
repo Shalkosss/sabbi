@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useTransition } from 'react'
 
-import { desdeInput } from '../../lib/formato'
 import { guardarMes, guardarTreasury } from '../../app/retornos/acciones'
+import { RETORNO_SOSPECHOSO, aCelda, desdeCelda } from '../../lib/retornos-celda'
 import type { ObservacionEntrada } from '../../app/retornos/acciones'
 import estilos from './CargaMensual.module.css'
 
@@ -25,7 +25,12 @@ interface Props {
 /** Lo tecleado por fondo, antes de guardar. */
 type Borrador = Record<number, { readonly nav: string; readonly retorno: string }>
 
-const aTexto = (valor: number | null): string => (valor === null ? '' : String(valor))
+/*
+ * El retorno se teclea en porcentaje y el NAV tal cual. La conversion vive en
+ * `lib/retornos-celda`, que es la misma que usan la matriz y el panel de un
+ * fondo: tres pantallas del modulo pidiendo tres cosas distintas por el mismo
+ * numero es exactamente el error que la convencion existe para evitar.
+ */
 
 /**
  * La carga del mes.
@@ -43,13 +48,16 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
   const [mesActivo, setMesActivo] = useState(mes)
   const [borrador, setBorrador] = useState<Borrador>(() =>
     Object.fromEntries(
-      fondos.map((f) => [f.id, { nav: aTexto(f.nav), retorno: aTexto(f.retornoTotal) }]),
+      fondos.map((f) => [
+        f.id,
+        { nav: aCelda(f.nav, 'nav'), retorno: aCelda(f.retornoTotal, 'retorno') },
+      ]),
     ),
   )
   const [pegado, setPegado] = useState('')
   const [estado, setEstado] = useState<string | null>(null)
   const [guardando, empezarGuardado] = useTransition()
-  const [treasuryTexto, setTreasuryTexto] = useState(aTexto(treasury))
+  const [treasuryTexto, setTreasuryTexto] = useState(aCelda(treasury, 'retorno'))
 
   const cambiar = (id: number, campo: 'nav' | 'retorno', valor: string) =>
     setBorrador((previo) => ({
@@ -117,8 +125,8 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
 
     const filas: ObservacionEntrada[] = fondos.map((f) => ({
       fondoId: f.id,
-      nav: desdeInput(borrador[f.id]?.nav ?? ''),
-      retornoTotal: desdeInput(borrador[f.id]?.retorno ?? ''),
+      nav: desdeCelda(borrador[f.id]?.nav ?? '', 'nav'),
+      retornoTotal: desdeCelda(borrador[f.id]?.retorno ?? '', 'retorno'),
     }))
 
     empezarGuardado(async () => {
@@ -131,7 +139,7 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
      la pena un boton propio para el. */
   const guardarElTreasury = () => {
     empezarGuardado(async () => {
-      const resultado = await guardarTreasury(mesActivo, desdeInput(treasuryTexto))
+      const resultado = await guardarTreasury(mesActivo, desdeCelda(treasuryTexto, 'retorno'))
       setEstado(resultado.ok ? 'Treasury guardado.' : resultado.error)
     })
   }
@@ -159,14 +167,14 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
         </label>
 
         <label className={estilos.campoMes}>
-          Treasury 10Y (cierre del último día)
+          Treasury 10Y (%, cierre del último día)
           <input
             type="text"
             inputMode="decimal"
             value={treasuryTexto}
             onChange={(e) => setTreasuryTexto(e.target.value)}
             onBlur={guardarElTreasury}
-            placeholder="0.0425"
+            placeholder="4.25"
           />
         </label>
 
@@ -190,14 +198,15 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
         <summary>Pegar desde Excel</summary>
         <p>
           Tres columnas, separadas por tabulación: nombre del fondo, NAV, retorno total. El
-          retorno va como fracción (0.0086), no como porcentaje. Un nombre que no coincida con
-          ningún fondo se informa y no se carga.
+          retorno va en porcentaje —0.86 es 0.86%, igual que en el reporte— y el signo de
+          porcentaje se acepta. Un nombre que no coincida con ningún fondo se informa y no se
+          carga.
         </p>
         <textarea
           value={pegado}
           onChange={(e) => setPegado(e.target.value)}
           rows={6}
-          placeholder={'Blue Owl ORENT\t10.70\t0.0059'}
+          placeholder={'Blue Owl ORENT\t10.70\t0.59'}
         />
         <button type="button" onClick={aplicarPegado} disabled={pegado.trim() === ''}>
           Aplicar
@@ -210,23 +219,23 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
             <th scope="col">Fondo</th>
             <th scope="col">Asset Class</th>
             <th scope="col">NAV</th>
-            <th scope="col">Retorno total</th>
+            <th scope="col">Retorno total (%)</th>
             <th scope="col">Distribución implícita</th>
           </tr>
         </thead>
         <tbody>
           {fondos.map((f) => {
             const fila = borrador[f.id] ?? { nav: '', retorno: '' }
-            const nav = desdeInput(fila.nav)
-            const retorno = desdeInput(fila.retorno)
+            const nav = desdeCelda(fila.nav, 'nav')
+            const retorno = desdeCelda(fila.retorno, 'retorno')
 
             /*
              * La apertura solo se puede mostrar con el NAV del mes anterior,
              * que esta pantalla no tiene. Lo que si se puede mostrar es el
-             * signo del retorno, que es la revision que atrapa el error mas
-             * comun: pegar 0.86 donde iba 0.0086.
+             * tamaño del retorno, que atrapa lo que queda del error mas comun:
+             * ahora que la celda pide porcentaje, un 86 donde iba 0.86.
              */
-            const sospechoso = retorno !== null && Math.abs(retorno) > 0.5
+            const sospechoso = retorno !== null && Math.abs(retorno) > RETORNO_SOSPECHOSO
 
             return (
               <tr key={f.id}>
@@ -253,7 +262,7 @@ export function CargaMensual({ mes, mesesDisponibles, fondos, treasury }: Props)
                 </td>
                 <td className={estilos.tenue}>
                   {sospechoso
-                    ? '¿Es un porcentaje? Va como fracción.'
+                    ? '¿Está en fracción? Acá el retorno va en porcentaje.'
                     : nav === null || retorno === null
                       ? ''
                       : 'Se calcula al guardar'}

@@ -5,19 +5,23 @@
  * la misma que en el catalogo: densidad alta, jerarquia fuerte. El nombre del
  * fondo pesa y queda fijo; todo lo demas es numero tabular y se lee como una
  * columna, no como una frase.
+ *
+ * El color de fondo de una celda dice el signo y el tamaño; la tinta no se
+ * mueve. Es la regla del mapa de calor de toda la casa: lo que se lee es la
+ * cifra, y una tinta clara sobre un fondo teñido la borra.
  */
 
 .pantalla {
   width: 100%;
-  padding: 28px 26px 64px;
+  padding: 22px 26px 64px;
 }
 
 .filtros {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding-bottom: 16px;
+  padding-bottom: 10px;
 }
 
 .busqueda {
@@ -26,8 +30,9 @@
   border-radius: var(--radio-control);
   padding: 8px 12px;
   font: inherit;
+  font-size: 13px;
   color: var(--tinta);
-  min-width: 240px;
+  min-width: 220px;
 }
 
 .select {
@@ -36,26 +41,95 @@
   border-radius: var(--radio-control);
   padding: 8px 12px;
   font: inherit;
+  font-size: 13px;
   color: var(--tinta);
 }
 
 .conteo {
   font-size: 13px;
   color: var(--tinta-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Los bloques de columnas.
+ *
+ * Apagados se ven como lo que son: columnas que existen y no estan a la vista.
+ * Por eso el boton apagado conserva el borde — un control que desaparece
+ * cuando se apaga no se vuelve a encontrar.
+ */
+.bloques {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+  background: var(--hundido);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 3px;
+}
+
+.bloque,
+.bloqueActivo {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 11px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--tinta-4);
+}
+
+.bloque:hover {
+  color: var(--tinta-2);
+}
+
+.bloqueActivo {
+  background: var(--superficie);
+  color: var(--tinta);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--sombra-tinte);
+}
+
+.exportar {
+  appearance: none;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-boton);
+  background: var(--superficie);
+  color: var(--tinta-2);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 8px 13px;
+  cursor: pointer;
+}
+
+.exportar:hover {
+  background: var(--hundido);
+  color: var(--tinta);
 }
 
 .nota {
-  margin-left: auto;
+  margin: 0 0 12px;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--tinta-3);
+  max-width: 100ch;
+}
+
+.nota strong {
+  color: var(--tinta-2);
+  font-weight: 600;
 }
 
 /* El scroll horizontal vive acá y no en el body: la pagina no se mueve. */
 .marco {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: calc(100vh - var(--alto-barra) - 190px);
   border: 1px solid var(--borde);
-  border-radius: var(--radio-panel, 8px);
+  border-radius: var(--radio-panel, 10px);
   background: var(--superficie);
+  box-shadow: var(--sombra);
 }
 
 .tabla {
@@ -76,15 +150,40 @@
 
 .tabla thead th {
   position: sticky;
-  top: 0;
   z-index: 2;
   background: var(--hundido);
-  border-bottom: 1px solid var(--borde-fuerte);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--tinta-2);
   text-transform: uppercase;
+}
+
+/*
+ * Dos filas de cabecera: el grupo arriba, la columna abajo.
+ *
+ * Sin el grupo, «Desv 1 Y» y «1 Y» son dos etiquetas parecidas a doce columnas
+ * de distancia y se confunden. Con el, el ojo primero elige el bloque.
+ */
+.filaGrupos th {
+  top: 0;
+  height: 22px;
+  padding: 3px 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  color: var(--tinta-4);
+  background: var(--hundido);
+}
+
+.tabla thead tr:last-child th {
+  top: 22px;
+  border-bottom: 1px solid var(--borde-fuerte);
+}
+
+.grupo {
+  text-align: center !important;
+  border-left: 1px solid var(--borde);
+  color: var(--acento-texto);
 }
 
 .tabla thead th button {
@@ -107,6 +206,24 @@
   background: var(--zebra);
 }
 
+/* La fila entera abre el fondo. Se comporta como lo que es: un control. */
+.fila {
+  cursor: pointer;
+}
+
+.fila:hover .fija {
+  background: var(--acento-suave);
+}
+
+.fila:hover td {
+  background: color-mix(in srgb, var(--acento) 5%, transparent);
+}
+
+.fila:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: -2px;
+}
+
 /*
  * La primera columna acompaña el scroll horizontal. Sin esto, al llegar al
  * Sharpe de 5Y la fila es una hilera de numeros sin dueño.
@@ -126,12 +243,22 @@
 .thNombre {
   z-index: 3;
   background: var(--hundido);
+  min-width: 210px;
 }
 
 .nombre {
   font-weight: 600;
   color: var(--tinta);
   text-align: left;
+}
+
+.thChispa {
+  width: 96px;
+}
+
+.celdaChispa {
+  padding: 4px 6px !important;
+  width: 96px;
 }
 
 .tenue {
@@ -144,7 +271,7 @@
 }
 
 .negativo {
-  color: var(--negativo, #b4442f);
+  color: var(--alerta-texto);
 }
 
 /* Apagado a proposito: «n/d» no compite con las cifras que si estan. */
@@ -175,7 +302,7 @@
 .referencia {
   margin-left: 6px;
   padding: 1px 5px;
-  border: 1px solid var(--linea-2, var(--linea));
+  border: 1px solid var(--borde-fuerte);
   border-radius: 3px;
   font-size: 9px;
   font-weight: 500;

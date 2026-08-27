@@ -1,0 +1,52 @@
+/*
+ * La barra de vistas del modulo.
+ *
+ * Pestañas con subtitulo y no un menu: son cuatro y cada una contesta una
+ * pregunta distinta, asi que decir cual es vale mas que ahorrar la linea.
+ */
+
+.barra {
+  display: flex;
+  gap: 2px;
+  padding: 10px 26px 0;
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie);
+  overflow-x: auto;
+}
+
+.vista,
+.activa {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 14px 9px;
+  border-bottom: 2px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.vista .texto {
+  color: var(--tinta-3);
+}
+
+.vista:hover .texto {
+  color: var(--tinta);
+}
+
+.activa {
+  border-bottom-color: var(--acento);
+}
+
+.activa .texto {
+  color: var(--tinta);
+}
+
+.texto {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pie {
+  font-size: 10.5px;
+  color: var(--tinta-4);
+}

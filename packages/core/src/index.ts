@@ -100,6 +100,50 @@ export type {
   VistaComparativa,
   VistaHoy,
 } from './propuesta/vistas.js'
+/*
+ * Retornos de fondos.
+ *
+ * Dominio aparte: mide productos del menu, no portafolios de clientes, y no
+ * comparte un solo tipo con el motor. Vive en el mismo paquete porque obedece
+ * la misma regla — funcion pura, sin red, sin DOM, sin reloj — y porque asi la
+ * app lo consume por el mismo camino que todo lo demas.
+ */
+export { abrirRetornos, calcularMetricas, ventanaDe } from './retornos/metricas.js'
+export {
+  dispersionRiesgoRetorno,
+  extremosPorClase,
+  rankear,
+  resumenPorClase,
+} from './retornos/insights.js'
+export {
+  FACTOR_ANUALIZACION,
+  MESES_DEL_ANIO,
+  MESES_SIN_ANUALIZAR,
+  VENTANAS,
+  VENTANAS_CON_RIESGO,
+  armarMes,
+  partirMes,
+  rangoDeMeses,
+} from './retornos/ventanas.js'
+export type {
+  AperturaMensual,
+  FichaFondo,
+  MetricaAnual,
+  MetricaVentana,
+  MetricasFondo,
+  Mes,
+  ObservacionMensual,
+  ParametrosMetricas,
+  Ventana,
+} from './retornos/tipos.js'
+export type {
+  Criterio,
+  ExtremosClase,
+  PuntoDispersion,
+  Puesto,
+  Ranking,
+  ResumenClase,
+} from './retornos/insights.js'
 export type {
   AnotacionLinea,
   CategoriaCta,

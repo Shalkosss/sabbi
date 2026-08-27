@@ -1,0 +1,242 @@
+/*
+ * Los comparativos.
+ *
+ * A diferencia de la tabla maestra, acá la densidad es enemiga: son cuatro
+ * lecturas distintas y cada una necesita aire para que no se lean como una
+ * sola. Secciones separadas, un titulo que dice que se mira y un subtitulo que
+ * dice como leerlo.
+ */
+
+.pantalla {
+  width: 100%;
+  padding: 28px 26px 64px;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tinta-3);
+}
+
+.selector select {
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--tinta);
+}
+
+.nota {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--tinta-3);
+  max-width: 70ch;
+}
+
+.seccion {
+  margin-top: 40px;
+}
+
+.seccion h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: var(--tinta);
+}
+
+.subtitulo {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  color: var(--tinta-3);
+  max-width: 78ch;
+}
+
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.tarjeta {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+  background: var(--superficie);
+  padding: 16px 18px;
+}
+
+.tarjeta header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tarjeta h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tinta);
+}
+
+.conteo {
+  font-size: 11px;
+  color: var(--tinta-4);
+}
+
+.tarjeta dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 14px 0 0;
+  align-items: baseline;
+}
+
+.tarjeta dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tinta-3);
+}
+
+.tarjeta dd {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fondoNombre {
+  font-size: 13px;
+  color: var(--tinta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cifra {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+  flex-shrink: 0;
+}
+
+.sinDato {
+  color: var(--tinta-4);
+  font-size: 12.5px;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+  background: var(--superficie);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.tabla th,
+.tabla td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tabla thead th {
+  background: var(--hundido);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tinta-2);
+}
+
+.tabla tbody th {
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.tabla tbody tr:last-child th,
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.deTotal {
+  color: var(--tinta-4);
+}
+
+.rankings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.ranking {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+  background: var(--superficie);
+  padding: 16px 18px;
+}
+
+.ranking h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.ranking ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranking li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.ranking li:last-child {
+  border-bottom: none;
+}
+
+.puesto {
+  font-size: 11px;
+  color: var(--tinta-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.clase {
+  grid-column: 2;
+  font-size: 10.5px;
+  color: var(--tinta-4);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}

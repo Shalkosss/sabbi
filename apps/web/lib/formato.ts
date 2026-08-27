@@ -126,6 +126,60 @@ export function rangoPct(rango: { readonly min: number; readonly max: number } |
   return rango.min === rango.max ? pct1(rango.min) : `${pct1(rango.min)} a ${pct1(rango.max)}`
 }
 
+/*
+ * Formatos de los retornos de fondos.
+ *
+ * La regla del modulo entero: sin dato se escribe «n/d», nunca un cero y nunca
+ * una raya. Un guion se lee como «cero» de reojo en una tabla de cuarenta
+ * columnas, y ese es justo el error que hay que evitar — un fondo que todavia
+ * no llega a 5Y no es un fondo que rindio 0%.
+ */
+
+/** Lo que dice una celda sin dato. Una sola vez, para que no haya dos versiones. */
+export const SIN_DATO = 'n/d'
+
+const PORCENTAJE_2 = new Intl.NumberFormat('es-PE', {
+  style: 'percent',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/** Un retorno o una desviacion. Dos decimales, con signo si es negativo. */
+export const pctFondo = (fraccion: number | null): string =>
+  fraccion === null ? SIN_DATO : PORCENTAJE_2.format(fraccion)
+
+/**
+ * Un ratio de Sharpe. Dos decimales y sin unidad.
+ *
+ * No lleva simbolo de porcentaje aunque el numerador sea un retorno: es un
+ * cociente, y verlo con un `%` al lado invita a leer 1.93 como «1.93%».
+ */
+export const sharpe = (valor: number | null): string =>
+  valor === null ? SIN_DATO : valor.toFixed(2)
+
+/** `2026-03` → `mar 2026`. El mes con nombre se distingue del anio de un vistazo. */
+export function mesLargo(mes: string | null): string {
+  if (mes === null) return SIN_DATO
+  const partes = /^(\d{4})-(\d{2})$/.exec(mes)
+  if (partes === null) return SIN_DATO
+
+  const nombres = [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ]
+  return `${nombres[Number(partes[2]) - 1] ?? '?'} ${partes[1]}`
+}
+
 export function rangoUsd(rango: { readonly min: number; readonly max: number } | null): string {
   if (rango === null) return '—'
   return rango.min === rango.max

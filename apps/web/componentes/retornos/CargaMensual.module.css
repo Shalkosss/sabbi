@@ -1,0 +1,176 @@
+/*
+ * La carga del mes.
+ *
+ * Es una pantalla de tecleo, no de lectura: lo que manda es que el campo
+ * siguiente este donde la mano lo espera y que un error se vea antes de
+ * guardar, no despues.
+ */
+
+.pantalla {
+  width: 100%;
+  padding: 28px 26px 64px;
+}
+
+.barra {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.campoMes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.campoMes select,
+.campoMes input {
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--tinta);
+}
+
+.conteo {
+  font-size: 13px;
+  color: var(--tinta-3);
+  padding-bottom: 8px;
+}
+
+.guardar {
+  margin-left: auto;
+  background: var(--acento);
+  color: var(--hueso);
+  border: none;
+  border-radius: var(--radio-control);
+  padding: 10px 20px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guardar:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.estado {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--acento-texto);
+}
+
+.pegar {
+  margin: 18px 0;
+  padding: 14px 16px;
+  background: var(--hundido);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-panel, 8px);
+}
+
+.pegar summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta-2);
+}
+
+.pegar p {
+  margin: 12px 0;
+  font-size: 12.5px;
+  color: var(--tinta-3);
+  max-width: 70ch;
+}
+
+.pegar textarea {
+  width: 100%;
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--tinta);
+}
+
+.pegar button {
+  margin-top: 10px;
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 8px 16px;
+  font: inherit;
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 18px;
+  font-size: 13px;
+}
+
+.tabla th,
+.tabla td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tabla thead th {
+  position: sticky;
+  top: 0;
+  background: var(--hundido);
+  border-bottom: 1px solid var(--borde-fuerte);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tinta-2);
+}
+
+.tabla tbody th {
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.tabla input {
+  width: 110px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-control);
+  padding: 5px 8px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--tinta);
+}
+
+.tabla input:focus {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
+
+/*
+ * El error mas comun de esta pantalla es pegar 0.86 donde iba 0.0086. Se marca
+ * el campo en vez de bloquear el guardado: un fondo puede tener un mes de 60%
+ * y quien carga sabe cual.
+ */
+.sospechoso {
+  border-color: var(--atencion);
+  background: var(--atencion-suave, transparent);
+}
+
+.tenue {
+  color: var(--tinta-3);
+  font-size: 12px;
+}

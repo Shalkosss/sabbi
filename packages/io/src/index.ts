@@ -35,3 +35,12 @@ export type {
   RegionCatalogo,
   SubyacenteCatalogo,
 } from './catalogo/tipos.js'
+export { parsearRetornos, parsearRetornosDeHoja } from './retornos/parsear.js'
+export type {
+  AvisoRetornos,
+  FondoDelLibro,
+  MetricasDelLibro,
+  MotivoAvisoRetornos,
+  PuntoSerie,
+  RetornosParseados,
+} from './retornos/tipos.js'

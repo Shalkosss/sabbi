@@ -13,17 +13,17 @@
  */
 
 .hoja {
-  /* Ocho tonos repartidos por la rueda y no ocho verdes de marca: dos rutas
+  /* Siete tonos repartidos por la rueda y no siete verdes de marca: dos rutas
      de la misma semana tienen que distinguirse a un metro de la pantalla. El
-     verde de Sabbi abre la serie porque es el color de la casa. */
+     verde de Sabbi abre la serie porque es el color de la casa. Ninguno es
+     rojo: ese color ya dice «vencida» y no puede decir además «Fernando». */
   --agenda-tono-0: light-dark(#5f8f1f, #a4d651);
   --agenda-tono-1: light-dark(#6a5cc0, #b5b3ff);
   --agenda-tono-2: light-dark(#2f6fb2, #74acea);
   --agenda-tono-3: light-dark(#0f7a6a, #46c6ab);
   --agenda-tono-4: light-dark(#b2751a, #eba845);
-  --agenda-tono-5: light-dark(#b03a2b, #e8836c);
-  --agenda-tono-6: light-dark(#a5386f, #e57fb0);
-  --agenda-tono-7: light-dark(#0e7490, #57c7e0);
+  --agenda-tono-5: light-dark(#a5386f, #e57fb0);
+  --agenda-tono-6: light-dark(#0e7490, #57c7e0);
 
   padding: 26px 30px 64px;
   max-width: 1520px;
@@ -173,6 +173,42 @@
   overflow: hidden;
 }
 
+.bloque {
+  padding: 13px 15px 15px;
+}
+
+.tituloBloque {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 9px;
+  margin-bottom: 11px;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tituloBloque h3 {
+  font-size: 13.5px;
+}
+
+.cuenta {
+  flex: none;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tinta-3);
+}
+
+.vacio {
+  font-size: 12.5px;
+  color: var(--tinta-4);
+  line-height: 1.55;
+}
+
+.grupo {
+  min-width: 0;
+}
+
 .costado {
   display: grid;
   gap: 14px;
@@ -181,20 +217,13 @@
   top: calc(var(--alto-barra) + 14px);
 }
 
-/* ── La grilla ───────────────────────────────────────────────────────────── */
-
-.grilla {
-  display: grid;
-}
+/* ── La grilla: un fondo de dias y carriles de barras encima ────────────── */
 
 .semanaCabecera,
-.semana {
+.dias,
+.carriles {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-
-.semana {
-  border-top: 1px solid var(--borde-suave);
 }
 
 .rotuloDia {
@@ -206,73 +235,46 @@
   padding: 8px 9px 7px;
 }
 
-.celdaEnvoltura {
+/* Cada semana es una capa de dias y encima sus carriles. La altura la fija el
+   contenido: una semana sin rutas ocupa lo que ocupa un numero. */
+.semana {
+  position: relative;
+  border-top: 1px solid var(--borde-suave);
+  padding-bottom: 8px;
+}
+
+.dias {
+  position: absolute;
+  inset: 0;
+}
+
+.dia {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 8px;
   min-width: 0;
 }
 
-.celdaEnvoltura + .celdaEnvoltura {
+.dia + .dia {
   border-left: 1px solid var(--borde-suave);
 }
 
-.celda {
-  width: 100%;
-  min-height: 108px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 7px 7px 9px;
-  background: transparent;
-  border: 0;
-  border-radius: 9px;
-  color: inherit;
-  text-align: left;
-  transition:
-    background 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.celda:hover {
-  background: var(--hundido);
-}
-
-/* Los dias del mes vecino existen —una entrega puede caer ahi— pero no compiten
-   con el mes que se esta mirando. */
-.celda[data-fuera] {
-  opacity: 0.42;
+/* Los dias del mes vecino existen —una entrega puede caer ahi— pero no
+   compiten con el mes que se esta mirando. */
+.dia[data-fuera] {
+  opacity: 0.4;
 }
 
 /* Sabado, domingo y feriado: rayado de cuatro grados, el mismo que en una hoja
-   de calculo dice «esta columna no se toca». */
-.celda[data-inhabil] {
+   de calculo dice «esta columna no se toca». La barra los cruza igual, porque
+   el plazo los cruza. */
+.dia[data-inhabil] {
   background-image: repeating-linear-gradient(
     -45deg,
     transparent 0 6px,
     color-mix(in srgb, var(--borde) 55%, transparent) 6px 7px
   );
-}
-
-.celda[data-elegida] {
-  background-color: var(--acento-suave);
-  box-shadow: inset 0 0 0 2px var(--acento);
-}
-
-/* La ruta encendida deja su rastro en las celdas por donde pasa: el hilo del
-   cliente, visible sin seguir pildora por pildora. */
-.celda[data-en-ruta] {
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tono) 65%, transparent);
-}
-
-.celda[data-elegida][data-en-ruta] {
-  box-shadow:
-    inset 0 0 0 2px var(--acento),
-    inset 0 0 0 4px color-mix(in srgb, var(--tono) 45%, transparent);
-}
-
-.filaNumero {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
 }
 
 .numero {
@@ -287,7 +289,7 @@
   flex: none;
 }
 
-.celda[data-hoy] .numero {
+.dia[data-hoy] .numero {
   background: var(--acento);
   color: var(--boton-tinta);
 }
@@ -295,290 +297,191 @@
 .feriado {
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.02em;
   color: var(--tinta-4);
   text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-top: 4px;
 }
 
-.pildoras {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-/* ── La pildora: color del cliente, difusion del tiempo ──────────────────── */
-
-.pildora {
+.carriles {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  padding: 2px 6px 2px 2px;
-  border-radius: 7px;
-  font-size: 10.5px;
-  line-height: 1.4;
-  color: var(--tinta);
-  /* El relleno y el borde son lo unico que se difumina. La tinta se queda
-     donde esta: una fecha tentativa se dibuja mas suave, no mas dificil de
-     leer. */
-  background: color-mix(in srgb, var(--tono) calc(9% + var(--certeza) * 25%), var(--superficie));
-  border: 1px solid
-    color-mix(in srgb, var(--tono) calc(16% + var(--certeza) * 48%), transparent);
-  border-style: dashed;
-  transition:
-    opacity 140ms ease,
-    filter 140ms ease;
-}
-
-/* El halo: lo lejano no solo se aclara, se desenfoca alrededor. Es lo que hace
-   que la ultima semana del plazo se lea como una nube y la primera como un
-   compromiso. */
-.pildora::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 10px;
-  background: var(--tono);
-  opacity: calc((1 - var(--certeza)) * 0.2);
-  filter: blur(calc((1 - var(--certeza)) * 7px));
+  grid-auto-rows: 24px;
+  row-gap: 3px;
+  /* Debajo de la fila de numeros, que vive en la capa de fondo. */
+  padding: 34px 0 0;
+  min-height: 62px;
   pointer-events: none;
 }
 
-.avatarPildora,
-.textoPildora {
+/* ── La barra de una ruta: un cliente, de su ficha a su entrega ─────────── */
+
+.barraRuta {
+  pointer-events: auto;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0 2px;
+  padding: 0 9px 0 8px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  text-align: left;
+  color: var(--tinta);
+  font-size: 11.5px;
+  /* El degradado de difusion. `--cubierto` es la parte de este tramo que ya
+     ocurrio: hasta ahi la barra va firme, y de ahi en adelante se disuelve.
+     Nunca toca la tinta — una fecha tentativa se dibuja mas suave, no mas
+     dificil de leer. */
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--tono) 40%, var(--superficie)) 0%,
+    color-mix(in srgb, var(--tono) 40%, var(--superficie)) calc(var(--cubierto) * 100%),
+    color-mix(in srgb, var(--tono) 13%, var(--superficie)) 100%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tono) 34%, transparent);
+  transition:
+    opacity 140ms ease,
+    filter 140ms ease,
+    box-shadow 120ms ease;
 }
 
-.avatarPildora {
+/* Solo se redondea donde la ruta de verdad empieza y termina: si sigue la
+   semana que viene, el borde queda recto y se lee como continuacion. */
+.barraRuta[data-abre] {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.barraRuta[data-cierra] {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+  /* La entrega es lo unico que se le prometio al cliente: se marca aunque la
+     barra llegue difusa. */
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tono) 34%, transparent),
+    inset -3px 0 0 0 var(--tono);
+}
+
+.barraRuta:hover,
+.barraRuta:focus-visible {
+  box-shadow:
+    inset 0 0 0 1.5px var(--tono),
+    0 1px 3px var(--sombra-tinte);
+}
+
+/* El punto de partida: el dia que llego la solicitud del cliente. */
+.puntaBarra {
   flex: none;
-  width: 16px;
-  height: 16px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  background: color-mix(in srgb, var(--tono) calc(45% + var(--certeza) * 50%), var(--superficie));
-  color: var(--fondo);
+  background: var(--tono);
 }
 
-.textoPildora {
+.nombreBarra {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
 }
 
-/* Lo cumplido es un hecho: borde entero y una marca que no depende del color. */
-.pildora[data-estado='hecho'] {
-  border-style: solid;
-  color: var(--tinta-3);
-}
-
-.pildora[data-estado='hecho'] .textoPildora::after {
-  content: ' ✓';
-  font-weight: 800;
-}
-
-.pildora[data-estado='hoy'] {
-  border-style: solid;
+.entregaBarra {
+  flex: none;
+  font-size: 10px;
   font-weight: 700;
+  color: var(--tinta-2);
+  font-variant-numeric: tabular-nums;
 }
 
-.pildora[data-estado='vencido'] {
-  border-style: solid;
-  border-color: var(--alerta);
-  background: var(--alerta-suave);
+.barraRuta[data-vencida] {
+  background: linear-gradient(
+    90deg,
+    var(--alerta-suave) 0%,
+    var(--alerta-suave) calc(var(--cubierto) * 100%),
+    color-mix(in srgb, var(--alerta) 8%, var(--superficie)) 100%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alerta) 55%, transparent);
   color: var(--alerta-texto);
 }
 
-.pildora[data-estado='vencido'] .textoPildora::after {
-  content: ' !';
-  font-weight: 800;
+.barraRuta[data-vencida] .puntaBarra {
+  background: var(--alerta);
 }
 
-/* La entrega es lo unico que se le prometio al cliente: va con anillo propio
-   aunque este a cuatro dias y todo lo demas de esa fila este difuso. */
-.pildora[data-compromiso] {
-  border-style: solid;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tono) 45%, transparent);
-  font-weight: 700;
+.barraRuta[data-vencida] .entregaBarra {
+  color: var(--alerta-texto);
 }
 
-.pildora[data-atenuada] {
-  opacity: 0.22;
+.barraRuta[data-entregada] {
+  opacity: 0.55;
+}
+
+.barraRuta[data-entregada] .nombreBarra {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.barraRuta[data-atenuada] {
+  opacity: 0.2;
   filter: saturate(0.35);
 }
 
 .mas {
-  font-size: 9.5px;
-  font-weight: 600;
-  color: var(--tinta-4);
-  padding-left: 4px;
-}
-
-/* ── El panel del dia ────────────────────────────────────────────────────── */
-
-.bloque {
-  padding: 13px 15px 15px;
-}
-
-.tituloBloque {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 9px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--borde-suave);
-}
-
-.tituloBloque h3 {
-  font-size: 13.5px;
-}
-
-.diaSemana {
-  color: var(--tinta-4);
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.cuenta {
-  flex: none;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--tinta-3);
-}
-
-.vacio {
-  font-size: 12.5px;
-  color: var(--tinta-4);
-  line-height: 1.55;
-}
-
-.hitosDelDia {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-}
-
-.hitoDelDia {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 10px;
-  padding: 10px 8px 10px 10px;
-  margin: 0 -6px;
-  border-radius: 9px;
-  border-left: 3px solid color-mix(in srgb, var(--tono) calc(35% + var(--certeza) * 60%), transparent);
-  transition:
-    background 120ms ease,
-    opacity 140ms ease;
-}
-
-.hitoDelDia:hover {
-  background: var(--hundido);
-}
-
-.hitoDelDia[data-atenuado] {
-  opacity: 0.35;
-}
-
-.hitoDelDia[data-estado='vencido'] {
-  border-left-color: var(--alerta);
-}
-
-.avatarPanel {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
   font-size: 10px;
-  font-weight: 800;
-  background: color-mix(in srgb, var(--tono) 85%, var(--superficie));
-  color: var(--fondo);
-}
-
-.cuerpoHito {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-}
-
-.clienteHito {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--tinta);
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.clienteHito:hover {
-  color: var(--acento-texto);
-  text-decoration: underline;
-}
-
-.tituloHito {
-  font-size: 11.5px;
   font-weight: 600;
-  color: var(--tinta-2);
-}
-
-.detalleHito {
-  font-size: 11px;
   color: var(--tinta-4);
-  line-height: 1.45;
+  padding: 2px 0 0 9px;
 }
 
-.casilla {
+/* ── Las rutas abiertas ─────────────────────────────────────────────────── */
+
+.grupos {
+  display: grid;
+  gap: 14px;
+  max-height: 64vh;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.tituloGrupo {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--tinta-3);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.casilla input {
-  accent-color: var(--acento);
-  width: 15px;
-  height: 15px;
-}
-
-.casilla input:disabled {
-  cursor: not-allowed;
-}
-
-.selloHito {
-  font-size: 10px;
+  gap: 7px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--tinta-4);
-  border: 1px solid var(--borde);
-  border-radius: 999px;
-  padding: 2px 8px;
-  white-space: nowrap;
+  margin-bottom: 6px;
 }
 
-.selloHito[data-estado='vencido'] {
+.tituloGrupo[data-urgente] {
   color: var(--alerta-texto);
-  border-color: color-mix(in srgb, var(--alerta) 40%, transparent);
 }
 
-/* ── Las rutas abiertas ──────────────────────────────────────────────────── */
+.cuentaGrupo {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--tinta-3);
+  background: var(--hundido);
+  border: 1px solid var(--borde-suave);
+  border-radius: 999px;
+  padding: 0 6px;
+  letter-spacing: 0;
+}
+
+.tituloGrupo[data-urgente] .cuentaGrupo {
+  color: var(--alerta-texto);
+  background: var(--alerta-suave);
+  border-color: color-mix(in srgb, var(--alerta) 30%, transparent);
+}
 
 .rutas {
   list-style: none;
@@ -586,14 +489,12 @@
   padding: 0;
   display: grid;
   gap: 7px;
-  max-height: 46vh;
-  overflow-y: auto;
 }
 
 .tarjetaRuta {
   display: grid;
-  gap: 7px;
-  padding: 9px 10px 8px;
+  gap: 8px;
+  padding: 9px 10px 9px;
   border: 1px solid var(--borde-suave);
   border-left: 3px solid var(--tono);
   border-radius: 9px;
@@ -603,10 +504,14 @@
     opacity 140ms ease;
 }
 
-.tarjetaRuta[data-enfocada] {
+.tarjetaRuta[data-abierta] {
   background: var(--hundido);
   border-color: color-mix(in srgb, var(--tono) 45%, transparent);
   border-left-color: var(--tono);
+}
+
+.tarjetaRuta[data-vencida] {
+  border-left-color: var(--alerta);
 }
 
 .tarjetaRuta[data-atenuada] {
@@ -669,6 +574,12 @@
   padding: 2px 7px;
 }
 
+.chevron {
+  flex: none;
+  font-size: 9px;
+  color: var(--tinta-4);
+}
+
 /* La cinta: los cinco hitos con la linea que los une desvaneciendose hacia la
    entrega. Es el degradado de difusion dicho de una sola vez. */
 .cinta {
@@ -698,9 +609,6 @@
   display: grid;
   justify-items: center;
   gap: 3px;
-  background: transparent;
-  border: 0;
-  padding: 0;
   color: var(--tinta-4);
 }
 
@@ -723,7 +631,7 @@
   border-color: var(--alerta);
 }
 
-.nodo[data-hoy] .nodoPunto {
+.nodo[data-estado='hoy'] .nodoPunto {
   box-shadow:
     0 0 0 3px var(--superficie),
     0 0 0 5px var(--anillo);
@@ -732,7 +640,6 @@
 .nodoRotulo {
   font-size: 8.5px;
   font-weight: 600;
-  letter-spacing: 0.01em;
   color: var(--tinta-4);
   white-space: nowrap;
   overflow: hidden;
@@ -745,8 +652,149 @@
   color: var(--tinta-3);
 }
 
-.nodo:hover .nodoRotulo {
+/* ── La tarjeta abierta: los cinco hitos con su casilla ──────────────────── */
+
+.detalleRuta {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--borde-suave);
+}
+
+.hitosRuta {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.hitoRuta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 4px;
+  border-radius: 7px;
+  border-left: 2px solid color-mix(in srgb, var(--tono) calc(20% + var(--certeza) * 65%), transparent);
+  padding-left: 8px;
+}
+
+.hitoRuta[data-estado='vencido'] {
+  border-left-color: var(--alerta);
+  background: var(--alerta-suave);
+}
+
+.hitoRuta[data-estado='hoy'] {
+  background: var(--acento-suave);
+}
+
+.fechaHito {
+  display: grid;
+  line-height: 1.15;
+}
+
+.diaHito {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tinta-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.semanaHito {
+  font-size: 9px;
+  color: var(--tinta-4);
+  text-transform: capitalize;
+}
+
+.cuerpoHito {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.tituloHito {
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--tinta);
+}
+
+.detalleHito {
+  font-size: 10px;
+  color: var(--tinta-4);
+  line-height: 1.4;
+}
+
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--tinta-3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.casilla input {
+  accent-color: var(--acento);
+  width: 15px;
+  height: 15px;
+}
+
+.casilla input:disabled {
+  cursor: not-allowed;
+}
+
+.selloHito {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-4);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.selloHito[data-estado='vencido'] {
+  color: var(--alerta-texto);
+  border-color: color-mix(in srgb, var(--alerta) 40%, transparent);
+}
+
+.pieRuta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: var(--tinta-4);
+}
+
+.enlaceFicha {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--acento-texto);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.enlaceFicha:hover {
+  text-decoration: underline;
+}
+
+.nota {
+  font-size: 10px;
+  color: var(--tinta-4);
+  font-style: italic;
+}
+
+.verEntregadas {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--borde-suave);
+  font-size: 11.5px;
 }
 
 /* ── La leyenda ──────────────────────────────────────────────────────────── */
@@ -769,37 +817,34 @@
   gap: 9px;
 }
 
-.muestra {
-  height: 13px;
-  border-radius: 5px;
-  border: 1px solid var(--borde-fuerte);
-  background: var(--hundido);
+.muestraBarra,
+.muestraRampa,
+.muestraVencida {
+  height: 14px;
+  border-radius: 7px;
+}
+
+/* Las tres muestras son la barra misma, no un cuadrito de color: lo que hay
+   que aprender a leer es la barra. */
+.muestraBarra {
+  background: color-mix(in srgb, var(--agenda-tono-1) 40%, var(--superficie));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--agenda-tono-1) 34%, transparent),
+    inset -3px 0 0 0 var(--agenda-tono-1);
 }
 
 .muestraRampa {
-  height: 13px;
-  border-radius: 5px;
   background: linear-gradient(
     90deg,
-    var(--agenda-tono-0),
-    color-mix(in srgb, var(--agenda-tono-0) 12%, transparent)
+    color-mix(in srgb, var(--agenda-tono-0) 40%, var(--superficie)) 45%,
+    color-mix(in srgb, var(--agenda-tono-0) 13%, var(--superficie)) 100%
   );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agenda-tono-0) 34%, transparent);
 }
 
-.muestraHecho {
-  background: color-mix(in srgb, var(--agenda-tono-0) 34%, var(--superficie));
-  border-color: color-mix(in srgb, var(--agenda-tono-0) 64%, transparent);
-}
-
-.muestraVencido {
+.muestraVencida {
   background: var(--alerta-suave);
-  border-color: var(--alerta);
-}
-
-.muestraEntrega {
-  background: color-mix(in srgb, var(--agenda-tono-1) 22%, var(--superficie));
-  border-color: color-mix(in srgb, var(--agenda-tono-1) 64%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agenda-tono-1) 45%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alerta) 55%, transparent);
 }
 
 .pieLeyenda {
@@ -818,7 +863,43 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .costado {
+  .bloque {
+  padding: 13px 15px 15px;
+}
+
+.tituloBloque {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 9px;
+  margin-bottom: 11px;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tituloBloque h3 {
+  font-size: 13.5px;
+}
+
+.cuenta {
+  flex: none;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tinta-3);
+}
+
+.vacio {
+  font-size: 12.5px;
+  color: var(--tinta-4);
+  line-height: 1.55;
+}
+
+.grupo {
+  min-width: 0;
+}
+
+.costado {
     position: static;
   }
 
@@ -832,22 +913,32 @@
     padding: 20px 16px 48px;
   }
 
-  .celda {
-    min-height: 84px;
+  /* En el telefono la semana se aprieta: la barra conserva el color y el
+     nombre, que es lo que la distingue, y suelta la fecha del final. */
+  .carriles {
+    grid-auto-rows: 21px;
+    padding-top: 30px;
+    min-height: 54px;
   }
 
-  /* En el telefono la pildora se queda con el color y las iniciales: el nombre
-     del hito no entra, y el dia completo esta a un toque de distancia. */
-  .textoPildora {
+  .barraRuta {
+    height: 21px;
+    font-size: 10.5px;
+    padding: 0 6px;
+  }
+
+  .entregaBarra {
+    display: none;
+  }
+
+  .feriado {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .celda,
-  .pildora,
+  .barraRuta,
   .tarjetaRuta,
-  .hitoDelDia,
   .paso {
     transition: none;
   }

@@ -10,38 +10,28 @@ import {
   mesCorrido,
   mesDe,
   nombreDeMes,
-  porDia,
   rutasDe,
+  tramosDelMes,
 } from '../../lib/agenda'
 import type { ClaveHito, Dia, FichaEnAgenda, Ruta } from '../../lib/agenda'
 import { plural } from '../../lib/formato'
 import { Mes } from './Mes'
-import { PanelDia } from './PanelDia'
 import { RutaCliente } from './RutaCliente'
 import estilos from './Agenda.module.css'
 
 /**
  * La agenda de entregas.
  *
- * Un calendario que nadie llena: cada ficha subida abre sola su ruta de cuatro
- * días hábiles, y lo que se ve es esa ruta puesta sobre el mes. La única
- * escritura de la pantalla es marcar un hito como cumplido — la fecha no se
- * teclea porque no es un dato, es una cuenta.
+ * Dos mitades con trabajos distintos. El calendario contesta *cuándo*: una
+ * barra por cliente, del día que llegó su ficha al cuarto día hábil, y nada
+ * más — la primera versión ponía los cinco hitos como píldoras sueltas y un
+ * mes con ocho clientes era una pared de etiquetas. «En ruta» contesta *qué
+ * falta*: las rutas abiertas ordenadas por urgencia, cada una con sus cinco
+ * hitos y sus casillas.
  *
- * Tres decisiones sostienen la lectura:
- *
- * - **El color es del cliente, no del hito.** Ocho tonos derivados del id de
- *   la ficha, siempre el mismo para el mismo cliente. Y nunca solo el color:
- *   cada píldora lleva las iniciales y el nombre, porque ocho tonos no
- *   alcanzan para veinte clientes y porque un calendario que solo se lee por
- *   color no se lee.
- * - **La certeza se dibuja.** Lo que ya pasó es un hecho y va firme; lo que
- *   viene se difumina con la distancia, que es exactamente lo que vale una
- *   fecha tentativa a cuatro días. La difusión toca el fondo y el halo, nunca
- *   el texto: una fecha borrosa no se puede leer.
- * - **Un cliente a la vez.** Apoyar el puntero sobre cualquier píldora enciende
- *   toda la ruta de ese cliente y apaga el resto. Es la forma de contestar
- *   «¿cómo viene Ana?» sin filtrar nada.
+ * Lo que las une es el color del cliente y el encendido: apoyar el puntero
+ * sobre una barra levanta su tarjeta, y al revés. Nada se filtra para mirar a
+ * uno solo.
  */
 
 interface Props {
@@ -55,11 +45,18 @@ interface Props {
 /** Clave de una marca local, mientras el servidor todavía no contestó. */
 const marca = (fichaId: string, hito: ClaveHito) => `${fichaId}|${hito}`
 
+interface Grupo {
+  readonly titulo: string
+  readonly rutas: readonly Ruta[]
+  readonly urgente?: boolean
+}
+
 export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
   const [vista, setVista] = useState(() => mesDe(hoy))
-  const [diaElegido, setDiaElegido] = useState<Dia>(hoy)
-  const [enfocado, setEnfocado] = useState<string | null>(null)
+  const [abierta, setAbierta] = useState<string | null>(null)
+  const [enfocada, setEnfocada] = useState<string | null>(null)
   const [soloMias, setSoloMias] = useState(false)
+  const [conEntregadas, setConEntregadas] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Lo que el asesor acaba de marcar y el servidor todavía no devolvió. Sin
   // esto la casilla se queda como estaba hasta que vuelve la revalidación, y
@@ -79,8 +76,7 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
       return { ...ficha, hechos: [...hechos] }
     })
 
-    return [...rutasDe(conMarcas, hoy)]
-      .sort((a, b) => a.entrega.localeCompare(b.entrega) || a.cliente.localeCompare(b.cliente, 'es'))
+    return rutasDe(conMarcas, hoy)
   }, [fichas, marcas, hoy])
 
   const visibles = useMemo(
@@ -88,29 +84,61 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
     [rutas, soloMias],
   )
 
-  const calendario = useMemo(() => porDia(visibles), [visibles])
   const mes = useMemo(() => armarMes(vista.anio, vista.mes), [vista])
+  const tramos = useMemo(() => tramosDelMes(mes, visibles, hoy), [mes, visibles, hoy])
 
-  // Las que todavía no llegaron a su entrega: es la carga real de la mesa.
-  const enRuta = useMemo(
-    () => visibles.filter((ruta) => ruta.avance < 1).slice(0, 40),
+  // Por urgencia y no por fecha: la lista es lo que hay que hacer hoy, y lo que
+  // se venció manda sobre lo que entra la semana que viene.
+  const grupos = useMemo((): readonly Grupo[] => {
+    const orden = (a: Ruta, b: Ruta) =>
+      a.entrega.localeCompare(b.entrega) || a.cliente.localeCompare(b.cliente, 'es')
+
+    const abiertas = visibles.filter((ruta) => ruta.avance < 1)
+    const vencidas = abiertas.filter((ruta) => ruta.vencida).sort(orden)
+    const resto = abiertas.filter((ruta) => !ruta.vencida)
+
+    return [
+      { titulo: 'Vencidas', rutas: vencidas, urgente: true },
+      { titulo: 'Entrega hoy', rutas: resto.filter((r) => r.faltanParaEntrega === 0).sort(orden) },
+      {
+        titulo: 'Esta semana',
+        rutas: resto
+          .filter((r) => r.faltanParaEntrega > 0 && r.faltanParaEntrega <= PLAZO_HABILES)
+          .sort(orden),
+      },
+      {
+        titulo: 'Más adelante',
+        rutas: resto.filter((r) => r.faltanParaEntrega > PLAZO_HABILES).sort(orden),
+      },
+      ...(conEntregadas
+        ? [
+            {
+              titulo: 'Entregadas',
+              rutas: visibles
+                .filter((ruta) => ruta.avance === 1)
+                .sort((a, b) => b.entrega.localeCompare(a.entrega))
+                .slice(0, 20),
+            },
+          ]
+        : []),
+    ].filter((grupo) => grupo.rutas.length > 0)
+  }, [visibles, conEntregadas])
+
+  const enRuta = useMemo(() => visibles.filter((ruta) => ruta.avance < 1).length, [visibles])
+  const vencidas = useMemo(
+    () => visibles.filter((ruta) => ruta.vencida).length,
     [visibles],
   )
-  const atrasadas = useMemo(() => visibles.filter((ruta) => ruta.atrasados > 0).length, [visibles])
 
   const irA = (pasos: number) => setVista((actual) => mesCorrido(actual.anio, actual.mes, pasos))
 
-  const alHoy = () => {
-    setVista(mesDe(hoy))
-    setDiaElegido(hoy)
-  }
-
-  const elegirDia = (dia: Dia) => {
-    setDiaElegido(dia)
-    const suyo = mesDe(dia)
-    // Apretar un día del mes vecino lleva la vista a ese mes: si no, la celda
-    // elegida se queda fuera de la grilla y el panel habla de un día invisible.
-    if (suyo.anio !== vista.anio || suyo.mes !== vista.mes) setVista(suyo)
+  /** Abrir una ruta desde el calendario lleva la vista a su tarjeta. */
+  const abrir = (fichaId: string | null) => {
+    setAbierta(fichaId)
+    if (fichaId === null) return
+    document
+      .getElementById(`ruta-${fichaId}`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }
 
   const alternarHito = (ruta: Ruta, hito: ClaveHito, hecho: boolean) => {
@@ -138,11 +166,10 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
         <p className="eyebrow">Agenda</p>
         <h1>{PLAZO_HABILES} días hábiles desde la ficha</h1>
         <p className={estilos.bajada}>
-          El plazo arranca el día que se sube la ficha patrimonial y corre en días hábiles: el
-          portafolio al primero, el PPT al segundo, la revisión de la mesa al tercero y la entrega
-          al cuarto. Nadie teclea una fecha — se calculan sobre la subida y sobre el calendario
-          peruano, feriados incluidos. Las de más adelante se dibujan difusas: son tentativas hasta
-          que se acercan.
+          El plazo arranca el día que llega la ficha del cliente y corre en días hábiles hasta la
+          entrega. Nadie teclea una fecha: se calcula sobre la subida y sobre el calendario
+          peruano, feriados incluidos. En el calendario cada cliente es una barra —cuándo entró y
+          hasta cuándo hay tiempo—; los hitos de adentro se trabajan en <b>En ruta</b>.
         </p>
       </header>
 
@@ -180,15 +207,15 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
           >
             ›
           </button>
-          <button type="button" className="secundario" onClick={alHoy}>
+          <button type="button" className="secundario" onClick={() => setVista(mesDe(hoy))}>
             Hoy
           </button>
         </div>
 
         <div className={estilos.filtros}>
-          {atrasadas > 0 && (
+          {vencidas > 0 && (
             <span className={estilos.atrasadas}>
-              {plural(atrasadas, 'ruta atrasada', 'rutas atrasadas')}
+              {plural(vencidas, 'ruta vencida', 'rutas vencidas')}
             </span>
           )}
           <label className={estilos.interruptor}>
@@ -206,55 +233,64 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
         <Mes
           mes={mes}
           hoy={hoy}
-          diaElegido={diaElegido}
-          calendario={calendario}
-          enfocado={enfocado}
-          alElegirDia={elegirDia}
-          alEnfocar={setEnfocado}
+          rutas={visibles}
+          tramos={tramos}
+          enfocada={enfocada}
+          alEnfocar={setEnfocada}
+          alAbrir={abrir}
         />
 
-        <aside className={estilos.costado}>
-          <PanelDia
-            dia={diaElegido}
-            hoy={hoy}
-            entradas={calendario.get(diaElegido) ?? []}
-            esAdmin={esAdmin}
-            puedeMarcar={!sinTablaDeHitos}
-            guardando={enVuelo}
-            enfocado={enfocado}
-            alEnfocar={setEnfocado}
-            alAlternar={alternarHito}
-          />
-
-          <section className={estilos.bloque} aria-labelledby="en-ruta">
+        <aside className={estilos.costado} aria-label="Rutas abiertas">
+          <div className={estilos.bloque}>
             <div className={estilos.tituloBloque}>
-              <h3 id="en-ruta">En ruta</h3>
-              <span className={estilos.cuenta}>
-                {plural(enRuta.length, 'cliente', 'clientes')}
-              </span>
+              <h3>En ruta</h3>
+              <span className={estilos.cuenta}>{plural(enRuta, 'cliente', 'clientes')}</span>
             </div>
 
-            {enRuta.length === 0 ? (
+            {grupos.length === 0 ? (
               <p className={estilos.vacio}>
-                Ninguna ruta abierta{soloMias ? ' entre tus fichas' : ''}. Subí una ficha y el plazo
-                arranca solo.
+                Ninguna ruta abierta{soloMias ? ' entre tus fichas' : ''}. Subí una ficha y el
+                plazo arranca solo.
               </p>
             ) : (
-              <ul className={estilos.rutas}>
-                {enRuta.map((ruta) => (
-                  <RutaCliente
-                    key={ruta.fichaId}
-                    ruta={ruta}
-                    hoy={hoy}
-                    enfocada={enfocado === ruta.fichaId}
-                    atenuada={enfocado !== null && enfocado !== ruta.fichaId}
-                    alEnfocar={setEnfocado}
-                    alElegirDia={elegirDia}
-                  />
+              <div className={estilos.grupos}>
+                {grupos.map((grupo) => (
+                  <section key={grupo.titulo} className={estilos.grupo}>
+                    <p className={estilos.tituloGrupo} data-urgente={grupo.urgente || undefined}>
+                      {grupo.titulo}
+                      <span className={estilos.cuentaGrupo}>{grupo.rutas.length}</span>
+                    </p>
+                    <ul className={estilos.rutas}>
+                      {grupo.rutas.map((ruta) => (
+                        <RutaCliente
+                          key={ruta.fichaId}
+                          id={`ruta-${ruta.fichaId}`}
+                          ruta={ruta}
+                          abierta={abierta === ruta.fichaId}
+                          atenuada={enfocada !== null && enfocada !== ruta.fichaId}
+                          esAdmin={esAdmin}
+                          puedeMarcar={!sinTablaDeHitos}
+                          guardando={enVuelo}
+                          alAbrir={setAbierta}
+                          alEnfocar={setEnfocada}
+                          alAlternar={alternarHito}
+                        />
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
             )}
-          </section>
+
+            <label className={`${estilos.interruptor} ${estilos.verEntregadas}`}>
+              <input
+                type="checkbox"
+                checked={conEntregadas}
+                onChange={(evento) => setConEntregadas(evento.target.checked)}
+              />
+              Ver también las entregadas
+            </label>
+          </div>
 
           <section className={estilos.bloque} aria-labelledby="como-leerlo">
             <div className={estilos.tituloBloque}>
@@ -262,20 +298,17 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
             </div>
             <ul className={estilos.leyenda}>
               <li>
+                <span className={estilos.muestraBarra} aria-hidden="true" />
+                Cada barra es un cliente: empieza cuando llega su ficha y termina en la entrega, a{' '}
+                {PLAZO_HABILES} días hábiles.
+              </li>
+              <li>
                 <span className={estilos.muestraRampa} aria-hidden="true" />
-                Cuanto más lejos el hito, más difuso: la certeza se gana con los días.
+                Lo vivido va firme y lo que falta se disuelve: la certeza se gana con los días.
               </li>
               <li>
-                <span className={`${estilos.muestra} ${estilos.muestraHecho}`} aria-hidden="true" />
-                Cumplido. Lo marca el dueño de la ficha.
-              </li>
-              <li>
-                <span className={`${estilos.muestra} ${estilos.muestraVencido}`} aria-hidden="true" />
-                Venció y sigue sin marcar.
-              </li>
-              <li>
-                <span className={`${estilos.muestra} ${estilos.muestraEntrega}`} aria-hidden="true" />
-                La entrega. Es la única fecha que no se mueve.
+                <span className={estilos.muestraVencida} aria-hidden="true" />
+                En rojo, la ruta a la que se le pasó la fecha de entrega.
               </li>
             </ul>
             <p className={estilos.pieLeyenda}>

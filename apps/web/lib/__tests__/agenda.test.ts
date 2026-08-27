@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   HITOS,
   PLAZO_HABILES,
+  TONOS,
   armarMes,
   diaEnLima,
   esHabil,
@@ -10,11 +11,11 @@ import {
   habilesEntre,
   inicialesDe,
   mesCorrido,
-  porDia,
   rutaDe,
   rutasDe,
   sumarHabiles,
   tonoDe,
+  tramosDelMes,
 } from '../agenda'
 import type { FichaEnAgenda } from '../agenda'
 
@@ -123,6 +124,25 @@ describe('la ruta de una ficha', () => {
     expect(ruta.avance).toBeCloseTo(3 / HITOS.length)
   })
 
+  it('vencida es que se pasó la entrega, no que falte marcar un hito', () => {
+    // Dos días después de subirla: el portafolio ya venció y el PPT es para
+    // hoy, pero al cliente no se le prometió nada para esos días.
+    const enCurso = rutaDe(ficha({ subidaIso: '2026-03-02T15:00:00Z' }), '2026-03-04')
+    expect(enCurso.atrasados).toBe(1)
+    expect(enCurso.vencida).toBe(false)
+
+    // Pasado el cuarto día hábil sin cerrarla, sí.
+    const pasada = rutaDe(ficha({ subidaIso: '2026-03-02T15:00:00Z' }), '2026-03-09')
+    expect(pasada.vencida).toBe(true)
+
+    // Y una cerrada a tiempo no vence nunca.
+    const cerrada = rutaDe(
+      ficha({ subidaIso: '2026-03-02T15:00:00Z', hechos: ['portafolio', 'ppt', 'revision', 'entrega'] }),
+      '2026-03-20',
+    )
+    expect(cerrada.vencida).toBe(false)
+  })
+
   it('la certeza cae con la distancia y nunca se apaga del todo', () => {
     const ruta = rutaDe(ficha({ subidaIso: '2026-03-05T15:00:00Z' }), '2026-03-05')
     const certezas = ruta.hitos.map((hito) => hito.certeza)
@@ -145,11 +165,18 @@ describe('el color del cliente', () => {
     expect(tonoDe('9f3c2a')).toBe(tonoDe('9f3c2a'))
   })
 
-  it('reparte los ids entre los ocho tonos', () => {
+  it('reparte los ids entre todos los tonos de la paleta', () => {
     const tonos = new Set(
       Array.from({ length: 200 }, (_, i) => tonoDe(`ficha-${i}-abcdef`)),
     )
-    expect(tonos.size).toBe(8)
+    expect(tonos.size).toBe(TONOS)
+  })
+
+  it('ninguno es el rojo de la aplicación: ese color dice «vencida»', () => {
+    // La paleta se define en el CSS; lo que se fija acá es que el módulo no
+    // ofrezca más índices que colores hay, que es lo que llevó a que un
+    // cliente saliera terracota y se leyera como una ruta vencida.
+    expect(TONOS).toBe(7)
   })
 
   it('las iniciales aguantan un nombre de una sola palabra', () => {
@@ -160,26 +187,26 @@ describe('el color del cliente', () => {
 })
 
 describe('el reparto de colores', () => {
-  const enLaMismaSemana = Array.from({ length: 8 }, (_, i) =>
+  const enLaMismaSemana = Array.from({ length: TONOS }, (_, i) =>
     ficha({ fichaId: `cruzada-${i}`, cliente: `Cliente ${i}`, subidaIso: '2026-03-09T15:00:00Z' }),
   )
 
   it('dos rutas que se cruzan nunca comparten tono', () => {
     const rutas = rutasDe(enLaMismaSemana, '2026-03-09')
-    expect(new Set(rutas.map((ruta) => ruta.tono)).size).toBe(8)
+    expect(new Set(rutas.map((ruta) => ruta.tono)).size).toBe(TONOS)
   })
 
-  it('la novena de la misma semana vuelve al tono de su id', () => {
-    // La paleta tiene ocho colores. Agotada, el noveno repite: se queda con el
-    // que le toca por hash en vez de inventar un color que no existe.
-    const nueve = [
+  it('agotada la paleta, la siguiente vuelve al tono de su id', () => {
+    // Con la paleta llena el color repite: se queda con el que le toca por
+    // hash en vez de inventar uno que no existe.
+    const unaMas = [
       ...enLaMismaSemana,
-      ficha({ fichaId: 'cruzada-8', cliente: 'Cliente 8', subidaIso: '2026-03-09T15:00:00Z' }),
+      ficha({ fichaId: 'cruzada-extra', cliente: 'Otro', subidaIso: '2026-03-09T15:00:00Z' }),
     ]
-    const rutas = rutasDe(nueve, '2026-03-09')
+    const rutas = rutasDe(unaMas, '2026-03-09')
 
-    expect(rutas[8]?.tono).toBe(tonoDe('cruzada-8'))
-    expect(new Set(rutas.map((ruta) => ruta.tono)).size).toBe(8)
+    expect(rutas[TONOS]?.tono).toBe(tonoDe('cruzada-extra'))
+    expect(new Set(rutas.map((ruta) => ruta.tono)).size).toBe(TONOS)
   })
 
   it('las que no se cruzan pueden repetir color sin molestar', () => {
@@ -228,25 +255,90 @@ describe('la grilla del mes', () => {
   })
 })
 
-describe('los hitos por día', () => {
-  it('junta los de varias rutas y pone adelante lo que urge', () => {
-    const hoy = '2026-03-06'
-    const rutas = [
-      rutaDe(ficha({ fichaId: 'f1', cliente: 'Ana Tumi', subidaIso: '2026-03-05T15:00:00Z' }), hoy),
-      rutaDe(ficha({ fichaId: 'f2', cliente: 'Beto Lira', subidaIso: '2026-03-04T15:00:00Z' }), hoy),
-    ]
+describe('las barras del mes', () => {
+  const rutas = (fichas: readonly FichaEnAgenda[], hoy: string) => rutasDe(fichas, hoy)
 
-    const mapa = porDia(rutas)
-    const delDia = mapa.get('2026-03-06') ?? []
+  it('una ruta de una semana es un solo tramo, que abre y cierra', () => {
+    // Ficha del lunes 9 de marzo de 2026: la entrega cae el viernes 13.
+    const hoy = '2026-03-09'
+    const mes = armarMes(2026, 3)
+    const tramos = tramosDelMes(mes, rutas([ficha({ subidaIso: '2026-03-09T15:00:00Z' })], hoy), hoy)
 
-    expect(delDia).toHaveLength(2)
-    // El de Beto vencía el 6 y el de Ana también, pero el de Beto es el PPT y
-    // el de Ana el portafolio: los dos caen hoy, así que ninguno vence.
-    expect(delDia.every((entrada) => entrada.hito.estado === 'hoy')).toBe(true)
+    // La semana del 9 es la tercera fila de la grilla de marzo.
+    const semana = tramos[2] ?? []
+    expect(semana).toHaveLength(1)
+    expect(semana[0]).toMatchObject({ desde: 0, hasta: 4, abre: true, cierra: true, carril: 0 })
   })
 
-  it('el día sin hitos no aparece en el mapa', () => {
-    const mapa = porDia([rutaDe(ficha({ subidaIso: '2026-03-05T15:00:00Z' }), '2026-03-05')])
-    expect(mapa.has('2026-03-07')).toBe(false)
+  it('una ruta que cruza el domingo se parte en dos tramos que se continúan', () => {
+    // Ficha del jueves 12: la entrega cae el miércoles 18, del otro lado.
+    const hoy = '2026-03-12'
+    const mes = armarMes(2026, 3)
+    const tramos = tramosDelMes(mes, rutas([ficha({ subidaIso: '2026-03-12T15:00:00Z' })], hoy), hoy)
+
+    expect(tramos[2]?.[0]).toMatchObject({ desde: 3, hasta: 6, abre: true, cierra: false })
+    expect(tramos[3]?.[0]).toMatchObject({ desde: 0, hasta: 2, abre: false, cierra: true })
+  })
+
+  it('mantiene el carril de una semana a la otra', () => {
+    const hoy = '2026-03-09'
+    const mes = armarMes(2026, 3)
+    const dos = [
+      ficha({ fichaId: 'larga', subidaIso: '2026-03-12T15:00:00Z' }),
+      ficha({ fichaId: 'corta', subidaIso: '2026-03-16T15:00:00Z' }),
+    ]
+    const tramos = tramosDelMes(mes, rutas(dos, hoy), hoy)
+
+    const primera = tramos[2]?.find((tramo) => tramo.fichaId === 'larga')
+    const sigue = tramos[3]?.find((tramo) => tramo.fichaId === 'larga')
+    expect(sigue?.carril).toBe(primera?.carril)
+  })
+
+  it('dos rutas que se pisan van en carriles distintos', () => {
+    const hoy = '2026-03-09'
+    const mes = armarMes(2026, 3)
+    const dos = [
+      ficha({ fichaId: 'a', subidaIso: '2026-03-09T15:00:00Z' }),
+      ficha({ fichaId: 'b', subidaIso: '2026-03-10T15:00:00Z' }),
+    ]
+    const carriles = (tramosDelMes(mes, rutas(dos, hoy), hoy)[2] ?? []).map((t) => t.carril)
+    expect(new Set(carriles).size).toBe(2)
+  })
+
+  it('dos rutas que no se pisan comparten carril', () => {
+    const hoy = '2026-03-02'
+    const mes = armarMes(2026, 3)
+    // La primera entrega el viernes 6; la segunda arranca el lunes 9.
+    const dos = [
+      ficha({ fichaId: 'a', subidaIso: '2026-03-02T15:00:00Z' }),
+      ficha({ fichaId: 'b', subidaIso: '2026-03-09T15:00:00Z' }),
+    ]
+    const tramos = tramosDelMes(mes, rutas(dos, hoy), hoy)
+    expect(tramos[1]?.[0]?.carril).toBe(0)
+    expect(tramos[2]?.[0]?.carril).toBe(0)
+  })
+
+  it('lo vivido cubre el tramo y lo que viene queda por cubrir', () => {
+    const mes = armarMes(2026, 3)
+    const una = [ficha({ subidaIso: '2026-03-09T15:00:00Z' })]
+
+    // El primer día: solo el lunes quedó atrás, de cinco días de barra.
+    expect(tramosDelMes(mes, rutas(una, '2026-03-09'), '2026-03-09')[2]?.[0]?.cubierto).toBeCloseTo(
+      1 / 5,
+    )
+    // Pasada la entrega, la barra entera es historia.
+    expect(tramosDelMes(mes, rutas(una, '2026-03-20'), '2026-03-20')[2]?.[0]?.cubierto).toBe(1)
+    // El mes siguiente todavía no empezó: nada cubierto.
+    const abril = armarMes(2026, 4)
+    const futura = [ficha({ subidaIso: '2026-04-06T15:00:00Z' })]
+    expect(tramosDelMes(abril, rutas(futura, '2026-03-20'), '2026-03-20')[1]?.[0]?.cubierto).toBe(0)
+  })
+
+  it('la semana sin rutas no trae tramos', () => {
+    const hoy = '2026-03-09'
+    const mes = armarMes(2026, 3)
+    const tramos = tramosDelMes(mes, rutas([ficha({ subidaIso: '2026-03-09T15:00:00Z' })], hoy), hoy)
+    expect(tramos[0]).toEqual([])
+    expect(tramos[5]).toEqual([])
   })
 })

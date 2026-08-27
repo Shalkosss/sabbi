@@ -288,23 +288,35 @@ pero nunca que algo va tarde, que es justo para lo que se abre el jueves por la
 tarde. La fila existe cuando el hito está cumplido; desmarcar la borra. Marcar
 sigue la regla de la ficha —su dueño o un admin—, leer es de todo el equipo.
 
-Tres decisiones sostienen la lectura, y las tres salen de mirar un mes cargado:
+La pantalla tiene dos mitades con trabajos distintos, y esa división es lo que
+la hizo legible. La primera versión ponía los cinco hitos como píldoras sueltas
+sobre el mes: ocho clientes eran cuarenta etiquetas y no se leía ni quién ni
+cuándo.
+
+**El calendario contesta cuándo.** Una barra por cliente, del día que llegó su
+ficha al cuarto día hábil, y nada más. Tres cosas la sostienen:
 
 - **El color es del cliente, no del hito.** Los hitos son siempre los mismos
-  cinco; lo que cambia entre dos píldoras vecinas es de quién son. El tono sale
-  de un hash del id de la ficha, pero no se queda ahí: dos rutas que se cruzan
-  en el calendario nunca comparten color — se reparte como se colorea un mapa,
-  y solo se repite cuando la paleta de ocho se agota. El color tampoco viaja
-  solo: van también las iniciales y, en el panel, el nombre entero.
-- **La certeza se dibuja.** Un hito a cuatro días hábiles no vale lo que el de
-  mañana, y la pantalla lo dice con el relleno en vez de con una nota al pie: lo
-  cumplido va firme, lo que viene se disuelve con la distancia. La difusión toca
-  el fondo y el halo, nunca la tinta — una fecha borrosa no se puede leer. La
-  entrega es la excepción: lleva anillo propio aunque esté lejos, porque es lo
-  único que se le prometió al cliente.
-- **Un cliente a la vez.** Apoyar el puntero sobre cualquier píldora enciende la
-  ruta entera de ese cliente y apaga el resto, y las celdas por donde pasa se
-  marcan con su color. Es la respuesta a «¿cómo viene Ana?» sin filtrar nada.
+  cinco; lo que cambia entre dos barras vecinas es de quién son. El tono sale de
+  un hash del id de la ficha, pero no se queda ahí: dos rutas que se cruzan en
+  el calendario nunca comparten color — se reparte como se colorea un mapa, y
+  solo se repite cuando la paleta de siete se agota. Ninguno de los siete es
+  rojo: ese color ya dice «vencida» y no puede decir además «Fernando».
+- **La certeza se dibuja.** La barra se solidifica con los días: lo vivido va
+  firme y lo que falta se disuelve hacia la entrega, que es exactamente lo que
+  vale una fecha tentativa. La difusión toca el relleno, nunca la tinta — una
+  fecha borrosa no se puede leer. El borde derecho marca la entrega aunque la
+  barra llegue difusa: es lo único que se le prometió al cliente.
+- **Vencida es que se pasó la entrega**, no que falte marcar un hito interno.
+  Nadie marca el portafolio el mismo minuto que lo termina, y una agenda donde
+  todo sale en rojo el segundo día no dice nada.
+
+**«En ruta» contesta qué falta.** Las rutas abiertas agrupadas por urgencia
+—vencidas, entrega hoy, esta semana, más adelante—, cada una con su cinta de
+cinco nodos; abierta, con los cinco hitos, su fecha y su casilla. Es donde se
+marca lo cumplido y donde está el enlace a la ficha. Lo que une las dos mitades
+es el color y el encendido: apoyar el puntero sobre una barra levanta su
+tarjeta, y al revés.
 
 El cálculo de días hábiles vive en `apps/web/lib/agenda.ts` y es puro —`hoy`
 entra como argumento, resuelto una sola vez en el servidor: si lo mirara el

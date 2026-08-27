@@ -286,14 +286,29 @@ export interface Ruta {
   readonly hitos: readonly HitoDeRuta[]
   /** Hitos cuya fecha ya pasó y nadie marcó. */
   readonly atrasados: number
+  /**
+   * Se pasó la fecha de entrega sin cerrarse.
+   *
+   * Es lo único que el calendario pinta de rojo. Un hito interno sin marcar no
+   * alcanza: nadie marca el portafolio el mismo minuto que lo termina, y una
+   * agenda donde todo sale en rojo el segundo día no dice nada. Lo que se le
+   * prometió al cliente es la entrega, y eso es lo que se avisa.
+   */
+  readonly vencida: boolean
   /** Cumplidos sobre el total, de 0 a 1. */
   readonly avance: number
   /** Días hábiles hasta la entrega. Negativo si el plazo ya venció. */
   readonly faltanParaEntrega: number
 }
 
-/** Cuántos colores tiene la paleta de la agenda. */
-export const TONOS = 8
+/**
+ * Cuántos colores tiene la paleta de la agenda.
+ *
+ * Siete y no ocho: el octavo era un terracota, y una barra terracota se leía
+ * como una barra vencida. El rojo de la aplicación dice una sola cosa y no
+ * puede ser además el color de un cliente.
+ */
+export const TONOS = 7
 
 /**
  * El color preferido de un cliente, derivado de su id.
@@ -395,6 +410,7 @@ export function rutaDe(ficha: FichaEnAgenda, hoy: Dia, tono = tonoDe(ficha.ficha
     entrega: entrega?.dia ?? inicio,
     hitos,
     atrasados: hitos.filter((hito) => hito.estado === 'vencido').length,
+    vencida: cumplidos < hitos.length && (entrega?.dia ?? inicio) < hoy,
     avance: cumplidos / hitos.length,
     faltanParaEntrega: entrega?.faltan ?? 0,
   }
@@ -449,42 +465,6 @@ export function rutasDe(fichas: readonly FichaEnAgenda[], hoy: Dia): readonly Ru
   return fichas.map((ficha) => rutaDe(ficha, hoy, tonos.get(ficha.fichaId)))
 }
 
-/** Un hito con el cliente al que pertenece: lo que se pinta en una celda. */
-export interface HitoEnCalendario {
-  readonly ruta: Ruta
-  readonly hito: HitoDeRuta
-}
-
-/**
- * Los hitos de todas las rutas, indexados por día.
- *
- * Dentro de un día van ordenados por lo que urge: primero lo vencido, después
- * lo del día, y al final lo que solo pasa por ahí.
- */
-export function porDia(rutas: readonly Ruta[]): ReadonlyMap<Dia, readonly HitoEnCalendario[]> {
-  const mapa = new Map<Dia, HitoEnCalendario[]>()
-
-  for (const ruta of rutas) {
-    for (const hito of ruta.hitos) {
-      const delDia = mapa.get(hito.dia) ?? []
-      delDia.push({ ruta, hito })
-      mapa.set(hito.dia, delDia)
-    }
-  }
-
-  const peso: Record<EstadoHito, number> = { vencido: 0, hoy: 1, proximo: 2, hecho: 3 }
-  for (const delDia of mapa.values()) {
-    delDia.sort(
-      (a, b) =>
-        peso[a.hito.estado] - peso[b.hito.estado] ||
-        b.hito.clave.localeCompare(a.hito.clave) ||
-        a.ruta.cliente.localeCompare(b.ruta.cliente, 'es'),
-    )
-  }
-
-  return mapa
-}
-
 // ── La grilla del mes ───────────────────────────────────────────────────────
 
 export interface Celda {
@@ -530,6 +510,106 @@ export function armarMes(anio: number, mes: number): Mes {
 }
 
 /** El mes que está `pasos` meses más allá. Negativo va hacia atrás. */
+/**
+ * Un tramo de la barra de una ruta dentro de una semana.
+ *
+ * Una ruta se dibuja como una sola barra que va del dia en que llego la ficha
+ * al de la entrega — cinco pildoras sueltas por cliente convertian un mes
+ * cargado en una pared de etiquetas donde no se leia ni quien ni cuando—. Como
+ * la barra puede cruzar el domingo, se corta en tramos: uno por semana.
+ */
+export interface TramoDeRuta {
+  readonly fichaId: string
+  /** Columna donde empieza el tramo, de 0 (lunes) a 6 (domingo). */
+  readonly desde: number
+  /** Columna donde termina, inclusive. */
+  readonly hasta: number
+  /** El tramo arranca donde arranca la ruta y no viene de la semana anterior. */
+  readonly abre: boolean
+  /** El tramo termina en la entrega y no sigue la semana que viene. */
+  readonly cierra: boolean
+  /** Fila dentro de la semana. Dos rutas que se cruzan nunca comparten carril. */
+  readonly carril: number
+  /**
+   * De 0 a 1: que parte de este tramo ya ocurrio.
+   *
+   * Es el degradado de difusion sobre la barra — lo vivido va firme y lo que
+   * viene se disuelve—. Se calcula por tramo y no por ruta porque cada tramo
+   * se pinta solo, y el resultado es el mismo: la semana pasada entera solida,
+   * la que viene entera tenue, y la de hoy partida donde estamos parados.
+   */
+  readonly cubierto: number
+}
+
+const diasEntre = (desde: Dia, hasta: Dia): number =>
+  Math.round((Date.parse(`${hasta}T12:00:00Z`) - Date.parse(`${desde}T12:00:00Z`)) / 86_400_000)
+
+/**
+ * Las barras del mes, semana por semana y ya repartidas en carriles.
+ *
+ * Los carriles se asignan de a una semana, pero recordando el de la semana
+ * anterior: una ruta que cruza el domingo se queda en su renglon en vez de
+ * saltar, que es lo que hace que la barra se lea como una sola cosa.
+ */
+export function tramosDelMes(
+  mes: Mes,
+  rutas: readonly Ruta[],
+  hoy: Dia,
+): readonly (readonly TramoDeRuta[])[] {
+  // Por inicio, y a igual inicio la mas larga primero: las barras largas
+  // agarran los carriles de arriba y el bloque queda con forma de escalera en
+  // vez de un tejido.
+  const ordenadas = [...rutas].sort(
+    (a, b) =>
+      a.inicio.localeCompare(b.inicio) ||
+      b.entrega.localeCompare(a.entrega) ||
+      a.fichaId.localeCompare(b.fichaId),
+  )
+
+  let carrilPrevio = new Map<string, number>()
+
+  return mes.semanas.map((semana) => {
+    const primero = semana[0]?.dia ?? ''
+    const ultimo = semana[6]?.dia ?? ''
+    const tramos: TramoDeRuta[] = []
+    const ocupado: number[] = []
+    const carrilAhora = new Map<string, number>()
+
+    for (const ruta of ordenadas) {
+      if (ruta.entrega < primero || ruta.inicio > ultimo) continue
+
+      const desde = Math.max(0, diasEntre(primero, ruta.inicio))
+      const hasta = Math.min(6, diasEntre(primero, ruta.entrega))
+
+      // Primero el carril que traia de la semana anterior; si esta tomado, el
+      // primero libre.
+      const preferido = carrilPrevio.get(ruta.fichaId)
+      let carril = preferido !== undefined && (ocupado[preferido] ?? -1) < desde ? preferido : 0
+      while ((ocupado[carril] ?? -1) >= desde) carril += 1
+      ocupado[carril] = hasta
+
+      let vividos = 0
+      for (let columna = desde; columna <= hasta; columna += 1) {
+        if ((semana[columna]?.dia ?? '') <= hoy) vividos += 1
+      }
+
+      tramos.push({
+        fichaId: ruta.fichaId,
+        desde,
+        hasta,
+        abre: ruta.inicio >= primero,
+        cierra: ruta.entrega <= ultimo,
+        carril,
+        cubierto: vividos / (hasta - desde + 1),
+      })
+      carrilAhora.set(ruta.fichaId, carril)
+    }
+
+    carrilPrevio = carrilAhora
+    return tramos
+  })
+}
+
 export function mesCorrido(anio: number, mes: number, pasos: number): { anio: number; mes: number } {
   const total = anio * 12 + (mes - 1) + pasos
   // El resto de JavaScript conserva el signo, así que un paso hacia atrás

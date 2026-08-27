@@ -26,6 +26,7 @@ export const ORENT: FichaFondo = {
   inception: '2022-09',
   guidanceCortoPlazo: null,
   domicilio: null,
+  esReferencia: false,
 }
 
 export const SERIE_ORENT: readonly ObservacionMensual[] = [

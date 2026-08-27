@@ -135,20 +135,30 @@ export function Dispersion({ puntos }: { readonly puntos: readonly PuntoDispersi
           Desviación estándar anualizada
         </text>
 
-        {puntos.map((p) => (
-          <circle
-            key={p.fondoId}
-            cx={x(p.desviacion)}
-            cy={y(p.retorno)}
-            r={5}
-            fill={colorDe(p.assetClass)}
-            className={estilos.punto}
-          >
-            <title>
-              {`${p.nombre} — ${p.assetClass}\nRetorno ${pctFondo(p.retorno)} · Desviación ${pctFondo(p.desviacion)} · Sharpe ${sharpe(p.sharpe)}`}
-            </title>
-          </circle>
-        ))}
+        {/*
+          Los indices van huecos y los fondos llenos. Es la unica distincion
+          que hace falta: el indice esta para ubicar al resto, y un punto
+          relleno mas invita a leerlo como una opcion de la mesa. Se dibujan
+          primero para que ningun fondo quede tapado por una referencia.
+        */}
+        {[...puntos]
+          .sort((a, b) => Number(b.esReferencia) - Number(a.esReferencia))
+          .map((p) => (
+            <circle
+              key={p.fondoId}
+              cx={x(p.desviacion)}
+              cy={y(p.retorno)}
+              r={5}
+              fill={p.esReferencia ? 'none' : colorDe(p.assetClass)}
+              stroke={p.esReferencia ? colorDe(p.assetClass) : undefined}
+              strokeWidth={p.esReferencia ? 2 : undefined}
+              className={estilos.punto}
+            >
+              <title>
+                {`${p.nombre} — ${p.assetClass}${p.esReferencia ? ' (índice)' : ''}\nRetorno ${pctFondo(p.retorno)} · Desviación ${pctFondo(p.desviacion)} · Sharpe ${sharpe(p.sharpe)}`}
+              </title>
+            </circle>
+          ))}
       </svg>
 
       <ul className={estilos.leyenda}>
@@ -158,6 +168,12 @@ export function Dispersion({ puntos }: { readonly puntos: readonly PuntoDispersi
             {clase}
           </li>
         ))}
+        {puntos.some((p) => p.esReferencia) && (
+          <li>
+            <span className={`${estilos.muestra} ${estilos.muestraHueca}`} />
+            índice de mercado
+          </li>
+        )}
       </ul>
     </div>
   )

@@ -28,7 +28,10 @@ export interface FondoConSerie {
 /** Cuantos anios calendario muestra la tabla. La hoja llegaba hasta 2019. */
 const ANIOS_ATRAS = 8
 
-/** El risk-free vigente. El default replica el escalar que tenia la hoja. */
+/**
+ * El risk-free de respaldo: la tasa que se usa cuando `treasury_10y` no tiene
+ * el mes en que termina la serie de un fondo. La habitual sale de esa serie.
+ */
 export async function riskFreeVigente(): Promise<number> {
   const supabase = await clienteServidor()
   const { data } = await supabase
@@ -46,7 +49,7 @@ export async function listarFondosConSerie(): Promise<readonly FondoConSerie[]> 
   const [{ data: fondos }, { data: observaciones }] = await Promise.all([
     supabase
       .from('fondos')
-      .select('id, nombre, asset_class, inception, guidance_cp, domicilio, activo')
+      .select('id, nombre, asset_class, inception, guidance_cp, domicilio, activo, es_referencia')
       .order('nombre'),
     supabase
       .from('fondos_observaciones')
@@ -69,6 +72,7 @@ export async function listarFondosConSerie(): Promise<readonly FondoConSerie[]> 
       inception: fila.inception,
       guidanceCortoPlazo: fila.guidance_cp,
       domicilio: fila.domicilio,
+      esReferencia: fila.es_referencia,
     },
     activo: fila.activo,
     observaciones: porFondo.get(fila.id) ?? [],
@@ -99,25 +103,39 @@ export async function metricasDeFondos(): Promise<{
   readonly riskFree: number
   readonly ultimoMes: Mes | null
   readonly fondos: readonly FondoConSerie[]
+  /** Cuantos fondos cayeron al respaldo por no tener su mes de corte cargado. */
+  readonly sinTreasury: number
 }> {
-  const [fondos, riskFree] = await Promise.all([listarFondosConSerie(), riskFreeVigente()])
+  const [fondos, riskFree, treasury] = await Promise.all([
+    listarFondosConSerie(),
+    riskFreeVigente(),
+    serieTreasury(),
+  ])
   const ultimoMes = ultimoMesCargado(fondos)
 
   // Sin una sola observacion no hay anio de corte que valga; se usa el primero
   // de la lista de anios solo para que la tabla tenga columnas que mostrar.
   const anioTope = ultimoMes === null ? new Date().getUTCFullYear() : Number(ultimoMes.slice(0, 4))
 
+  // El Sharpe de cada fondo se mide contra el Treasury del mes en que termina
+  // SU serie, no contra uno comun a la tabla. Ver `ParametrosMetricas`.
+  const riskFreePorMes = new Map(treasury.map((t) => [t.mes, t.cierre]))
+
+  const metricas = fondos.map((f) =>
+    calcularMetricas(f.ficha, f.observaciones, {
+      riskFree,
+      riskFreePorMes,
+      anioTope,
+      aniosAtras: ANIOS_ATRAS,
+    }),
+  )
+
   return {
-    metricas: fondos.map((f) =>
-      calcularMetricas(f.ficha, f.observaciones, {
-        riskFree,
-        anioTope,
-        aniosAtras: ANIOS_ATRAS,
-      }),
-    ),
+    metricas,
     riskFree,
     ultimoMes,
     fondos,
+    sinTreasury: metricas.filter((m) => m.ultimoMes !== null && m.mesDelRiskFree === null).length,
   }
 }
 

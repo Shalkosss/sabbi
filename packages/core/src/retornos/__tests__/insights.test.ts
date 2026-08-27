@@ -20,6 +20,7 @@ const constante = (id: string, assetClass: string, mensual: number): MetricasFon
     inception: '2024-12',
     guidanceCortoPlazo: null,
     domicilio: null,
+    esReferencia: false,
   }
   const serie: ObservacionMensual[] = [...Array(12).keys()].map((i) => ({
     mes: `2025-${String(i + 1).padStart(2, '0')}`,
@@ -38,6 +39,7 @@ const volatil = (id: string, assetClass: string, alto: number, bajo: number): Me
     inception: '2024-12',
     guidanceCortoPlazo: null,
     domicilio: null,
+    esReferencia: false,
   }
   const serie: ObservacionMensual[] = [...Array(12).keys()].map((i) => ({
     mes: `2025-${String(i + 1).padStart(2, '0')}`,
@@ -56,6 +58,7 @@ const corto = (id: string, assetClass: string): MetricasFondo => {
     inception: '2025-09',
     guidanceCortoPlazo: null,
     domicilio: null,
+    esReferencia: false,
   }
   const serie: ObservacionMensual[] = ['2025-10', '2025-11', '2025-12'].map((mes) => ({
     mes,
@@ -203,5 +206,54 @@ describe('resumenPorClase', () => {
     expect(vc.retornoPromedio).toBeNull()
     expect(vc.sharpePromedio).toBeNull()
     expect(vc.dispersion).toBeNull()
+  })
+})
+
+/**
+ * Los indices de referencia no compiten.
+ *
+ * En la hoja `Ranking Fondos` competian: el S&P 500 ocupaba una columna igual
+ * a la de un fondo y el `LARGE()` lo ordenaba con el resto. Un indice que gana
+ * el ranking de Private Equity manda a la mesa a recomendar algo que no esta a
+ * la venta.
+ */
+describe('los indices de referencia quedan fuera de los comparativos', () => {
+  const referencia = (id: string, assetClass: string, mensual: number): MetricasFondo => {
+    const base = constante(id, assetClass, mensual)
+    return { ...base, fondo: { ...base.fondo, esReferencia: true } }
+  }
+
+  // El indice rinde mas que cualquiera de los dos fondos de la clase.
+  const universo = [
+    constante('a', 'Private Equity', 0.01),
+    constante('b', 'Private Equity', 0.008),
+    referencia('ivv', 'Private Equity', 0.03),
+  ]
+
+  it('el ranking no los lista, ni siquiera ultimos', () => {
+    const ranking = rankear(universo, '1y', 'retorno')
+    expect(ranking.puestos.map((p) => p.fondoId)).toEqual(['a', 'b'])
+  })
+
+  it('no ganan el mejor retorno de su clase', () => {
+    const extremos = extremosPorClase(universo, '1y')
+    const pe = extremos.find((e) => e.assetClass === 'Private Equity')!
+    expect(pe.mejorRetorno?.fondoId).toBe('a')
+    expect(pe.total).toBe(2)
+  })
+
+  it('no arrastran el promedio de la clase', () => {
+    const resumen = resumenPorClase(universo, '1y')
+    const pe = resumen.find((r) => r.assetClass === 'Private Equity')!
+    expect(pe.fondos).toBe(2)
+    const soloFondos = resumenPorClase(universo.slice(0, 2), '1y')[0]!
+    expect(pe.retornoPromedio).toBeCloseTo(soloFondos.retornoPromedio!, 12)
+  })
+
+  it('el dispersion si los muestra, marcados: ahi la referencia es el punto', () => {
+    const puntos = dispersionRiesgoRetorno(universo, '1y')
+    expect(puntos.map((p) => p.fondoId).sort()).toEqual(['a', 'b', 'ivv'])
+    expect(puntos.find((p) => p.fondoId === 'ivv')?.esReferencia).toBe(true)
+    expect(puntos.find((p) => p.fondoId === 'a')?.esReferencia).toBe(false)
   })
 })

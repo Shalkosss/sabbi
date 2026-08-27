@@ -21,6 +21,8 @@
     "exportar-benchmark": "npm run build:paquetes && node tools/exportar-benchmark.mjs",
     "revisar-catalogo": "node tools/revisar-catalogo.mjs \"reference/BD_Productos (1).xlsx\"",
     "importar-catalogo": "node --env-file-if-exists=.env.local tools/importar-catalogo.mjs \"reference/BD_Productos (1).xlsx\"",
+    "revisar-retornos": "npm run build:paquetes && node tools/revisar-retornos.mjs",
+    "importar-retornos": "npm run build:paquetes && node --env-file-if-exists=.env.local tools/importar-retornos.mjs",
     "deck-de-muestra": "npm run build:paquetes && node tools/deck-de-muestra.mjs"
   },
   "devDependencies": {

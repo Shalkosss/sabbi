@@ -76,6 +76,22 @@ export interface Ventana {
    * que es lo unico que no se puede escribir como un numero fijo.
    */
   readonly meses: number | null
+  /**
+   * Si el retorno se anualiza, y bajo que condicion.
+   *
+   * - `nunca`: se informa acumulado. Es 3M y 6M. Anualizar un trimestre
+   *   proyecta a doce meses un rendimiento que duro tres, y convierte un 2.3%
+   *   real en un 9.5% que nadie gano.
+   * - `pasado-el-anio`: acumulado hasta doce meses, anualizado despues. Sin
+   *   eso, un 2Y y un 5Y no se pueden comparar.
+   * - `siempre`: se anualiza aunque la ventana no llegue al anio. Es la unica
+   *   forma de que since inception signifique lo mismo en un fondo de tres
+   *   meses y en uno de diez anios, que es justamente lo que la columna
+   *   promete. La contrapartida es que un fondo muy joven publica una tasa
+   *   proyectada; por eso `MetricaVentana` lleva `mesesUsados` y la pantalla
+   *   marca la que se apoya en menos de doce.
+   */
+  readonly anualiza: 'nunca' | 'pasado-el-anio' | 'siempre'
 }
 
 /** Lo que se sabe de un fondo mas alla de su serie. */
@@ -88,14 +104,26 @@ export interface FichaFondo {
   /** Retorno objetivo de corto plazo que publica el manager, como fraccion. */
   readonly guidanceCortoPlazo: number | null
   readonly domicilio: string | null
+  /**
+   * `true` para las lineas que la mesa compara pero nadie compra: el S&P 500,
+   * el HYG, el IYR, los indices BDC, el Barclay Hedge Fund Index.
+   *
+   * En la hoja ocupaban una columna identica a la de un fondo, con su serie y
+   * su bloque de metricas, y por eso el `LARGE()` de `Ranking Fondos` los
+   * ordenaba junto al resto. «El mejor Sharpe de Private Equity: S&P 500 IVV»
+   * es una respuesta falsa a una pregunta razonable — el indice no esta a la
+   * venta —, asi que los comparativos los excluyen. La tabla maestra y el
+   * dispersion los siguen mostrando: ahi la referencia es justamente el punto.
+   */
+  readonly esReferencia: boolean
 }
 
 /** Retorno, desviacion y Sharpe de una ventana. Cualquiera puede faltar. */
 export interface MetricaVentana {
   readonly ventana: string
   /**
-   * Retorno de la ventana. Hasta doce meses es acumulado; mas alla es
-   * anualizado. `null` si la serie no cubre la ventana entera.
+   * Retorno de la ventana, acumulado o anualizado segun `Ventana.anualiza`.
+   * `null` si la serie no cubre la ventana entera.
    */
   readonly retorno: number | null
   /** Desviacion estandar poblacional de los retornos mensuales, anualizada. */
@@ -131,20 +159,48 @@ export interface MetricasFondo {
   readonly anios: readonly MetricaAnual[]
   /** La apertura mes a mes, para el detalle y para la carga. */
   readonly apertura: readonly AperturaMensual[]
+  /**
+   * La tasa contra la que se midio el Sharpe de este fondo, y de donde salio.
+   *
+   * Viaja con el resultado porque cada fondo puede llevar la suya: dos filas
+   * de la misma tabla con Sharpe medidos contra tasas distintas es correcto,
+   * pero solo si la pantalla puede decirlo. `mesDelRiskFree` es `null` cuando
+   * se cayo al respaldo.
+   */
+  readonly riskFree: number
+  readonly mesDelRiskFree: Mes | null
 }
 
 /**
  * Los parametros del calculo.
  *
  * Existe para que ningun numero de negocio quede escrito adentro de una
- * funcion. El `riskFree` es el unico que la mesa toca seguido y por eso entra
- * como argumento en vez de vivir en una constante: es el mismo escalar que la
- * hoja tenia clavado en `$R$141`, y el dia que se decida moverlo a una serie
- * mensual promediada por ventana, se cambia el que llena este campo y no el
- * motor.
+ * funcion. Ninguno tiene default aca adentro: quien llama decide.
  */
 export interface ParametrosMetricas {
-  /** Tasa libre de riesgo anual, como fraccion. La hoja usa 0.04475. */
+  /**
+   * Cierre del Treasury 10Y por mes, como fraccion.
+   *
+   * La tasa que entra al Sharpe es la del **mes de corte del fondo** — el
+   * ultimo con retorno publicado —, no un escalar comun. Es lo que hace la
+   * hoja, y se verifico contra las 260 celdas de Sharpe que la macro dejo
+   * escritas: las 260 salen de la fila «Treasury 10Y» del mes en que termina
+   * esa columna, sin una excepcion.
+   *
+   * Tiene sentido mas alla de reproducir la hoja. Un fondo que reporta
+   * trimestral cierra en marzo y el resto en junio; medir a los dos contra la
+   * tasa de junio le cobra al primero tres meses de curva que su serie no
+   * vivio.
+   */
+  readonly riskFreePorMes?: ReadonlyMap<Mes, number> | undefined
+  /**
+   * La tasa que se usa cuando `riskFreePorMes` no cubre el mes de corte.
+   *
+   * No es un detalle de implementacion: mientras la mesa cargue el Treasury a
+   * mano, el mes recien cerrado va a estar vacio la primera semana, y sin
+   * respaldo el Sharpe de los cuarenta fondos desapareceria de la pantalla
+   * cada vez que eso pasa.
+   */
   readonly riskFree: number
   /** Anio mas reciente que la tabla muestra. Entra como dato: el motor no lee el reloj. */
   readonly anioTope: number

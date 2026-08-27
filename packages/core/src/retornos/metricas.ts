@@ -7,6 +7,7 @@ import type {
   Mes,
   ObservacionMensual,
   ParametrosMetricas,
+  Ventana,
 } from './tipos.js'
 import {
   DESVIACION_MINIMA,
@@ -60,12 +61,17 @@ function desviacionAnualizada(retornos: readonly number[]): number | null {
 }
 
 /**
- * Anualiza un retorno acumulado de `meses` meses.
+ * Anualiza un retorno acumulado de `meses` meses, segun lo que pida la ventana.
  *
- * Hasta el anio se devuelve tal cual — ver `MESES_SIN_ANUALIZAR`.
+ * `siempre` anualiza aunque la ventana no llegue al anio: es el since
+ * inception, y sin eso un fondo de tres meses publicaria un acumulado bajo la
+ * misma columna en la que uno de diez anios publica una tasa. Ver
+ * `Ventana.anualiza`.
  */
-function anualizar(acumulado: number, meses: number): number {
-  if (meses <= MESES_SIN_ANUALIZAR) return acumulado
+function anualizar(acumulado: number, meses: number, modo: Ventana['anualiza']): number {
+  if (modo === 'nunca') return acumulado
+  if (modo === 'pasado-el-anio' && meses <= MESES_SIN_ANUALIZAR) return acumulado
+  if (meses <= 0) return acumulado
   return (1 + acumulado) ** (12 / meses) - 1
 }
 
@@ -159,15 +165,16 @@ function colaCompleta(
 
 /** Retorno, desviacion y Sharpe de una ventana. */
 function metricaDeVentana(
-  clave: string,
+  ventana: Ventana,
   retornos: readonly number[] | null,
   riskFree: number,
 ): MetricaVentana {
+  const clave = ventana.clave
   if (retornos === null || retornos.length === 0) {
     return { ventana: clave, retorno: null, desviacion: null, sharpe: null, mesesUsados: 0 }
   }
 
-  const retorno = anualizar(componer(retornos), retornos.length)
+  const retorno = anualizar(componer(retornos), retornos.length, ventana.anualiza)
   const conRiesgo = VENTANAS_CON_RIESGO.includes(clave)
   const desviacion = conRiesgo ? desviacionAnualizada(retornos) : null
   const sharpe =
@@ -209,7 +216,8 @@ function metricasAnuales(
  *
  * @param fondo  la ficha, que viaja tal cual al resultado
  * @param observaciones  la serie mensual; no hace falta que venga ordenada
- * @param parametros  risk-free y anios a mostrar. Ningun default acá adentro.
+ * @param parametros  Treasury por mes, risk-free de respaldo y anios a mostrar.
+ *                    Ningun default acá adentro.
  */
 export function calcularMetricas(
   fondo: FichaFondo,
@@ -221,6 +229,18 @@ export function calcularMetricas(
     [...observaciones].sort((a, b) => a.mes.localeCompare(b.mes)),
   )
 
+  /*
+   * El risk-free es el del mes de corte del fondo, no uno comun a la tabla.
+   * Ver `ParametrosMetricas.riskFreePorMes`: la hoja lo hacia asi en las 260
+   * celdas de Sharpe que dejo escritas, y es lo correcto — un fondo que
+   * reporta trimestral no vivio la curva de los meses que le faltan.
+   */
+  const mesDeCorte = serie[serie.length - 1]?.mes ?? null
+  const delMes =
+    mesDeCorte === null ? undefined : parametros.riskFreePorMes?.get(mesDeCorte)
+  const riskFree = delMes ?? parametros.riskFree
+  const mesDelRiskFree = delMes === undefined ? null : mesDeCorte
+
   const ventanas = VENTANAS.map((ventana) => {
     // Since inception mira la serie entera, huecos incluidos: es lo que hace
     // `COUNT` en la hoja. Las demas exigen la ventana completa.
@@ -231,7 +251,7 @@ export function calcularMetricas(
           : serie.map((punto) => punto.retorno)
         : colaCompleta(serie, ventana.meses)
 
-    return metricaDeVentana(ventana.clave, retornos, parametros.riskFree)
+    return metricaDeVentana(ventana, retornos, riskFree)
   })
 
   return {
@@ -241,6 +261,8 @@ export function calcularMetricas(
     ventanas,
     anios: metricasAnuales(serie, parametros),
     apertura,
+    riskFree,
+    mesDelRiskFree,
   }
 }
 

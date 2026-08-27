@@ -35,6 +35,17 @@ export interface Ranking {
   readonly sinDato: number
 }
 
+/**
+ * Saca los indices de referencia.
+ *
+ * Se aplica adentro de cada comparativo y no en el que llama: un ranking que
+ * depende de que quien lo invoca se acuerde de filtrar es un ranking que
+ * alguna vez va a salir con el S&P 500 en el primer puesto. Ver
+ * `FichaFondo.esReferencia`.
+ */
+const soloFondos = (fondos: readonly MetricasFondo[]): readonly MetricasFondo[] =>
+  fondos.filter((f) => !f.fondo.esReferencia)
+
 const valorDe = (metricas: MetricasFondo, ventana: string, criterio: Criterio): number | null => {
   const v = ventanaDe(metricas, ventana)
   if (v === null) return null
@@ -55,7 +66,7 @@ export function rankear(
   criterio: Criterio,
   descendente = true,
 ): Ranking {
-  const conDato = fondos
+  const conDato = soloFondos(fondos)
     .map((m) => ({ metricas: m, valor: valorDe(m, ventana, criterio) }))
     .filter((f): f is { metricas: MetricasFondo; valor: number } => f.valor !== null)
 
@@ -101,9 +112,10 @@ export interface ExtremosClase {
  * entera no tenga historia suficiente es informacion.
  */
 export function extremosPorClase(
-  fondos: readonly MetricasFondo[],
+  todos: readonly MetricasFondo[],
   ventana: string,
 ): readonly ExtremosClase[] {
+  const fondos = soloFondos(todos)
   const clases = [...new Set(fondos.map((f) => f.fondo.assetClass))].sort((a, b) =>
     a.localeCompare(b, 'es'),
   )
@@ -135,6 +147,8 @@ export interface PuntoDispersion {
   readonly retorno: number
   readonly desviacion: number
   readonly sharpe: number | null
+  /** El punto es un indice, no un fondo. Se dibuja distinto. */
+  readonly esReferencia: boolean
 }
 
 /**
@@ -144,6 +158,11 @@ export interface PuntoDispersion {
  * el doble de desviacion no son el mismo producto, y en una tabla de cuarenta
  * columnas eso no se ve. Solo entran los fondos con las dos coordenadas — un
  * punto sin eje no se puede dibujar en el medio y fingir que esta.
+ *
+ * Los indices de referencia SI entran, marcados. Es el unico comparativo donde
+ * corresponde: saber donde cae el S&P 500 en el plano riesgo-retorno es
+ * exactamente para lo que sirve el grafico, y como no hay puestos que ganar,
+ * no distorsiona nada.
  */
 export function dispersionRiesgoRetorno(
   fondos: readonly MetricasFondo[],
@@ -162,6 +181,7 @@ export function dispersionRiesgoRetorno(
       retorno: v.retorno,
       desviacion: v.desviacion,
       sharpe: v.sharpe,
+      esReferencia: metricas.fondo.esReferencia,
     })
   }
 
@@ -197,9 +217,10 @@ const promedio = (valores: readonly number[]): number | null =>
  * con 30 es una donde elegir es casi todo.
  */
 export function resumenPorClase(
-  fondos: readonly MetricasFondo[],
+  todos: readonly MetricasFondo[],
   ventana: string,
 ): readonly ResumenClase[] {
+  const fondos = soloFondos(todos)
   const clases = [...new Set(fondos.map((f) => f.fondo.assetClass))].sort((a, b) =>
     a.localeCompare(b, 'es'),
   )

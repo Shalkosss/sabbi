@@ -8,14 +8,14 @@ import type { Mes, Ventana } from './tipos.js'
  * corto la calculara igual que su 5Y y las dos columnas dijeran lo mismo.
  */
 export const VENTANAS: readonly Ventana[] = [
-  { clave: '3m', etiqueta: '3M', meses: 3 },
-  { clave: '6m', etiqueta: '6M', meses: 6 },
-  { clave: '1y', etiqueta: '1 Y', meses: 12 },
-  { clave: '2y', etiqueta: '2 Y', meses: 24 },
-  { clave: '3y', etiqueta: '3 Y', meses: 36 },
-  { clave: '4y', etiqueta: '4 Y', meses: 48 },
-  { clave: '5y', etiqueta: '5 Y', meses: 60 },
-  { clave: 'si', etiqueta: 'Since inception', meses: null },
+  { clave: '3m', etiqueta: '3M', meses: 3, anualiza: 'nunca' },
+  { clave: '6m', etiqueta: '6M', meses: 6, anualiza: 'nunca' },
+  { clave: '1y', etiqueta: '1 Y', meses: 12, anualiza: 'pasado-el-anio' },
+  { clave: '2y', etiqueta: '2 Y', meses: 24, anualiza: 'pasado-el-anio' },
+  { clave: '3y', etiqueta: '3 Y', meses: 36, anualiza: 'pasado-el-anio' },
+  { clave: '4y', etiqueta: '4 Y', meses: 48, anualiza: 'pasado-el-anio' },
+  { clave: '5y', etiqueta: '5 Y', meses: 60, anualiza: 'pasado-el-anio' },
+  { clave: 'si', etiqueta: 'Since inception', meses: null, anualiza: 'siempre' },
 ]
 
 /**
@@ -44,11 +44,15 @@ export const MESES_DEL_ANIO: readonly string[] = [
 ]
 
 /**
- * A partir de cuantos meses el retorno de una ventana se anualiza.
+ * A partir de cuantos meses una ventana `pasado-el-anio` se anualiza.
  *
  * Hasta un anio se informa acumulado: anualizar tres meses proyecta el
  * trimestre a doce y convierte un 2.3% real en un 9.5% que nadie gano. Pasado
  * el anio, sin anualizar no se pueden comparar dos ventanas de largo distinto.
+ *
+ * Es tambien el umbral bajo el cual un since inception queda marcado en
+ * pantalla: se anualiza igual — ver `Ventana.anualiza` — pero apoyado en menos
+ * de doce meses es una proyeccion, y se lee como tal.
  */
 export const MESES_SIN_ANUALIZAR = 12
 

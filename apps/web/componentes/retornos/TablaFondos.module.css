@@ -164,3 +164,23 @@
   color: var(--tinta-3);
   font-size: 13px;
 }
+
+/*
+ * La marca de indice.
+ *
+ * Chica y al lado del nombre, no una columna propia: son seis filas de sesenta
+ * y una columna entera para un booleano que casi siempre es falso paga mal el
+ * ancho en una tabla que ya no entra sin scroll.
+ */
+.referencia {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--linea-2, var(--linea));
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tinta-3);
+  vertical-align: middle;
+}

@@ -17,7 +17,7 @@ export default async function Pagina() {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const [{ metricas, riskFree, ultimoMes }, clases] = await Promise.all([
+  const [{ metricas, riskFree, ultimoMes, sinTreasury }, clases] = await Promise.all([
     metricasDeFondos(),
     clasesDeFondos(),
   ])
@@ -37,7 +37,12 @@ export default async function Pagina() {
           <p style={{ padding: '20px 26px 0', fontSize: 13, color: 'var(--tinta-3)' }}>
             Último mes con datos: {mesLargo(ultimoMes)}.
           </p>
-          <TablaFondos metricas={metricas} clases={clases} riskFree={riskFree} />
+          <TablaFondos
+            metricas={metricas}
+            clases={clases}
+            riskFree={riskFree}
+            sinTreasury={sinTreasury}
+          />
         </>
       )}
     </Marco>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 
-import { VENTANAS, VENTANAS_CON_RIESGO } from '@sabbi/core'
+import { MESES_SIN_ANUALIZAR, VENTANAS, VENTANAS_CON_RIESGO } from '@sabbi/core'
 import type { MetricaAnual, MetricasFondo, MetricaVentana } from '@sabbi/core'
 
 import { SIN_DATO, mesLargo, pctFondo, sharpe } from '../../lib/formato'
@@ -11,7 +11,9 @@ import estilos from './TablaFondos.module.css'
 interface Props {
   readonly metricas: readonly MetricasFondo[]
   readonly clases: readonly string[]
+  /** El de respaldo. El habitual sale del Treasury del mes de corte de cada fondo. */
   readonly riskFree: number
+  readonly sinTreasury: number
 }
 
 /** Las columnas ordenables, con de donde sale el numero de cada una. */
@@ -33,7 +35,7 @@ type Orden =
  * calculadas, y un viaje a la base por cada click en una cabecera es latencia
  * que no compra nada.
  */
-export function TablaFondos({ metricas, clases, riskFree }: Props) {
+export function TablaFondos({ metricas, clases, riskFree, sinTreasury }: Props) {
   const [orden, setOrden] = useState<Orden>({ tipo: 'nombre' })
   const [descendente, setDescendente] = useState(false)
   const [clase, setClase] = useState<string>('todas')
@@ -146,7 +148,15 @@ export function TablaFondos({ metricas, clases, riskFree }: Props) {
         </span>
 
         <span className={estilos.nota}>
-          Sharpe contra un risk-free de {pctFondo(riskFree)}, igual para toda ventana.
+          {/*
+            La tasa no es una sola para la tabla: cada fondo se mide contra el
+            Treasury 10Y del mes en que termina su serie. Decirlo importa —
+            dos Sharpe de esta columna pueden estar medidos contra tasas
+            distintas, y eso es correcto solo si se puede leer.
+          */}
+          Sharpe contra el Treasury 10Y del último mes de cada fondo.
+          {sinTreasury > 0 &&
+            ` ${sinTreasury} ${sinTreasury === 1 ? 'fondo usa' : 'fondos usan'} el respaldo de ${pctFondo(riskFree)}: falta cargar su mes.`}
         </span>
       </div>
 
@@ -181,7 +191,7 @@ export function TablaFondos({ metricas, clases, riskFree }: Props) {
                       v.meses !== null && v.meses > 12
                         ? `${v.etiqueta} anualizado`
                         : v.meses === null
-                          ? 'Desde inception, anualizado'
+                          ? 'Desde inception, siempre anualizado. Una serie de menos de doce meses queda marcada.'
                           : `${v.etiqueta} acumulado`
                     }
                   >
@@ -235,15 +245,48 @@ export function TablaFondos({ metricas, clases, riskFree }: Props) {
               <tr key={m.fondo.id}>
                 <th scope="row" className={`${estilos.fija} ${estilos.nombre}`}>
                   {m.fondo.nombre}
+                  {m.fondo.esReferencia && (
+                    <span
+                      className={estilos.referencia}
+                      title="Índice de mercado. Se muestra para comparar; no entra a los rankings."
+                    >
+                      índice
+                    </span>
+                  )}
                 </th>
                 <td className={estilos.tenue}>{m.fondo.assetClass}</td>
                 <td className={estilos.tenue}>{mesLargo(m.fondo.inception)}</td>
                 <td className={estilos.numerica}>{pctFondo(m.fondo.guidanceCortoPlazo)}</td>
                 <td className={estilos.tenue}>{m.fondo.domicilio ?? SIN_DATO}</td>
 
-                {VENTANAS.map((v) => (
-                  <Celda key={v.clave} valor={ventana(m, v.clave)?.retorno ?? null} />
-                ))}
+                {VENTANAS.map((v) => {
+                  const dato = ventana(m, v.clave)
+                  /*
+                   * Since inception se anualiza siempre, tambien con menos de
+                   * doce meses de serie — es lo que hace que la columna
+                   * signifique lo mismo en un fondo de tres meses y en uno de
+                   * diez anios. Pero un 29% proyectado desde un trimestre no
+                   * es lo mismo que un 16% de cinco anios, y sin la marca las
+                   * dos celdas se leen igual.
+                   */
+                  const proyectado =
+                    v.anualiza === 'siempre' &&
+                    dato !== undefined &&
+                    dato.mesesUsados > 0 &&
+                    dato.mesesUsados < MESES_SIN_ANUALIZAR
+                  return (
+                    <Celda
+                      key={v.clave}
+                      valor={dato?.retorno ?? null}
+                      sufijo={proyectado ? `${dato.mesesUsados}m` : undefined}
+                      titulo={
+                        proyectado
+                          ? `Anualizado desde ${dato.mesesUsados} meses de serie: es una proyección.`
+                          : undefined
+                      }
+                    />
+                  )
+                })}
 
                 {anios.map((a) => {
                   const dato = anio(m, a)
@@ -295,9 +338,11 @@ export function TablaFondos({ metricas, clases, riskFree }: Props) {
 function Celda({
   valor,
   sufijo,
+  titulo,
 }: {
   readonly valor: number | null
   readonly sufijo?: string | undefined
+  readonly titulo?: string | undefined
 }) {
   if (valor === null) {
     return (
@@ -308,7 +353,7 @@ function Celda({
   }
 
   return (
-    <td className={`${estilos.numerica} ${valor < 0 ? estilos.negativo : ''}`}>
+    <td className={`${estilos.numerica} ${valor < 0 ? estilos.negativo : ''}`} title={titulo}>
       {pctFondo(valor)}
       {sufijo !== undefined && <span className={estilos.sufijo}> {sufijo}</span>}
     </td>

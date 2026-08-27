@@ -90,3 +90,9 @@
   border: 1px solid var(--borde);
   border-radius: var(--radio-panel, 8px);
 }
+
+/* La muestra de un indice: hueca, como el punto que representa. */
+.muestraHueca {
+  background: none;
+  border: 2px solid var(--tinta-3);
+}

@@ -219,3 +219,110 @@ describe('rangoDeMeses', () => {
     expect(rangoDeMeses('2026-01', '2025-01')).toEqual([])
   })
 })
+
+/**
+ * Las dos reglas que la hoja aplicaba y el primer port no.
+ *
+ * Salieron de contrastar el motor contra las 260 celdas de Sharpe y las ~500
+ * de retorno que la macro dejo escritas en la hoja `Retornos` del libro de la
+ * mesa (`npm run revisar-retornos`). No son preferencias: sin ellas el modulo
+ * publica numeros distintos de los que la mesa viene publicando, y la
+ * diferencia no la puede explicar nadie.
+ */
+describe('calcularMetricas — las reglas que salieron del libro completo', () => {
+  const doceMeses = (retorno: number, desde: number): ObservacionMensual[] =>
+    Array.from({ length: 12 }, (_, i) => ({
+      mes: `${desde}-${String(i + 1).padStart(2, '0')}`,
+      nav: null,
+      retornoTotal: retorno,
+    }))
+
+  const ficha = {
+    id: 'x',
+    nombre: 'Fondo',
+    assetClass: 'Private Debt',
+    inception: null,
+    guidanceCortoPlazo: null,
+    domicilio: null,
+    esReferencia: false,
+  }
+
+  describe('el risk-free es el del mes de corte del fondo', () => {
+    const serieLarga: ObservacionMensual[] = [
+      ...doceMeses(0.01, 2025),
+      { mes: '2026-01', nav: null, retornoTotal: 0.01 },
+      { mes: '2026-02', nav: null, retornoTotal: 0.02 },
+      { mes: '2026-03', nav: null, retornoTotal: 0.015 },
+    ]
+
+    it('toma el Treasury del ultimo mes con dato, no el de la tabla mas reciente', () => {
+      const porMes = new Map([
+        ['2026-03', 0.043],
+        ['2026-06', 0.0474],
+      ])
+      const m = calcularMetricas(ficha, serieLarga, {
+        riskFree: 0.99,
+        riskFreePorMes: porMes,
+        anioTope: 2026,
+        aniosAtras: 2,
+      })
+      expect(m.riskFree).toBe(0.043)
+      expect(m.mesDelRiskFree).toBe('2026-03')
+    })
+
+    it('cae al respaldo cuando el mes de corte todavia no se cargo', () => {
+      const m = calcularMetricas(ficha, serieLarga, {
+        riskFree: 0.04475,
+        riskFreePorMes: new Map([['2026-06', 0.0474]]),
+        anioTope: 2026,
+        aniosAtras: 2,
+      })
+      expect(m.riskFree).toBe(0.04475)
+      expect(m.mesDelRiskFree).toBeNull()
+    })
+
+    it('el Sharpe sale de la tasa que quedo aplicada', () => {
+      const m = calcularMetricas(ficha, serieLarga, {
+        riskFree: 0,
+        riskFreePorMes: new Map([['2026-03', 0.043]]),
+        anioTope: 2026,
+        aniosAtras: 2,
+      })
+      const si = ventanaDe(m, 'si')!
+      expect(si.sharpe).toBeCloseTo((si.retorno! - 0.043) / si.desviacion!, DECIMALES)
+    })
+  })
+
+  describe('since inception se anualiza aunque no llegue al anio', () => {
+    // La hoja lo hace en las cuatro columnas que tienen menos de doce meses:
+    // Pantheon Global Private Equity con tres, BX INFRA LUX con seis, Hamilton
+    // Lane HLGVG con nueve y North Haven Private Assets con once. Las cuatro
+    // reproducen exactamente `(1+acumulado)^(12/n) - 1`.
+    const tresMeses: ObservacionMensual[] = [
+      { mes: '2025-06', nav: null, retornoTotal: 0.049 },
+      { mes: '2025-07', nav: null, retornoTotal: 0.017 },
+      { mes: '2025-08', nav: null, retornoTotal: -0.001 },
+    ]
+
+    const parametros = { riskFree: 0.04475, anioTope: 2025, aniosAtras: 2 }
+
+    it('proyecta tres meses a doce, como la celda de la hoja', () => {
+      const si = ventanaDe(calcularMetricas(ficha, tresMeses, parametros), 'si')!
+      const acumulado = 1.049 * 1.017 * 0.999 - 1
+      expect(si.retorno).toBeCloseTo((1 + acumulado) ** (12 / 3) - 1, DECIMALES)
+      expect(si.mesesUsados).toBe(3)
+    })
+
+    it('3M sigue acumulado sobre la misma serie: la diferencia es la columna, no el dato', () => {
+      const metricas = calcularMetricas(ficha, tresMeses, parametros)
+      const acumulado = 1.049 * 1.017 * 0.999 - 1
+      expect(ventanaDe(metricas, '3m')!.retorno).toBeCloseTo(acumulado, DECIMALES)
+      expect(ventanaDe(metricas, 'si')!.retorno).toBeGreaterThan(acumulado)
+    })
+
+    it('con doce meses justos el acumulado y el anualizado coinciden', () => {
+      const si = ventanaDe(calcularMetricas(ficha, doceMeses(0.01, 2025), parametros), 'si')!
+      expect(si.retorno).toBeCloseTo(1.01 ** 12 - 1, DECIMALES)
+    })
+  })
+})

@@ -23,7 +23,7 @@ export default async function Pagina({
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const [fondos, treasury] = await Promise.all([listarFondosConSerie(), serieTreasury()])
+  const [{ fondos }, treasury] = await Promise.all([listarFondosConSerie(), serieTreasury()])
   const { mes: mesPedido } = await searchParams
 
   const ultimo = ultimoMesCargado(fondos)

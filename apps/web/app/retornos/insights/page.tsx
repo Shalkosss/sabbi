@@ -1,6 +1,7 @@
 import { Marco } from '../../../componentes/Marco'
 import { SinAsesor } from '../../../componentes/SinAsesor'
 import { Insights } from '../../../componentes/retornos/Insights'
+import { SinFondos } from '../../../componentes/retornos/SinFondos'
 import { metricasDeFondos } from '../../../lib/datos/retornos'
 import { asesorActual } from '../../../lib/supabase/servidor'
 
@@ -16,7 +17,7 @@ export default async function Pagina() {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const { metricas, riskFree } = await metricasDeFondos()
+  const { metricas, riskFree, problema } = await metricasDeFondos()
 
   return (
     <Marco
@@ -25,9 +26,7 @@ export default async function Pagina() {
       migas={[{ texto: 'Retornos', ruta: '/retornos/fondos' }, { texto: 'Comparativos' }]}
     >
       {metricas.length === 0 ? (
-        <p style={{ padding: '28px 26px', color: 'var(--tinta-3)' }}>
-          Todavía no hay fondos cargados.
-        </p>
+        <SinFondos problema={problema} />
       ) : (
         <Insights metricas={metricas} riskFree={riskFree} />
       )}

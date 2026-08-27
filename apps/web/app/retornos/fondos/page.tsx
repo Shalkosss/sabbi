@@ -1,5 +1,6 @@
 import { Marco } from '../../../componentes/Marco'
 import { SinAsesor } from '../../../componentes/SinAsesor'
+import { SinFondos } from '../../../componentes/retornos/SinFondos'
 import { TablaFondos } from '../../../componentes/retornos/TablaFondos'
 import { clasesDeFondos, metricasDeFondos } from '../../../lib/datos/retornos'
 import { mesLargo } from '../../../lib/formato'
@@ -17,7 +18,7 @@ export default async function Pagina() {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const [{ metricas, riskFree, ultimoMes, sinTreasury }, clases] = await Promise.all([
+  const [{ metricas, riskFree, ultimoMes, sinTreasury, problema }, clases] = await Promise.all([
     metricasDeFondos(),
     clasesDeFondos(),
   ])
@@ -29,9 +30,7 @@ export default async function Pagina() {
       migas={[{ texto: 'Retornos' }, { texto: 'Fondos' }]}
     >
       {metricas.length === 0 ? (
-        <p style={{ padding: '28px 26px', color: 'var(--tinta-3)' }}>
-          Todavía no hay fondos cargados. Se dan de alta desde la carga mensual.
-        </p>
+        <SinFondos problema={problema} />
       ) : (
         <>
           <p style={{ padding: '20px 26px 0', fontSize: 13, color: 'var(--tinta-3)' }}>

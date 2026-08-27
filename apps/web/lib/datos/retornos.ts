@@ -25,6 +25,19 @@ export interface FondoConSerie {
   readonly observaciones: readonly ObservacionMensual[]
 }
 
+export interface FondosLeidos {
+  readonly fondos: readonly FondoConSerie[]
+  /**
+   * Por que la lectura no trajo nada, cuando fallo en vez de venir vacia.
+   *
+   * Una tabla que todavia no existe y una tabla vacia dan las dos cero filas.
+   * Sin distinguirlas, la pantalla de «todavia no hay fondos cargados» es la
+   * misma para «falta correr la migracion» y para «falta cargar el primer
+   * mes», que se arreglan en lugares distintos.
+   */
+  readonly problema: string | null
+}
+
 /** Cuantos anios calendario muestra la tabla. La hoja llegaba hasta 2019. */
 const ANIOS_ATRAS = 8
 
@@ -43,10 +56,13 @@ export async function riskFreeVigente(): Promise<number> {
 }
 
 /** Los fondos con su serie mensual completa. */
-export async function listarFondosConSerie(): Promise<readonly FondoConSerie[]> {
+export async function listarFondosConSerie(): Promise<FondosLeidos> {
   const supabase = await clienteServidor()
 
-  const [{ data: fondos }, { data: observaciones }] = await Promise.all([
+  const [
+    { data: fondos, error: errorFondos },
+    { data: observaciones, error: errorObservaciones },
+  ] = await Promise.all([
     supabase
       .from('fondos')
       .select('id, nombre, asset_class, inception, guidance_cp, domicilio, activo, es_referencia')
@@ -64,19 +80,22 @@ export async function listarFondosConSerie(): Promise<readonly FondoConSerie[]> 
     porFondo.set(fila.fondo_id, serie)
   }
 
-  return (fondos ?? []).map((fila) => ({
-    ficha: {
-      id: String(fila.id),
-      nombre: fila.nombre,
-      assetClass: fila.asset_class,
-      inception: fila.inception,
-      guidanceCortoPlazo: fila.guidance_cp,
-      domicilio: fila.domicilio,
-      esReferencia: fila.es_referencia,
-    },
-    activo: fila.activo,
-    observaciones: porFondo.get(fila.id) ?? [],
-  }))
+  return {
+    fondos: (fondos ?? []).map((fila) => ({
+      ficha: {
+        id: String(fila.id),
+        nombre: fila.nombre,
+        assetClass: fila.asset_class,
+        inception: fila.inception,
+        guidanceCortoPlazo: fila.guidance_cp,
+        domicilio: fila.domicilio,
+        esReferencia: fila.es_referencia,
+      },
+      activo: fila.activo,
+      observaciones: porFondo.get(fila.id) ?? [],
+    })),
+    problema: errorFondos?.message ?? errorObservaciones?.message ?? null,
+  }
 }
 
 /**
@@ -105,8 +124,10 @@ export async function metricasDeFondos(): Promise<{
   readonly fondos: readonly FondoConSerie[]
   /** Cuantos fondos cayeron al respaldo por no tener su mes de corte cargado. */
   readonly sinTreasury: number
+  /** Ver `FondosLeidos.problema`. */
+  readonly problema: string | null
 }> {
-  const [fondos, riskFree, treasury] = await Promise.all([
+  const [{ fondos, problema }, riskFree, treasury] = await Promise.all([
     listarFondosConSerie(),
     riskFreeVigente(),
     serieTreasury(),
@@ -136,6 +157,7 @@ export async function metricasDeFondos(): Promise<{
     ultimoMes,
     fondos,
     sinTreasury: metricas.filter((m) => m.ultimoMes !== null && m.mesDelRiskFree === null).length,
+    problema,
   }
 }
 

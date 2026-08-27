@@ -41,6 +41,7 @@ Reemplaza dos herramientas: un HTML monolítico de 10,863 líneas y la macro
 
 ```
 apps/web/              Next.js. UI delgada, sin reglas de negocio
+  lib/agenda.ts        días hábiles, feriados peruanos y la ruta de una ficha
 packages/
   core/                MOTOR PURO
     domain/            tipos: Perfil, Segmento, ClaseModelo, Posición, Piso
@@ -269,6 +270,49 @@ lee como un cero. Entra como `origen = 'ficha'` y sin `ofrecer`, así que no se
 cuela en el menú neteable de su clase (confundir esas dos listas produjo el
 bug v37.25) y queda en la cola de productos incompletos.
 
+## La agenda de entregas
+
+Subir la ficha no solo abre una propuesta: abre un compromiso. `/agenda` es ese
+compromiso puesto sobre el mes — cuatro días hábiles desde la subida, con el
+portafolio al primero, el PPT al segundo y la revisión de la mesa al tercero.
+
+**Nadie teclea una fecha.** Las cinco salen de `fichas.created_at` y del
+calendario laboral peruano, feriados incluidos, y Jueves y Viernes Santo se
+calculan cada año en vez de venir en una lista que envejece. Una agenda que se
+llena a mano es una segunda verdad sobre lo mismo, y se separa de la primera el
+día que alguien sube una ficha un viernes por la noche.
+
+Lo único que se guarda es lo contrario: si el hito ya se cumplió, en
+`agenda_hitos` (migración `0015`). Sin eso la agenda puede decir qué fecha toca
+pero nunca que algo va tarde, que es justo para lo que se abre el jueves por la
+tarde. La fila existe cuando el hito está cumplido; desmarcar la borra. Marcar
+sigue la regla de la ficha —su dueño o un admin—, leer es de todo el equipo.
+
+Tres decisiones sostienen la lectura, y las tres salen de mirar un mes cargado:
+
+- **El color es del cliente, no del hito.** Los hitos son siempre los mismos
+  cinco; lo que cambia entre dos píldoras vecinas es de quién son. El tono sale
+  de un hash del id de la ficha, pero no se queda ahí: dos rutas que se cruzan
+  en el calendario nunca comparten color — se reparte como se colorea un mapa,
+  y solo se repite cuando la paleta de ocho se agota. El color tampoco viaja
+  solo: van también las iniciales y, en el panel, el nombre entero.
+- **La certeza se dibuja.** Un hito a cuatro días hábiles no vale lo que el de
+  mañana, y la pantalla lo dice con el relleno en vez de con una nota al pie: lo
+  cumplido va firme, lo que viene se disuelve con la distancia. La difusión toca
+  el fondo y el halo, nunca la tinta — una fecha borrosa no se puede leer. La
+  entrega es la excepción: lleva anillo propio aunque esté lejos, porque es lo
+  único que se le prometió al cliente.
+- **Un cliente a la vez.** Apoyar el puntero sobre cualquier píldora enciende la
+  ruta entera de ese cliente y apaga el resto, y las celdas por donde pasa se
+  marcan con su color. Es la respuesta a «¿cómo viene Ana?» sin filtrar nada.
+
+El cálculo de días hábiles vive en `apps/web/lib/agenda.ts` y es puro —`hoy`
+entra como argumento, resuelto una sola vez en el servidor: si lo mirara el
+navegador, el calendario del servidor y el del cliente podrían no coincidir—.
+Sus tests fijan lo que un error de un día costaría caro: que el fin de semana no
+cuente, que Fiestas Patrias corra la entrega, y que una ficha subida un sábado
+empiece a contar el lunes.
+
 ## El Excel
 
 Es el documento de trabajo de la mesa: el que se anota, se filtra y se manda
@@ -337,6 +381,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 6 | PPT réplica | motor hecho, 8 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
+| — | Agenda de entregas: 4 días hábiles desde la ficha | hecho |
 | 9 | Asistencia opcional de IA | |
 | — | Macro editable, versionada y con historial | hecho |
 

@@ -11,6 +11,7 @@ interface Props {
 
 export type Seccion =
   | 'fichas'
+  | 'agenda'
   | 'propuestas'
   | 'clientes'
   | 'catalogo'
@@ -28,6 +29,13 @@ interface Item {
 
 const SECCIONES: readonly Item[] = [
   { clave: 'fichas', texto: 'Fichas', icono: 'M2 4h12M2 8h12M2 12h8', ruta: '/' },
+  {
+    clave: 'agenda',
+    texto: 'Agenda',
+    // Una hoja de calendario con su anilla: el plazo que abre cada ficha.
+    icono: 'M2.5 4.5h11v9h-11zM2.5 7h11M5.5 2.5v3M10.5 2.5v3',
+    ruta: '/agenda',
+  },
   { clave: 'propuestas', texto: 'Propuestas', icono: 'M3 2h7l3 3v9H3z', ruta: null },
   {
     clave: 'clientes',

@@ -325,6 +325,57 @@ Sus tests fijan lo que un error de un día costaría caro: que el fin de semana 
 cuente, que Fiestas Patrias corra la entrega, y que una ficha subida un sábado
 empiece a contar el lunes.
 
+## Los retornos de fondos
+
+Un módulo aparte del motor de propuestas: mide los productos del menú, no los
+portafolios de los clientes. Es la hoja `Distributivos` sin las fórmulas —
+sesenta fondos, cien meses, treinta y pico de métricas por fondo.
+
+**Nada derivado se guarda.** La base tiene dos cosas: el fondo y su observación
+mensual —NAV y retorno total—. Todas las métricas se calculan al leer, en
+`packages/core/src/retornos`. Por eso corregir un NAV de hace seis meses arregla
+las treinta columnas de esa fila sin ningún recálculo manual, y por eso un
+`insert` de un retorno de 1Y en `acciones.ts` sería un bug: esa cifra se
+desincroniza el día que alguien toque la serie vieja, que es la operación más
+común de todas.
+
+Cuatro vistas, cada una con una pregunta:
+
+| Vista | Contesta | Se edita |
+|---|---|---|
+| **Tabla maestra** | cuánto rindió cada fondo, en todas las ventanas | no |
+| **Matriz** | qué pasó en noviembre, y qué mes falta cargar | sí, celda por celda |
+| **Comparativos** | cuál es el mejor de su clase y cuál paga el riesgo | no |
+| **Cargar un mes** | el mes recién cerrado, fondo por fondo | sí, un mes entero |
+
+La **matriz** es la hoja tal como se veía —meses bajando, fondos al costado— y
+es donde el módulo se cargó de verdad: flechas para moverse, Enter para bajar,
+Ctrl+S para guardar y un bloque pegado desde Excel que cae donde está el
+cursor. Guarda solo las celdas que cambiaron de número, no las que alguien
+recorrió. La columna del mes trae su mediana y cuántos fondos tienen ese mes,
+que es el número que dice si falta algo.
+
+Cualquier fila de la tabla maestra **abre el fondo**: su curva de crecimiento
+compuesto, cuánto llegó a perder contra su máximo y cuánto tardó en
+recuperarlo, y la grilla de año por mes —la de toda la vida— editable ahí
+mismo. Una tabla de métricas no puede distinguir dos fondos con el mismo 12%
+anualizado a 3Y; la curva sí, y es la primera pregunta que hace un cliente
+cuando ve un número bueno.
+
+**El retorno se teclea en porcentaje**, en las tres pantallas que lo piden:
+0.83 es 0.83%, igual que en el reporte del manager. La conversión a la fracción
+que guarda la base vive en un solo lugar (`lib/retornos-celda.ts`). La primera
+versión pedía `0.0083` y ese salto es el error más caro del módulo — un cero de
+menos convierte un mes normal en un +83% que envenena las treinta métricas del
+fondo y no se nota hasta que el ranking sale raro.
+
+Dos detalles del cálculo que no son evidentes y están medidos contra el Excel:
+el Sharpe de cada fondo usa el **Treasury 10Y del mes en que termina su serie**,
+no una tasa común a la tabla —un fondo que reporta trimestral cierra en marzo y
+el resto en junio—, y los índices de mercado se muestran para comparar pero no
+entran a los rankings: «el mejor Sharpe de Private Equity: S&P 500» es una
+respuesta falsa a una pregunta razonable.
+
 ## El Excel
 
 Es el documento de trabajo de la mesa: el que se anota, se filtra y se manda
@@ -394,6 +445,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | — | Agenda de entregas: 4 días hábiles desde la ficha | hecho |
+| — | Retornos de fondos: tabla, matriz editable, curva y comparativos | hecho |
 | 9 | Asistencia opcional de IA | |
 | — | Macro editable, versionada y con historial | hecho |
 

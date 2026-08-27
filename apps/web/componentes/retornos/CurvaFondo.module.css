@@ -1,0 +1,146 @@
+/*
+ * La curva de un fondo.
+ *
+ * Una sola linea con peso, el area apenas insinuada y la reja lo mas atras
+ * posible. Lo unico que puede competir con la curva es la lectura del mes
+ * sobre el que esta el cursor, y esa vive fuera del SVG: adentro seria un
+ * tooltip que tapa justo la parte del grafico que alguien esta mirando.
+ */
+
+.marco {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  background: var(--superficie);
+  padding: 14px 16px 10px;
+}
+
+.lectura {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 34px;
+  padding-bottom: 4px;
+}
+
+.rotulo {
+  font-size: 11.5px;
+  color: var(--tinta-3);
+}
+
+.cifraGrande {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.grafico {
+  width: 100%;
+  height: auto;
+  display: block;
+  cursor: crosshair;
+}
+
+.reja {
+  stroke: var(--borde-suave);
+  stroke-width: 1;
+}
+
+.ejeCero {
+  stroke: var(--borde-fuerte);
+  stroke-width: 1;
+}
+
+.rotuloEje {
+  fill: var(--tinta-3);
+  font-size: 9.5px;
+  text-anchor: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.linea {
+  fill: none;
+  stroke: var(--acento);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* El indice va punteado y en la tinta de atencion: esta para ubicar, no para
+   competir con la curva del fondo. */
+.lineaReferencia {
+  fill: none;
+  stroke: var(--atencion);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.75;
+}
+
+.guia {
+  stroke: var(--tinta-4);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.marcador {
+  fill: var(--superficie);
+  stroke: var(--acento);
+  stroke-width: 2.5;
+}
+
+.areaCaida {
+  fill: color-mix(in srgb, var(--alerta) 26%, transparent);
+  stroke: var(--alerta);
+  stroke-width: 1;
+}
+
+.leyenda {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--tinta-3);
+  padding-top: 6px;
+}
+
+.leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.muestraLinea,
+.muestraCaida,
+.muestraReferencia {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.muestraLinea {
+  background: var(--acento);
+}
+
+.muestraCaida {
+  background: color-mix(in srgb, var(--alerta) 55%, transparent);
+}
+
+.muestraReferencia {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--atencion) 0 4px,
+    transparent 4px 7px
+  );
+}
+
+.vacio {
+  padding: 28px;
+  text-align: center;
+  color: var(--tinta-3);
+  font-size: 13px;
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--radio-tarjeta);
+}

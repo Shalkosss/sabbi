@@ -79,6 +79,92 @@ export async function guardarMes(mes: string, filas: readonly ObservacionEntrada
   }
 
   revalidatePath('/retornos/fondos')
+  revalidatePath('/retornos/matriz')
+  revalidatePath('/retornos/insights')
+  revalidatePath('/retornos/carga')
+
+  return { ok: true, guardadas: conDato.length }
+}
+
+export interface CeldaEntrada {
+  readonly fondoId: number
+  readonly mes: string
+  readonly nav: number | null
+  readonly retornoTotal: number | null
+}
+
+/**
+ * Guarda celdas sueltas, de cualquier mes.
+ *
+ * `guardarMes` sirve para cargar el mes recien cerrado, que es una columna
+ * entera de un solo mes. La matriz y el panel de un fondo editan otra cosa:
+ * una celda de marzo de 2023 y otra de agosto de 2025 en el mismo movimiento,
+ * porque corregir la serie vieja es lo que la hoja hacia todo el tiempo.
+ *
+ * Cada celda viaja con **las dos cifras**, no solo la que se toco. Un upsert
+ * parcial escribiria `null` sobre el NAV que ya estaba cargado cada vez que
+ * alguien corrige un retorno, y la apertura entre capital y distribucion se
+ * perderia sin que nadie lo pida.
+ */
+export async function guardarCeldas(celdas: readonly CeldaEntrada[]): Promise<Resultado> {
+  if (celdas.length === 0) return { ok: true, guardadas: 0 }
+
+  const invalido = celdas.find((c) => partirMes(c.mes) === null)
+  if (invalido !== undefined) return { ok: false, error: `El mes ${invalido.mes} no es válido.` }
+
+  const supabase = await clienteServidor()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user === null) return { ok: false, error: 'No hay sesión.' }
+
+  const { data: asesor } = await supabase
+    .from('advisors')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const conDato = celdas.filter((c) => c.nav !== null || c.retornoTotal !== null)
+  const vacias = celdas.filter((c) => c.nav === null && c.retornoTotal === null)
+
+  if (conDato.length > 0) {
+    const { error } = await supabase.from('fondos_observaciones').upsert(
+      conDato.map((c) => ({
+        fondo_id: c.fondoId,
+        mes: c.mes,
+        nav: c.nav,
+        retorno_total: c.retornoTotal,
+        creado_por: asesor?.id ?? null,
+      })),
+      { onConflict: 'fondo_id,mes' },
+    )
+    if (error !== null) return { ok: false, error: error.message }
+  }
+
+  /*
+   * El borrado va agrupado por mes y no celda por celda: son hasta cuarenta
+   * fondos por mes y un `delete` por celda son cuarenta viajes a la base para
+   * deshacer una carga que se hizo en uno.
+   */
+  const porMes = new Map<string, number[]>()
+  for (const celda of vacias) {
+    const lista = porMes.get(celda.mes) ?? []
+    lista.push(celda.fondoId)
+    porMes.set(celda.mes, lista)
+  }
+
+  for (const [mes, fondos] of porMes) {
+    const { error } = await supabase
+      .from('fondos_observaciones')
+      .delete()
+      .eq('mes', mes)
+      .in('fondo_id', fondos)
+    if (error !== null) return { ok: false, error: error.message }
+  }
+
+  revalidatePath('/retornos/fondos')
+  revalidatePath('/retornos/matriz')
   revalidatePath('/retornos/insights')
   revalidatePath('/retornos/carga')
 
@@ -141,5 +227,6 @@ export async function altaFondo(entrada: FondoEntrada): Promise<Resultado> {
 
   revalidatePath('/retornos/carga')
   revalidatePath('/retornos/fondos')
+  revalidatePath('/retornos/matriz')
   return { ok: true, guardadas: 1 }
 }

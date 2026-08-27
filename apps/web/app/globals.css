@@ -124,6 +124,13 @@
   --aurora-1: light-dark(rgba(121, 168, 45, 0.05), rgba(147, 201, 63, 0.07));
   --aurora-2: light-dark(rgba(117, 98, 198, 0.04), rgba(117, 98, 198, 0.07));
 
+  /* Mapa de calor de una celda de retorno. Es un fondo, no una tinta: la cifra
+     tiene que seguir leyendose encima a cualquier intensidad, y por eso los dos
+     son tenues en claro y apenas mas saturados en oscuro. El verde es el mismo
+     acento de la marca; el rojo, la alerta. */
+  --calor-positivo: light-dark(#9ccb4a, #4f7d18);
+  --calor-negativo: light-dark(#e5a591, #8e3925);
+
   /* Anillo de foco y de hover sobre el acento. */
   --anillo: color-mix(in srgb, var(--acento) 30%, transparent);
 

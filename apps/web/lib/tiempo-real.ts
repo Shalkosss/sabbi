@@ -11,14 +11,21 @@ import { clienteNavegador } from './supabase/navegador'
 /**
  * La ficha trabajada de a dos.
  *
- * Dos cosas distintas que viajan por el mismo canal y conviene no confundir:
+ * Dos cosas distintas, y ahora en **dos canales distintos**:
  *
- *  - **Los cambios** son estado que ya se guardó en la base. Llegan por
- *    `postgres_changes`, respetan RLS y son la verdad: si el otro asesor
- *    marcó «vender», eso está guardado y esta pantalla tiene que mostrarlo.
- *  - **Los cursores** son efímeros. No se guardan, no se recuperan al
- *    recargar y no importa si se pierde uno: van por `broadcast`, que no toca
- *    la base.
+ *  - **Los cursores y la presencia** son efímeros. No se guardan, no se
+ *    recuperan al recargar y no importa si se pierde uno. Van por `broadcast`
+ *    y `presence`, que no tocan la base.
+ *  - **Los cambios** son estado que ya se guardó. Llegan por
+ *    `postgres_changes`, respetan RLS y son la verdad: si el otro asesor marcó
+ *    «vender», eso está guardado y esta pantalla tiene que mostrarlo.
+ *
+ * Estaban juntos en un canal y esa era la fragilidad: `postgres_changes` es lo
+ * único de los tres que depende de configuración del servidor —la tabla tiene
+ * que estar en la publicación `supabase_realtime`, ver la migración 0014— y si
+ * el servidor rechaza esa suscripción, el canal entero queda en error. O sea
+ * que una publicación mal configurada se llevaba puestos los cursores, que no
+ * necesitan nada de la base. Separados, lo que funciona funciona.
  *
  * La regla que hace que esto no sea peor que no tenerlo: **lo que llega de
  * afuera nunca pisa lo que se está escribiendo acá**. El caso es concreto y
@@ -71,10 +78,29 @@ export interface Companero extends Presencia {
   readonly tono: number
 }
 
+/**
+ * En qué anda la conexión en vivo.
+ *
+ * Existe porque el modo de falla de esto es el silencio. Si el canal no
+ * conecta, la pantalla se ve exactamente igual que cuando el otro asesor
+ * todavía no abrió la ficha, y nadie tiene forma de distinguir «estoy solo» de
+ * «esto está roto». Un asesor que confía en unos cursores que no llegan es
+ * peor que uno que sabe que no los tiene.
+ */
+export type EstadoCanal = 'conectando' | 'en-vivo' | 'caido'
+
 export interface Compania {
   /** Los demás asesores en esta ficha, sin contarme. */
   readonly companeros: readonly Companero[]
   readonly cursores: readonly CursorAjeno[]
+  readonly estado: EstadoCanal
+  /**
+   * `false` cuando la presencia y los cursores andan pero la réplica de la
+   * base no. Se puede seguir trabajando —solo que los cambios del otro no
+   * aparecen solos— y decirlo es la diferencia entre eso y creer que la ficha
+   * está al día.
+   */
+  readonly cambiosEnVivo: boolean
 }
 
 interface Opciones {
@@ -96,7 +122,12 @@ interface Opciones {
   readonly contenedor: RefObject<HTMLElement | null>
 }
 
-const VACIA: Compania = { companeros: [], cursores: [] }
+const VACIA: Compania = {
+  companeros: [],
+  cursores: [],
+  estado: 'conectando',
+  cambiosEnVivo: false,
+}
 
 /**
  * Conecta la ficha al canal de su equipo.
@@ -130,9 +161,16 @@ export function useCompania({
     if (fichaId === '') return
 
     const supabase = clienteNavegador()
-    const canal = supabase.channel(`ficha:${fichaId}`, {
+
+    /*
+     * Dos canales sobre el mismo websocket. `supabase-js` los multiplexa, así
+     * que separar no cuesta una conexión más — y compra que la caída de uno no
+     * sea la del otro. Ver la nota de arriba del archivo.
+     */
+    const canalVivo = supabase.channel(`ficha:${fichaId}`, {
       config: { presence: { key: yoRef.current.asesorId } },
     })
+    const canalCambios = supabase.channel(`ficha-cambios:${fichaId}`)
 
     const cursores = new Map<string, CursorAjeno>()
 
@@ -144,9 +182,9 @@ export function useCompania({
       }))
     }
 
-    canal
+    canalVivo
       .on('presence', { event: 'sync' }, () => {
-        const estado = canal.presenceState<Presencia>()
+        const estado = canalVivo.presenceState<Presencia>()
         const companeros = Object.values(estado)
           .flatMap((entradas) => entradas)
           .filter((entrada) => entrada.asesorId !== yoRef.current.asesorId)
@@ -163,7 +201,11 @@ export function useCompania({
           if (!presentes.has(id)) cursores.delete(id)
         }
 
-        setCompania({ companeros, cursores: [...cursores.values()] })
+        setCompania((previa) => ({
+          ...previa,
+          companeros,
+          cursores: [...cursores.values()],
+        }))
       })
       .on('broadcast', { event: 'cursor' }, ({ payload }) => {
         const cursor = payload as { asesorId: string; nombre: string; x: number; y: number }
@@ -175,30 +217,51 @@ export function useCompania({
         })
         refrescarCursores()
       })
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'ficha_positions',
-          filter: `ficha_id=eq.${fichaId}`,
-        },
-        ({ new: fila }) => {
-          const cruda = fila as unknown as FilaPosicion & { id: string }
-          // Lo que estoy tocando no se pisa. Incluye el eco de mi propio
-          // guardado, que vuelve por este mismo canal unos milisegundos
-          // después de que lo escribí.
-          if (miasRef.current().has(cruda.id)) return
-          alCambiarRef.current(posicionDeFila(cruda))
-        },
-      )
 
-    void canal.subscribe((estado) => {
-      // `REALTIME_SUBSCRIBE_STATES.SUBSCRIBED` es un enum del cliente y su
-      // valor es esta misma cadena; se compara por cadena para no arrastrar el
-      // enum hasta acá, y el linter pide que la comparación sea explícita.
-      if (String(estado) !== 'SUBSCRIBED') return
-      void canal.track(yoRef.current)
+    canalCambios.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'ficha_positions',
+        filter: `ficha_id=eq.${fichaId}`,
+      },
+      ({ new: fila }) => {
+        const cruda = fila as unknown as FilaPosicion & { id: string }
+        // Lo que estoy tocando no se pisa. Incluye el eco de mi propio
+        // guardado, que vuelve por este mismo canal unos milisegundos
+        // después de que lo escribí.
+        if (miasRef.current().has(cruda.id)) return
+        alCambiarRef.current(posicionDeFila(cruda))
+      },
+    )
+
+    /*
+     * Los estados del cliente son un enum cuyos valores son estas mismas
+     * cadenas; se comparan por cadena para no arrastrar el enum hasta acá.
+     * `CLOSED` no se trata como caída: es lo que llega al desmontar.
+     */
+    void canalVivo.subscribe((estado) => {
+      const nombre = String(estado)
+      if (nombre === 'SUBSCRIBED') {
+        void canalVivo.track(yoRef.current)
+        setCompania((previa) => ({ ...previa, estado: 'en-vivo' }))
+        return
+      }
+      if (nombre === 'CHANNEL_ERROR' || nombre === 'TIMED_OUT') {
+        setCompania((previa) => ({ ...previa, estado: 'caido' }))
+      }
+    })
+
+    void canalCambios.subscribe((estado) => {
+      const nombre = String(estado)
+      if (nombre === 'SUBSCRIBED') {
+        setCompania((previa) => ({ ...previa, cambiosEnVivo: true }))
+        return
+      }
+      if (nombre === 'CHANNEL_ERROR' || nombre === 'TIMED_OUT') {
+        setCompania((previa) => ({ ...previa, cambiosEnVivo: false }))
+      }
     })
 
     // Un cursor que dejó de moverse porque su dueño se fue sin cerrar la
@@ -226,7 +289,7 @@ export function useCompania({
 
       ultimoEnvio = ahora
 
-      void canal.send({
+      void canalVivo.send({
         type: 'broadcast',
         event: 'cursor',
         payload: { ...yoRef.current, x, y },
@@ -238,7 +301,8 @@ export function useCompania({
     return () => {
       window.removeEventListener('pointermove', alMover)
       window.clearInterval(barrido)
-      void supabase.removeChannel(canal)
+      void supabase.removeChannel(canalVivo)
+      void supabase.removeChannel(canalCambios)
       setCompania(VACIA)
     }
   }, [fichaId, contenedor])

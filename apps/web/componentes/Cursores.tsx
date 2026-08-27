@@ -1,6 +1,6 @@
 'use client'
 
-import type { CursorAjeno } from '../lib/tiempo-real'
+import type { CursorAjeno, EstadoCanal } from '../lib/tiempo-real'
 import estilos from './Cursores.module.css'
 
 /**
@@ -77,4 +77,46 @@ export function Companeros({
       ))}
     </span>
   )
+}
+
+/**
+ * Si la ficha está conectada en vivo.
+ *
+ * Solo aparece cuando algo no anda. En verde no dice nada: un indicador que
+ * está siempre encendido deja de leerse a la semana, y lo que importa acá es
+ * el caso raro — dos asesores mirándose los cursores que nunca llegan, sin
+ * ninguna señal de que el problema no son ellos.
+ */
+export function EstadoEnVivo({
+  estado,
+  cambiosEnVivo,
+}: {
+  readonly estado: EstadoCanal
+  readonly cambiosEnVivo: boolean
+}) {
+  if (estado === 'conectando') return null
+
+  if (estado === 'caido') {
+    return (
+      <span
+        className={estilos.alerta}
+        title="No hay conexión en vivo con esta ficha: no vas a ver los cursores ni los cambios de los demás. Lo que guardes se guarda igual; recargá para ver lo que hicieron."
+      >
+        Sin conexión en vivo
+      </span>
+    )
+  }
+
+  if (!cambiosEnVivo) {
+    return (
+      <span
+        className={estilos.aviso}
+        title="Los cursores llegan, pero los cambios guardados por otro asesor no aparecen solos: hay que recargar. Suele ser que falta publicar la tabla por Realtime (migración 0014)."
+      >
+        Cursores sí, cambios no
+      </span>
+    )
+  }
+
+  return null
 }

@@ -49,9 +49,10 @@ export default async function Pagina() {
 
         {fichas.length > 0 && (
           <section className={estilos.seccion} aria-labelledby="fichas-guardadas">
-            <h2 id="fichas-guardadas">Fichas que cargaste</h2>
+            <h2 id="fichas-guardadas">Fichas de la mesa</h2>
             <p className={estilos.pie}>
-              La revisión se guarda sola: cada una vuelve a abrirse donde la dejaste.
+              Están las de todo el equipo, no solo las tuyas: una ficha la trabaja quien esté
+              disponible. La revisión se guarda sola y cada una vuelve a abrirse donde quedó.
             </p>
             <ListaDeFichas fichas={fichas} />
           </section>

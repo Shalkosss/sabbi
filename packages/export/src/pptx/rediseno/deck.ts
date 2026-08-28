@@ -293,9 +293,9 @@ function hoy(pptx: PptxGenJS, propuesta: Propuesta): void {
     HOJA.margen + ancho * 2,
     1.28,
     ancho,
-    'Renta anual estimada',
-    rangoUsd(vista.rentaAnualUsd),
-    'USD por año',
+    'Renta anual · distribuciones',
+    rangoUsd(vista.distribucionAnualUsd),
+    'USD por año, lo que paga en efectivo',
   )
 
   slide.addText('MONTO          %          RETORNO EST.', {
@@ -479,9 +479,9 @@ function rentabilidad(pptx: PptxGenJS, propuesta: Propuesta): void {
     HOJA.margen,
     2.75,
     ancho,
-    'Renta anual estimada hoy',
-    rangoUsd(vista.rentaAnualAntesUsd),
-    'USD por año',
+    'Renta anual · distribuciones hoy',
+    rangoUsd(vista.distribucionAnualAntesUsd),
+    'USD por año, lo que paga en efectivo',
   )
   cifra(
     slide,
@@ -489,8 +489,8 @@ function rentabilidad(pptx: PptxGenJS, propuesta: Propuesta): void {
     2.75,
     ancho,
     'Con Sabbi',
-    rangoUsd(vista.rentaAnualDespuesUsd),
-    'USD por año',
+    rangoUsd(vista.distribucionAnualDespuesUsd),
+    'USD por año, lo que paga en efectivo',
   )
 
   cifra(

@@ -106,6 +106,31 @@ describe('armarVistaHoy', () => {
     expect(vista.rentaAnualUsd?.min).toBeCloseTo(0.04666667 * 1_000_000, 0)
   })
 
+  it('el distributivo sale del catalogo, no del rendimiento de la ficha', () => {
+    // El bono distribuye 4-4%; el DPF distribuye 3-3%. La cuenta corriente y
+    // el inmueble no estan en el catalogo: no aportan distributivo.
+    const catalogo = new Map<string, DatosProducto>([
+      ['Bono corporativo', { retMin: 0.06, retMax: 0.06, distMin: 0.04, distMax: 0.04, distFrecuencia: null, moneda: 'USD', liquidez: null }],
+      ['DPF', { retMin: 0.05, retMax: 0.05, distMin: 0.03, distMax: 0.03, distFrecuencia: null, moneda: 'USD', liquidez: null }],
+    ])
+    const conDist = armarVistaHoy(posiciones, true, catalogo)
+
+    // Distributivo ponderado: (300k×3% + 200k×4%) / 500k con dato = 3.4%.
+    expect(conDist.rentabilidadDist?.rango.min).toBeCloseTo(0.034, 6)
+    // Cobertura: 500k de 1M tienen distributivo.
+    expect(conDist.rentabilidadDist?.cobertura).toBeCloseTo(0.5, 10)
+    // La distribucion anual en dolares: 3.4% del millon = 34k.
+    expect(conDist.distribucionAnualUsd?.min).toBeCloseTo(34_000, 0)
+    // Y es menor que la renta por retorno total, que es lo que hace la vista
+    // util: el retorno total sobrestima lo que el cliente cobra en efectivo.
+    expect(conDist.distribucionAnualUsd?.min).toBeLessThan(vista.rentaAnualUsd?.min ?? Infinity)
+  })
+
+  it('sin catalogo no hay distributivo, aunque el retorno exista', () => {
+    expect(vista.rentabilidadDist).toBeNull()
+    expect(vista.distribucionAnualUsd).toBeNull()
+  })
+
   /**
    * Cuantos puntos de la rentabilidad pone cada clase.
    *

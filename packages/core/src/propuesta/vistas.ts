@@ -76,6 +76,9 @@ export interface SubfilaVista {
   readonly rentabilidad: RentabilidadPonderada | null
   /** Puntos de la rentabilidad del portafolio que pone esta linea. */
   readonly aporteRenta: AporteRenta
+  /** Lo mismo, pero mirando solo lo que distribuye en efectivo. */
+  readonly rentabilidadDist: RentabilidadPonderada | null
+  readonly aporteDist: AporteRenta
   /** Solo en el despues: la linea ya la tenia el cliente y se conserva. */
   readonly conservada?: boolean
 }
@@ -87,6 +90,9 @@ export interface FilaVistaClase {
   readonly rentabilidad: RentabilidadPonderada | null
   /** Puntos de la rentabilidad del portafolio que pone esta clase. */
   readonly aporteRenta: AporteRenta
+  /** Retorno y aporte mirando solo lo que distribuye en efectivo. */
+  readonly rentabilidadDist: RentabilidadPonderada | null
+  readonly aporteDist: AporteRenta
   readonly subfilas: readonly SubfilaVista[]
 }
 
@@ -97,6 +103,10 @@ export interface VistaHoy {
   readonly rentabilidad: RentabilidadPonderada | null
   /** Renta anual estimada en dolares: rentabilidad por total. */
   readonly rentaAnualUsd: Rango | null
+  /** El distributivo ponderado: la parte del retorno que se cobra en efectivo. */
+  readonly rentabilidadDist: RentabilidadPonderada | null
+  /** Distribucion anual estimada en dolares: distributivo por total. */
+  readonly distribucionAnualUsd: Rango | null
 }
 
 export interface FilaComparativa {
@@ -113,6 +123,11 @@ export interface FilaComparativa {
   readonly rentabilidadDespues: RentabilidadPonderada | null
   readonly aporteRentaAntes: AporteRenta
   readonly aporteRentaDespues: AporteRenta
+  /** Los mismos aportes, pero al distributivo — lo que se cobra en efectivo. */
+  readonly rentabilidadDistAntes: RentabilidadPonderada | null
+  readonly rentabilidadDistDespues: RentabilidadPonderada | null
+  readonly aporteDistAntes: AporteRenta
+  readonly aporteDistDespues: AporteRenta
 }
 
 /** Vista 2: antes contra despues. */
@@ -124,12 +139,31 @@ export interface VistaComparativa {
   readonly rentabilidadDespues: RentabilidadPonderada | null
   readonly rentaAnualAntesUsd: Rango | null
   readonly rentaAnualDespuesUsd: Rango | null
+  /** Distributivo ponderado y distribucion anual en dolares, cada lado. */
+  readonly rentabilidadDistAntes: RentabilidadPonderada | null
+  readonly rentabilidadDistDespues: RentabilidadPonderada | null
+  readonly distribucionAnualAntesUsd: Rango | null
+  readonly distribucionAnualDespuesUsd: Rango | null
 }
 
+/**
+ * Una parte del portafolio con sus dos retornos.
+ *
+ * `rango` es el retorno total —lo que sube el activo—; `rangoDist` es solo la
+ * parte que se cobra en efectivo. Van juntos porque cada vista se calcula dos
+ * veces, una por cada metrica, sobre exactamente las mismas partes.
+ */
 interface Ponderable {
   readonly usd: number
   readonly rango: Rango | null
+  readonly rangoDist: Rango | null
 }
+
+/** Cual de los dos retornos mira un calculo: el total o el distributivo. */
+type Selector = (p: Ponderable) => Rango | null
+
+const RETORNO: Selector = (p) => p.rango
+const DIST: Selector = (p) => p.rangoDist
 
 const share = (parte: number, total: number): number => (total > EPS ? parte / total : 0)
 
@@ -138,14 +172,14 @@ const share = (parte: number, total: number): number => (total > EPS ? parte / t
  *
  * `null` cuando nada tiene dato: una rentabilidad sin base no se afirma.
  */
-function ponderar(partes: readonly Ponderable[]): RentabilidadPonderada | null {
+function ponderar(partes: readonly Ponderable[], sel: Selector = RETORNO): RentabilidadPonderada | null {
   const total = partes.reduce((acc, p) => acc + p.usd, 0)
-  const conDato = partes.filter((p) => p.rango !== null && p.usd > EPS)
+  const conDato = partes.filter((p) => sel(p) !== null && p.usd > EPS)
   const base = conDato.reduce((acc, p) => acc + p.usd, 0)
   if (base <= EPS) return null
 
-  const min = conDato.reduce((acc, p) => acc + p.usd * (p.rango?.min ?? 0), 0) / base
-  const max = conDato.reduce((acc, p) => acc + p.usd * (p.rango?.max ?? 0), 0) / base
+  const min = conDato.reduce((acc, p) => acc + p.usd * (sel(p)?.min ?? 0), 0) / base
+  const max = conDato.reduce((acc, p) => acc + p.usd * (sel(p)?.max ?? 0), 0) / base
 
   return { rango: { min, max }, cobertura: total > EPS ? base / total : 0 }
 }
@@ -180,9 +214,9 @@ const rentaDe = (usd: number, rango: Rango | null): number =>
 const aporte = (renta: number, baseUsd: number): AporteRenta =>
   baseUsd <= EPS ? null : renta / baseUsd
 
-/** La renta anual esperada de un conjunto de partes. */
-const rentaTotalDe = (partes: readonly Ponderable[]): number =>
-  partes.reduce((acc, p) => acc + rentaDe(p.usd, p.rango), 0)
+/** La renta anual esperada de un conjunto de partes, por la metrica pedida. */
+const rentaTotalDe = (partes: readonly Ponderable[], sel: Selector = RETORNO): number =>
+  partes.reduce((acc, p) => acc + rentaDe(p.usd, sel(p)), 0)
 
 /**
  * El dinero que sostiene la rentabilidad: el que tiene retorno conocido.
@@ -193,8 +227,8 @@ const rentaTotalDe = (partes: readonly Ponderable[]): number =>
  * cambiara de criterio, y esa es exactamente la clase de descuadre que nadie
  * encuentra despues.
  */
-const baseConDato = (partes: readonly Ponderable[]): number =>
-  partes.reduce((acc, p) => (p.rango !== null && p.usd > EPS ? acc + p.usd : acc), 0)
+const baseConDato = (partes: readonly Ponderable[], sel: Selector = RETORNO): number =>
+  partes.reduce((acc, p) => (sel(p) !== null && p.usd > EPS ? acc + p.usd : acc), 0)
 
 const rentaAnual = (
   rentabilidad: RentabilidadPonderada | null,
@@ -233,15 +267,22 @@ export function cuentanEnElCalculo(
 export function armarVistaHoy(
   posiciones: readonly PosicionPropuesta[],
   incluirInmueblesDeRenta = true,
+  catalogo: ReadonlyMap<string, DatosProducto> = new Map(),
 ): VistaHoy {
   const invertibles = cuentanEnElCalculo(posiciones, incluirInmueblesDeRenta)
   const totalUsd = invertibles.reduce((acc, p) => acc + p.valorUsd, 0)
 
-  const ponderable = (p: PosicionPropuesta) => ({
+  // El retorno total sale de la ficha —lo que el asesor confirmo—; el
+  // distributivo, del catalogo, porque la ficha no lo guarda: es un dato del
+  // producto, no de la posicion. Lo que el catalogo no conoce queda sin dato
+  // distributivo y no aporta, en vez de suponerle un cero que baje el promedio.
+  const ponderable = (p: PosicionPropuesta): Ponderable => ({
     usd: p.valorUsd,
     rango: rangoDe(p.rendimientoEst),
+    rangoDist: distDeProducto(catalogo.get(p.institucionProducto)),
   })
   const baseUsd = baseConDato(invertibles.map(ponderable))
+  const baseDistUsd = baseConDato(invertibles.map(ponderable), DIST)
 
   const filas = ORDEN_CLASES.flatMap((clase): FilaVistaClase[] => {
     const propias = invertibles.filter((p) => p.claseModelo === clase)
@@ -258,32 +299,53 @@ export function armarVistaHoy(
     const subfilas = [...porSubclase.entries()]
       .map(([etiqueta, grupo]): SubfilaVista => {
         const usdSub = grupo.reduce((acc, p) => acc + p.valorUsd, 0)
+        const partes = grupo.map(ponderable)
         return {
           etiqueta,
           usd: usdSub,
           share: share(usdSub, totalUsd),
-          rentabilidad: ponderar(grupo.map(ponderable)),
-          aporteRenta: aporte(rentaTotalDe(grupo.map(ponderable)), baseUsd),
+          rentabilidad: ponderar(partes),
+          aporteRenta: aporte(rentaTotalDe(partes), baseUsd),
+          rentabilidadDist: ponderar(partes, DIST),
+          aporteDist: aporte(rentaTotalDe(partes, DIST), baseDistUsd),
         }
       })
       .sort((a, b) => b.usd - a.usd)
 
+    const partes = propias.map(ponderable)
     return [
       {
         clase,
         usd,
         share: share(usd, totalUsd),
-        rentabilidad: ponderar(propias.map(ponderable)),
-        aporteRenta: aporte(rentaTotalDe(propias.map(ponderable)), baseUsd),
+        rentabilidad: ponderar(partes),
+        aporteRenta: aporte(rentaTotalDe(partes), baseUsd),
+        rentabilidadDist: ponderar(partes, DIST),
+        aporteDist: aporte(rentaTotalDe(partes, DIST), baseDistUsd),
         subfilas,
       },
     ]
   })
 
-  const rentabilidad = ponderar(invertibles.map(ponderable))
+  const partes = invertibles.map(ponderable)
+  const rentabilidad = ponderar(partes)
+  const rentabilidadDist = ponderar(partes, DIST)
 
-  return { filas, totalUsd, rentabilidad, rentaAnualUsd: rentaAnual(rentabilidad, totalUsd) }
+  return {
+    filas,
+    totalUsd,
+    rentabilidad,
+    rentaAnualUsd: rentaAnual(rentabilidad, totalUsd),
+    rentabilidadDist,
+    distribucionAnualUsd: rentaAnual(rentabilidadDist, totalUsd),
+  }
 }
+
+/** El distributivo de un producto del catalogo, como banda. */
+const distDeProducto = (producto: DatosProducto | undefined): Rango | null =>
+  producto !== undefined && producto.distMin !== null && producto.distMax !== null
+    ? { min: producto.distMin, max: producto.distMax }
+    : null
 
 // --- Vista 2: el comparativo ---
 
@@ -313,55 +375,82 @@ function lectorDeRango(
   }
 }
 
+/**
+ * El distributivo de una linea del plan, del catalogo.
+ *
+ * No hereda de la posicion como el retorno: una posicion no guarda su
+ * distributivo, es un dato del producto. Lo que el catalogo no conoce queda
+ * sin dato y no aporta.
+ */
+const lectorDeDist =
+  (catalogo: ReadonlyMap<string, DatosProducto>) =>
+  (instrumento: string): Rango | null =>
+    distDeProducto(catalogo.get(instrumento))
+
 /** Un plan leido como portafolio: cuanto hay en cada clase y en cada linea. */
 interface LadoDelPlan {
   readonly totalUsd: number
   readonly rentabilidad: RentabilidadPonderada | null
   readonly rentaAnualUsd: Rango | null
+  readonly rentabilidadDist: RentabilidadPonderada | null
+  readonly distribucionAnualUsd: Rango | null
   readonly usdDe: (clase: ClaseModelo) => number
   readonly fijadaEn: (clase: ClaseModelo) => boolean
   readonly subfilasDe: (clase: ClaseModelo) => readonly SubfilaVista[]
   readonly rentabilidadDe: (clase: ClaseModelo) => RentabilidadPonderada | null
   readonly aporteRentaDe: (clase: ClaseModelo) => AporteRenta
+  readonly rentabilidadDistDe: (clase: ClaseModelo) => RentabilidadPonderada | null
+  readonly aporteDistDe: (clase: ClaseModelo) => AporteRenta
 }
 
 function leerPlan(
   plan: Plan,
   rangoDeLinea: (instrumento: string) => Rango | null,
+  distDeLinea: (instrumento: string) => Rango | null,
   conservadas: ReadonlySet<string>,
 ): LadoDelPlan {
   const totalUsd = plan.totalObjetivoUsd
   const lineasDe = (clase: ClaseModelo) => plan.lineas.filter((l) => l.clase === clase)
 
-  const ponderable = (l: { readonly usd: number; readonly instrumento: string }) => ({
+  const ponderable = (l: { readonly usd: number; readonly instrumento: string }): Ponderable => ({
     usd: l.usd,
     rango: rangoDeLinea(l.instrumento),
+    rangoDist: distDeLinea(l.instrumento),
   })
   const rentabilidad = ponderar(plan.lineas.map(ponderable))
+  const rentabilidadDist = ponderar(plan.lineas.map(ponderable), DIST)
   const baseUsd = baseConDato(plan.lineas.map(ponderable))
+  const baseDistUsd = baseConDato(plan.lineas.map(ponderable), DIST)
 
   return {
     totalUsd,
     rentabilidad,
     rentaAnualUsd: rentaAnual(rentabilidad, totalUsd),
+    rentabilidadDist,
+    distribucionAnualUsd: rentaAnual(rentabilidadDist, totalUsd),
     usdDe: (clase) => plan.reparto.porClase.find((c) => c.clase === clase)?.objetivoUsd ?? 0,
     fijadaEn: (clase) => plan.reparto.porClase.find((c) => c.clase === clase)?.fijada ?? false,
     subfilasDe: (clase) =>
       lineasDe(clase)
         .map((l): SubfilaVista => {
           const rango = rangoDeLinea(l.instrumento)
+          const rangoDist = distDeLinea(l.instrumento)
           return {
             etiqueta: l.instrumento,
             usd: l.usd,
             share: share(l.usd, totalUsd),
             rentabilidad: rango === null ? null : { rango, cobertura: 1 },
             aporteRenta: aporte(rentaDe(l.usd, rango), baseUsd),
+            rentabilidadDist: rangoDist === null ? null : { rango: rangoDist, cobertura: 1 },
+            aporteDist: aporte(rentaDe(l.usd, rangoDist), baseDistUsd),
             conservada: conservadas.has(l.instrumento),
           }
         })
         .sort((a, b) => b.usd - a.usd),
     rentabilidadDe: (clase) => ponderar(lineasDe(clase).map(ponderable)),
     aporteRentaDe: (clase) => aporte(rentaTotalDe(lineasDe(clase).map(ponderable)), baseUsd),
+    rentabilidadDistDe: (clase) => ponderar(lineasDe(clase).map(ponderable), DIST),
+    aporteDistDe: (clase) => aporte(rentaTotalDe(lineasDe(clase).map(ponderable), DIST), baseDistUsd),
   }
 }
 
@@ -378,9 +467,12 @@ export function armarComparativa(
   catalogo: ReadonlyMap<string, DatosProducto>,
   incluirInmueblesDeRenta = true,
 ): VistaComparativa {
-  const hoy = armarVistaHoy(posiciones, incluirInmueblesDeRenta)
+  // El "antes" tambien lee el catalogo, pero solo para el distributivo: el
+  // retorno total sigue saliendo de la ficha. El catalogo aca cubre tanto los
+  // nombres del plan como los de las posiciones (ver `armar-propuesta`).
+  const hoy = armarVistaHoy(posiciones, incluirInmueblesDeRenta, catalogo)
   const rangoDeLinea = lectorDeRango(posiciones, catalogo)
-  const despues = leerPlan(plan, rangoDeLinea, lineasConservadas(posiciones))
+  const despues = leerPlan(plan, rangoDeLinea, lectorDeDist(catalogo), lineasConservadas(posiciones))
 
   const filas = ORDEN_CLASES.flatMap((clase): FilaComparativa[] => {
     const antes = hoy.filas.find((f) => f.clase === clase)
@@ -403,6 +495,10 @@ export function armarComparativa(
         rentabilidadDespues: despues.rentabilidadDe(clase),
         aporteRentaAntes: antes?.aporteRenta ?? null,
         aporteRentaDespues: despues.aporteRentaDe(clase),
+        rentabilidadDistAntes: antes?.rentabilidadDist ?? null,
+        rentabilidadDistDespues: despues.rentabilidadDistDe(clase),
+        aporteDistAntes: antes?.aporteDist ?? null,
+        aporteDistDespues: despues.aporteDistDe(clase),
       },
     ]
   })
@@ -415,6 +511,10 @@ export function armarComparativa(
     rentabilidadDespues: despues.rentabilidad,
     rentaAnualAntesUsd: hoy.rentaAnualUsd,
     rentaAnualDespuesUsd: despues.rentaAnualUsd,
+    rentabilidadDistAntes: hoy.rentabilidadDist,
+    rentabilidadDistDespues: despues.rentabilidadDist,
+    distribucionAnualAntesUsd: hoy.distribucionAnualUsd,
+    distribucionAnualDespuesUsd: despues.distribucionAnualUsd,
   }
 }
 

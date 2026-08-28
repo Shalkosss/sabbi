@@ -42,23 +42,66 @@ export async function riskFreeVigente(): Promise<number> {
   return data?.risk_free ?? 0.04475
 }
 
+/**
+ * Cuantas filas pide cada viaje al traer las observaciones.
+ *
+ * PostgREST corta toda respuesta en mil filas y no avisa: devuelve las mil
+ * primeras del orden pedido y un `data` que parece completo. Con la serie
+ * ordenada por mes eso entregaba desde 2008 hasta la mil, y todo lo reciente
+ * llegaba vacio — la matriz sin una sola celda y las metricas calculadas sobre
+ * una serie truncada. Por eso se pagina a mano hasta que un tramo vuelve corto.
+ */
+const TRAMO = 1000
+
+interface FilaObservacion {
+  readonly fondo_id: number
+  readonly mes: Mes
+  readonly nav: number | null
+  readonly retorno_total: number | null
+}
+
+/**
+ * Toda la tabla de observaciones, de a mil.
+ *
+ * El orden lleva `fondo_id` de desempate: paginar por un campo con repetidos
+ * —hay sesenta y cuatro filas por mes— deja el corte de cada tramo a merced
+ * del orden que devuelva el motor, y ahi se pierden o se duplican filas.
+ */
+async function todasLasObservaciones(
+  supabase: Awaited<ReturnType<typeof clienteServidor>>,
+): Promise<readonly FilaObservacion[]> {
+  const todas: FilaObservacion[] = []
+
+  for (let desde = 0; ; desde += TRAMO) {
+    const { data, error } = await supabase
+      .from('fondos_observaciones')
+      .select('fondo_id, mes, nav, retorno_total')
+      .order('mes')
+      .order('fondo_id')
+      .range(desde, desde + TRAMO - 1)
+
+    if (error !== null) throw new Error(`No se pudieron leer las observaciones: ${error.message}`)
+
+    const tramo = (data ?? []) as FilaObservacion[]
+    todas.push(...tramo)
+    if (tramo.length < TRAMO) return todas
+  }
+}
+
 /** Los fondos con su serie mensual completa. */
 export async function listarFondosConSerie(): Promise<readonly FondoConSerie[]> {
   const supabase = await clienteServidor()
 
-  const [{ data: fondos }, { data: observaciones }] = await Promise.all([
+  const [{ data: fondos }, observaciones] = await Promise.all([
     supabase
       .from('fondos')
       .select('id, nombre, asset_class, inception, guidance_cp, domicilio, activo, es_referencia')
       .order('nombre'),
-    supabase
-      .from('fondos_observaciones')
-      .select('fondo_id, mes, nav, retorno_total')
-      .order('mes'),
+    todasLasObservaciones(supabase),
   ])
 
   const porFondo = new Map<number, ObservacionMensual[]>()
-  for (const fila of observaciones ?? []) {
+  for (const fila of observaciones) {
     const serie = porFondo.get(fila.fondo_id) ?? []
     serie.push({ mes: fila.mes, nav: fila.nav, retornoTotal: fila.retorno_total })
     porFondo.set(fila.fondo_id, serie)

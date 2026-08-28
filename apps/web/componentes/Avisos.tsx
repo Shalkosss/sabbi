@@ -13,8 +13,8 @@ interface Props {
   readonly avisos: readonly Aviso[]
   readonly ignoradas: readonly FilaIgnorada[]
   /**
-   * Identificador de la ficha para recordar cuales avisos silencio el asesor.
-   * Con `null` no se guarda nada — el boton de cerrar no aparece.
+   * Identificador de la ficha para recordar los silenciados y las notas.
+   * Con `null` no se guarda nada — la × y las notas no aparecen.
    */
   readonly fichaId?: string | null
 }
@@ -24,77 +24,113 @@ const MOTIVOS: Readonly<Record<string, string>> = {
   sin_nombre: 'sin nombre',
 }
 
-/** Identidad estable de un aviso dentro de una ficha. */
 const firmaAviso = (aviso: Aviso): string =>
   `${aviso.codigo}|${aviso.fila ?? '·'}|${aviso.mensaje}`
 
-const CLAVE = (fichaId: string) => `sabbi:avisos-silenciados:${fichaId}`
+const CLAVE_SIL = (fichaId: string) => `sabbi:avisos-silenciados:${fichaId}`
+const CLAVE_NOTAS = (fichaId: string) => `sabbi:avisos-notas:${fichaId}`
+
+const hayFicha = (fichaId: string | null | undefined): fichaId is string =>
+  fichaId !== null && fichaId !== undefined && fichaId !== ''
+
+interface Nota {
+  readonly id: string
+  readonly texto: string
+}
 
 /**
- * Los avisos silenciados por el asesor, para esta ficha, en este navegador.
- *
- * No entra a la base porque `parse_warnings` sigue siendo la foto del parser:
- * si silenciar entrara al servidor, lo que se guarda seria «este asesor decidio
- * que este cartel no volviera a salir en esta pantalla», que no es un dato del
- * cliente. Se guarda en el navegador —una decision de vista— y se comparte por
- * ficha, no por persona: dos asesores mirando la misma ficha ven los mismos
- * avisos vivos porque la ficha es del equipo.
- *
- * Si el localStorage no esta disponible, cae al comportamiento anterior sin
- * romperse: un silencio efimero, que sobrevive el render pero no el reload.
+ * Silenciados y notas viven en `localStorage` — decisiones de vista, no datos
+ * del cliente. Se comparten por ficha entre navegadores del mismo asesor.
  */
-function useSilenciados(fichaId: string | null | undefined) {
-  const [silenciados, setSilenciados] = useState<ReadonlySet<string>>(() => new Set())
+function useLocal<T>(clave: string | null, parsear: (crudo: unknown) => T, vacio: T) {
+  const [valor, setValor] = useState<T>(() => vacio)
 
   useEffect(() => {
-    if (fichaId === null || fichaId === undefined || fichaId === '') return
+    if (clave === null) return
     try {
-      const guardado = window.localStorage.getItem(CLAVE(fichaId))
+      const guardado = window.localStorage.getItem(clave)
       if (guardado === null) return
-      const filas = JSON.parse(guardado) as unknown
-      if (Array.isArray(filas)) setSilenciados(new Set(filas.filter((x): x is string => typeof x === 'string')))
+      setValor(parsear(JSON.parse(guardado) as unknown))
     } catch {
-      /* localStorage bloqueado o JSON invalido: se ignora y arranca vacio. */
+      /* localStorage bloqueado o JSON invalido: arranca vacio. */
     }
-  }, [fichaId])
+  }, [clave, parsear])
 
-  const silenciar = (firma: string) => {
-    setSilenciados((previas) => {
-      const proximas = new Set(previas)
-      proximas.add(firma)
-      if (fichaId !== null && fichaId !== undefined && fichaId !== '') {
-        try {
-          window.localStorage.setItem(CLAVE(fichaId), JSON.stringify([...proximas]))
-        } catch {
-          /* sin persistencia; el silencio dura el render */
-        }
-      }
-      return proximas
-    })
+  const guardar = (proximo: T) => {
+    setValor(proximo)
+    if (clave === null) return
+    try {
+      window.localStorage.setItem(clave, JSON.stringify(proximo))
+    } catch {
+      /* sin persistencia; el cambio dura el render */
+    }
   }
 
-  return { silenciados, silenciar }
+  return [valor, guardar] as const
 }
 
 /**
  * Lo que hay que mirar antes de calcular.
  *
- * Tres niveles distintos y separados: lo que bloquea el plan, lo que el parser
- * no pudo dar por seguro, y las filas que quedaron fuera. Ninguno se presenta
- * como un error generico: cada uno dice que paso y que hacer.
- *
- * Un aviso ya resuelto se apaga solo cuando `avisosVigentes` puede comprobarlo
- * contra el estado —la clase esta puesta, el rendimiento se edito—. Los que no
- * se pueden comprobar el asesor los cierra a mano con la ×, y quedan
- * silenciados para esa ficha en su navegador.
+ * Tres niveles del parser (bloqueo, aviso, fila ignorada) y dos anexos del
+ * asesor sobre esta ficha: cerrar los avisos ya revisados y agregar notas
+ * propias que aparezcan la proxima vez que abra la ficha.
  */
 export function Avisos({ bloqueos, avisos, ignoradas, fichaId }: Props) {
-  const { silenciados, silenciar } = useSilenciados(fichaId)
+  const claveSil = hayFicha(fichaId) ? CLAVE_SIL(fichaId) : null
+  const claveNotas = hayFicha(fichaId) ? CLAVE_NOTAS(fichaId) : null
+
+  const [silenciadosArray, guardarSil] = useLocal<readonly string[]>(
+    claveSil,
+    (c) => (Array.isArray(c) ? c.filter((x): x is string => typeof x === 'string') : []),
+    [],
+  )
+  const [notas, guardarNotas] = useLocal<readonly Nota[]>(
+    claveNotas,
+    (c) =>
+      Array.isArray(c)
+        ? c.filter(
+            (n): n is Nota =>
+              typeof n === 'object' &&
+              n !== null &&
+              typeof (n as Nota).id === 'string' &&
+              typeof (n as Nota).texto === 'string',
+          )
+        : [],
+    [],
+  )
+
+  const [redactando, setRedactando] = useState(false)
+  const [borrador, setBorrador] = useState('')
+
+  const silenciados = new Set(silenciadosArray)
   const visibles = avisos.filter((aviso) => !silenciados.has(firmaAviso(aviso)))
+  const puedeUsarlas = hayFicha(fichaId)
 
-  if (bloqueos.length === 0 && visibles.length === 0 && ignoradas.length === 0) return null
+  const silenciar = (firma: string) => guardarSil([...silenciadosArray, firma])
+  const restaurar = () => guardarSil([])
+  const agregarNota = (texto: string) => {
+    const t = texto.trim()
+    if (t === '') return
+    guardarNotas([...notas, { id: crypto.randomUUID(), texto: t }])
+  }
+  const borrarNota = (id: string) => guardarNotas(notas.filter((n) => n.id !== id))
 
-  const puedeSilenciar = fichaId !== null && fichaId !== undefined && fichaId !== ''
+  const confirmar = () => {
+    agregarNota(borrador)
+    setBorrador('')
+    setRedactando(false)
+  }
+
+  const nada =
+    bloqueos.length === 0 &&
+    visibles.length === 0 &&
+    ignoradas.length === 0 &&
+    silenciadosArray.length === 0 &&
+    notas.length === 0 &&
+    !redactando
+
+  if (nada && !puedeUsarlas) return null
 
   return (
     <div className={estilos.pila}>
@@ -110,7 +146,7 @@ export function Avisos({ bloqueos, avisos, ignoradas, fichaId }: Props) {
           <p key={`${aviso.codigo}-${aviso.fila ?? 'x'}-${i}`} className={estilos.aviso}>
             {aviso.fila !== undefined && <span className={estilos.fila}>fila {aviso.fila}</span>}
             <span className={estilos.mensaje}>{aviso.mensaje}</span>
-            {puedeSilenciar && (
+            {puedeUsarlas && (
               <button
                 type="button"
                 className={estilos.cerrar}
@@ -124,6 +160,91 @@ export function Avisos({ bloqueos, avisos, ignoradas, fichaId }: Props) {
           </p>
         )
       })}
+
+      {notas.map((nota) => (
+        <p key={nota.id} className={`${estilos.aviso} ${estilos.nota}`}>
+          <span className={estilos.notaEtiqueta}>nota</span>
+          <span className={estilos.mensaje}>{nota.texto}</span>
+          {puedeUsarlas && (
+            <button
+              type="button"
+              className={estilos.cerrar}
+              aria-label="Borrar esta nota"
+              title="Borrar esta nota"
+              onClick={() => borrarNota(nota.id)}
+            >
+              ×
+            </button>
+          )}
+        </p>
+      ))}
+
+      {puedeUsarlas && redactando && (
+        <div className={`${estilos.aviso} ${estilos.nota} ${estilos.notaEdicion}`}>
+          <span className={estilos.notaEtiqueta}>nota</span>
+          <textarea
+            className={estilos.notaCampo}
+            autoFocus
+            rows={2}
+            value={borrador}
+            placeholder="Escribí una nota para esta ficha"
+            onChange={(e) => setBorrador(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) confirmar()
+              if (e.key === 'Escape') {
+                setBorrador('')
+                setRedactando(false)
+              }
+            }}
+          />
+          <div className={estilos.notaAcciones}>
+            <button
+              type="button"
+              className={estilos.notaGuardar}
+              onClick={confirmar}
+              disabled={borrador.trim() === ''}
+            >
+              Agregar
+            </button>
+            <button
+              type="button"
+              className={estilos.notaCancelar}
+              onClick={() => {
+                setBorrador('')
+                setRedactando(false)
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {puedeUsarlas && !redactando && (
+        <button
+          type="button"
+          className={estilos.agregarNota}
+          onClick={() => setRedactando(true)}
+        >
+          + Agregar una nota
+        </button>
+      )}
+
+      {puedeUsarlas && silenciadosArray.length > 0 && (
+        <p className={estilos.restaurar}>
+          {silenciadosArray.length === 1
+            ? 'Cerraste 1 aviso en esta ficha.'
+            : `Cerraste ${silenciadosArray.length} avisos en esta ficha.`}{' '}
+          <button
+            type="button"
+            className={estilos.restaurarBoton}
+            onClick={restaurar}
+            title="Volver a mostrar los avisos cerrados"
+          >
+            Restaurar
+          </button>
+        </p>
+      )}
 
       {ignoradas.length > 0 && (
         <details className={estilos.ignoradas}>

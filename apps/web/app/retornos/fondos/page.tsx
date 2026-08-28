@@ -1,5 +1,6 @@
 import { Marco } from '../../../componentes/Marco'
 import { SinAsesor } from '../../../componentes/SinAsesor'
+import { SinRetornos } from '../../../componentes/retornos/SinRetornos'
 import { TablaFondos } from '../../../componentes/retornos/TablaFondos'
 import { clasesDeFondos, metricasDeFondos } from '../../../lib/datos/retornos'
 import { mesLargo } from '../../../lib/formato'
@@ -17,7 +18,7 @@ export default async function Pagina() {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const [{ metricas, riskFree, ultimoMes, sinTreasury }, clases] = await Promise.all([
+  const [{ metricas, riskFree, ultimoMes, sinTreasury, falta }, clases] = await Promise.all([
     metricasDeFondos(),
     clasesDeFondos(),
   ])
@@ -28,10 +29,14 @@ export default async function Pagina() {
       activo="retornos"
       migas={[{ texto: 'Retornos' }, { texto: 'Fondos' }]}
     >
-      {metricas.length === 0 ? (
-        <p style={{ padding: '28px 26px', color: 'var(--tinta-3)' }}>
-          Todavía no hay fondos cargados. Se dan de alta desde la carga mensual.
-        </p>
+      {/*
+        Vacía se explica, no se constata. Los tres motivos por los que esta
+        pantalla puede no tener nada que mostrar piden cosas distintas, y
+        decirlos todos «todavía no hay fondos cargados» mandaba a la mesa a
+        cargar a mano una serie que el libro ya trae entera.
+      */}
+      {falta !== null ? (
+        <SinRetornos falta={falta} />
       ) : (
         <>
           <p style={{ padding: '20px 26px 0', fontSize: 13, color: 'var(--tinta-3)' }}>

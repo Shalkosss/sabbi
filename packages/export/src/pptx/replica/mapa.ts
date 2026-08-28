@@ -196,12 +196,33 @@ const FILAS_EN_PLAN = 3
  * del cliente, no su portafolio. `Invertido` es solo la seccion 1, que es sobre
  * lo que el motor decide.
  *
- * Los tokens `pct7` a `pct12` son la segunda serie del grafico, la del
- * portafolio objetivo, y quedan sin mapear a proposito: la seccion 3 clasifica
- * por `assetClass` y la seccion 6 por `ClaseModelo`, que son taxonomias
- * distintas. Cruzarlas a ojo daria un grafico que no cuadra con la lamina del
- * portafolio objetivo.
+ * Los tokens `pct7` a `pct12` eran la segunda serie del grafico, la del
+ * portafolio objetivo, y no se mapean: la seccion 3 clasifica por `assetClass`
+ * y la seccion 6 por `ClaseModelo`, que son taxonomias distintas. Cruzarlas a
+ * ojo daria un grafico que no cuadra con la lamina del portafolio objetivo.
+ *
+ * Por eso esa serie no se deja en blanco sino que se borra —linea, marcadores,
+ * etiquetas y leyenda—, y de eso se encarga `grafico.ts`. Vaciarle el texto
+ * habria dejado la curva del cliente de referencia dibujada al lado de las
+ * barras ya corregidas de este, que es la peor de las dos lecturas posibles.
  */
+/**
+ * Las asset class que entran al grafico, de mayor a menor.
+ *
+ * Lo usan dos sitios y por eso esta afuera: el mapa, que rotula cada barra, y
+ * el redibujado, que les da su alto. Si cada uno eligiera sus clases por su
+ * cuenta, un empate resuelto distinto pondria una etiqueta sobre la barra de
+ * otra.
+ */
+export const clasesDelGrafico = (propuesta: Propuesta) =>
+  [...propuesta.seccion3.filas]
+    .sort((a, b) => b.valorUsd - a.valorUsd)
+    .slice(0, CLASES_EN_GRAFICO)
+
+/** Lo que mide cada barra de la lamina 4, en fraccion del patrimonio. */
+export const sharesDelGrafico = (propuesta: Propuesta): readonly number[] =>
+  clasesDelGrafico(propuesta).map((fila) => fila.share)
+
 function lamina4(propuesta: Propuesta): ReadonlyMap<string, string> {
   const invertido = propuesta.seccion1.totalUsd
   const usoPropio = propuesta.seccion2.totalUsd
@@ -210,18 +231,29 @@ function lamina4(propuesta: Propuesta): ReadonlyMap<string, string> {
     ['s04.monto', monto(invertido + usoPropio)],
     ['s04.monto2', monto(invertido)],
     ['s04.nombre', propuesta.cliente.perfil],
+    // La segunda linea de la tarjeta del perfil. El mandato es lo que la
+    // acompana en el deck de referencia; sin mandato definido queda vacia, que
+    // es mejor que inventarle un subtitulo.
+    ['s04.nombre2', propuesta.cliente.mandato ?? ''],
+    // La leyenda de la unica serie que queda. La del portafolio objetivo se
+    // borra al redibujar, junto con su linea.
+    ['s04.nombre9', 'Hoy'],
   ])
 
-  const clases = [...propuesta.seccion3.filas]
-    .sort((a, b) => b.valorUsd - a.valorUsd)
-    .slice(0, CLASES_EN_GRAFICO)
+  const clases = clasesDelGrafico(propuesta)
 
-  clases.forEach((fila, i) => {
+  // Las seis ranuras se llenan siempre, tenga el cliente seis asset class o
+  // dos. La barra sobrante se dibuja en cero y su etiqueta va vacia: la ranura
+  // existe en el dibujo y lo honesto es no escribir nada en ella, no dejar el
+  // token sin resolver como si faltara el dato.
+  for (let i = 0; i < CLASES_EN_GRAFICO; i += 1) {
+    const fila = clases[i]
+
     // La plantilla numera las etiquetas desde `nombre3` y los porcentajes desde
     // `pct` sin sufijo.
-    valores.set(`s04.nombre${i + 3}`, fila.assetClass)
-    valores.set(i === 0 ? 's04.pct' : `s04.pct${i + 1}`, pct(fila.share))
-  })
+    valores.set(`s04.nombre${i + 3}`, fila?.assetClass ?? '')
+    valores.set(i === 0 ? 's04.pct' : `s04.pct${i + 1}`, fila === undefined ? '' : pct(fila.share))
+  }
 
   return valores
 }
@@ -287,14 +319,8 @@ export const MAPA: readonly Lamina[] = [
   {
     numero: 4,
     titulo: 'Así está parado tu dinero hoy',
-    estado: 'geometria',
-    falta:
-      'Los totales, el perfil y las seis asset class con su porcentaje ya salen. Lo que no ' +
-      'sale son las barras: son formas dibujadas, no un gráfico, así que conservan el alto ' +
-      'del cliente de referencia y no coinciden con los números que ahora tienen encima. ' +
-      'Hay que recalcular alto y posición de doce elementos. La segunda serie —el objetivo— ' +
-      'queda sin mapear a propósito: la sección 3 clasifica por asset class y la 6 por clase ' +
-      'del modelo, y cruzarlas a ojo daría un gráfico que no cuadra con la lámina del objetivo.',
+    estado: 'listo',
+    falta: '',
     valores: (propuesta) => lamina4(propuesta),
   },
   {

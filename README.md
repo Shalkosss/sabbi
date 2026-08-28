@@ -480,16 +480,22 @@ en disco es una copia que envejece sola.
 El **réplica** reproduce el deck de referencia lámina por lámina. Salen todas,
 y las que todavía no tienen de dónde sacar su dato salen con las celdas en
 blanco: un hueco se llena a mano antes de una reunión, una lámina ausente no se
-ve. Hoy hay ocho completas: la portada, las tres estáticas, el anexo, el antes y
-después producto por producto, qué cambia y la rentabilidad. Las tres últimas
-se paginan solas — tantas láminas como el cliente necesite. El resto espera lo
-que dice el mapa, y son las que el flujo de n8n ya arma por su cuenta.
+ve. Hoy hay nueve completas: la portada, las tres estáticas, el gráfico del
+patrimonio de hoy, el anexo, el antes y después producto por producto, qué
+cambia y la rentabilidad. Las tres últimas se paginan solas — tantas láminas
+como el cliente necesite. El resto espera lo que dice el mapa, y son las que el
+flujo de n8n ya arma por su cuenta.
 
 Una advertencia sobre las que salen en blanco: el texto se vacía, pero lo que
-está **dibujado** no. La lámina 4 conserva las barras del cliente de referencia
-porque son formas con su alto en el XML, no un gráfico con datos detrás. Sin la
-etiqueta encima no dice una cifra falsa, pero la proporción que muestra no es la
-del cliente que se está atendiendo. La maquinaria está hecha —sustituye
+está **dibujado** no. Es lo que pasaba con la lámina 4 —sus barras son formas
+con el alto escrito en el XML, no un gráfico con datos detrás— y por eso esa se
+redibuja en vez de rellenarse: `grafico.ts` les da a las seis barras el alto que
+les toca, mueve sus etiquetas encima y rotula el eje con el escalón que haga
+falta para que la clase más grande entre en la lámina. La segunda serie, la del
+portafolio objetivo, no se puede mapear —la sección 3 clasifica por asset class
+y la 6 por clase del modelo— así que se borra entera en vez de quedar dibujada:
+la curva de un desconocido al lado de las barras ya corregidas de este cliente
+se leería como si fuera suya. La maquinaria está hecha —sustituye
 tokens, rehace una tabla con tantas filas como el cliente tenga, reparte las
 filas en varias láminas duplicando la que haga falta, y devuelve los tokens que
 ninguna fuente resolvió en vez de imprimir un `{{token}}` delante de un
@@ -511,7 +517,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 3 | Motor `generarPlan()` y golden test | hecho |
 | 4 | Vista web de la propuesta | hecho |
 | 5 | Export a Excel | hecho |
-| 6 | PPT réplica | motor hecho, 8 de 22 láminas; ver abajo |
+| 6 | PPT réplica | motor hecho, 9 de 22 láminas; ver abajo |
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | — | Agenda de entregas: 4 días hábiles desde la ficha | hecho |
@@ -552,17 +558,20 @@ npm run revisar-deck    # el inventario, lámina por lámina
   ni una parte de gráfico ni un libro incrustado: las barras de la lámina 4 son
   52 formas con su alto escrito en el XML, y los números que se leen encima son
   etiquetas de texto sueltas. Cambiar la etiqueta escribe otro número y deja la
-  barra donde estaba. Reproducir esa lámina para otro cliente es recalcular
-  geometría, no sustituir texto.
+  barra donde estaba, así que esa lámina se redibuja: seis barras y sus seis
+  etiquetas, con el eje rotulado según el escalón que necesite el cliente. Las
+  constantes están medidas sobre el deck que Sabbi entrega —la línea del cero
+  está en 4,584,700 EMU y cada escalón del eje mide 508,000— y un test las ata
+  a la plantilla real, así que redibujar la lámina rompe el test en vez de
+  correr las barras en silencio.
 
   `npm run revisar-deck` lista las 22 con su estado. En resumen:
 
   | Estado | Láminas | Qué necesita |
   |---|---|---|
-  | lista | 8 | nada, ya salen |
+  | lista | 9 | nada, ya salen |
   | paginada | 7 | nada: son páginas del anexo o del antes y después |
   | decision | 5 | una decisión de la mesa, no un programador |
-  | geometría | 1 | redibujar barras y línea |
   | parcial | 1 | dos tercios salen; el resto es texto redactado |
 
   El anexo ya sale entero: `rehacerTabla` reescribe la tabla con una fila por

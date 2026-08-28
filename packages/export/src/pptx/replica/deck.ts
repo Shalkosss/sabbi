@@ -3,7 +3,8 @@ import { strFromU8, unzipSync } from 'fflate'
 import type { Propuesta } from '@sabbi/core'
 
 import { CABECERA, filasDelAnexo, tarjetasDelPortafolio } from './anexo.js'
-import { LAMINAS_TODAS, MAPA, valoresDe } from './mapa.js'
+import { redibujarGrafico } from './grafico.js'
+import { LAMINAS_TODAS, MAPA, sharesDelGrafico, valoresDe } from './mapa.js'
 import { renderizarReplica } from './plantilla.js'
 import type { ResultadoReplica } from './plantilla.js'
 import { ajustarMarco, altoDelMarco, altosDe, paginarFilas, rehacerTabla } from './tabla.js'
@@ -43,6 +44,14 @@ const LAMINA_ANEXO = 20
  */
 const LAMINA_ANTES_DESPUES = 11
 const LAMINA_CON_VACIO = 16
+
+/**
+ * La lamina del grafico de barras, la unica que se redibuja en vez de rellenarse.
+ *
+ * Sus barras son formas con el alto escrito en el XML, no un grafico: cambiarles
+ * la etiqueta escribe otro numero y deja la barra donde estaba.
+ */
+const LAMINA_GRAFICO = 4
 
 export interface OpcionesDeckReplica {
   /** La fecha de la portada. Llega de afuera: el motor no mira el reloj. */
@@ -103,6 +112,10 @@ export function armarDeckReplica(
         if (pagina === undefined) return xml
         const { xml: conFilas, altoEmu } = rehacerTabla(xml, pagina)
         return ajustarMarco(conFilas, altoEmu)
+      }
+
+      if (numero === LAMINA_GRAFICO) {
+        return redibujarGrafico(xml, sharesDelGrafico(propuesta)).xml
       }
 
       if (numero === LAMINA_ANTES_DESPUES) {

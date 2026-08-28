@@ -109,6 +109,22 @@ const aporteSubDe = (sub: SubfilaVista, metrica: Metrica) =>
   metrica === 'retorno' ? sub.aporteRenta : sub.aporteDist
 
 /**
+ * El «después» contra el benchmark teórico, dicho con flecha y sin color.
+ *
+ * Ni sobre ni sub son buenos o malos por sí: que el cash quede bajo el teórico
+ * es la mejora, que el inmobiliario quede bajo es que el cliente no accede. La
+ * pantalla dice la dirección y el tamaño; juzgar es del asesor.
+ */
+function textoVsBenchmark(fila: FilaComparativa): string {
+  const teorico = pct1(fila.benchmarkShare)
+  const pp = fila.vsBenchmarkPp
+  if (Math.abs(pp) < 0.05) return `teórico ${teorico} · en línea`
+  const signo = pp > 0 ? '↑' : '↓'
+  const palabra = pp > 0 ? 'sobre' : 'sub'
+  return `teórico ${teorico} · ${palabra} ${signo}${Math.abs(pp).toFixed(1)}pp`
+}
+
+/**
  * Cuántos puntos de la rentabilidad pone una parte del portafolio.
  *
  * Se muestra al lado del peso, y la gracia es justamente la diferencia entre
@@ -499,7 +515,12 @@ function PanelComparativo({
         </div>
 
         {vista.filas.map((fila) => (
-          <FilaComparada key={fila.clase} fila={fila} metrica={metrica} />
+          <FilaComparada
+            key={fila.clase}
+            fila={fila}
+            metrica={metrica}
+            conBenchmark={vista.conBenchmark}
+          />
         ))}
 
         {/* El cuadre de la columna: la suma tiene que dar la cifra de arriba. */}
@@ -527,9 +548,11 @@ function PanelComparativo({
 function FilaComparada({
   fila,
   metrica,
+  conBenchmark,
 }: {
   readonly fila: FilaComparativa
   readonly metrica: Metrica
+  readonly conBenchmark: boolean
 }) {
   const delta = fila.deltaPp
   // Subir no es bueno ni bajar es malo: bajar el cash es la mejora y bajar el
@@ -548,6 +571,9 @@ function FilaComparada({
           <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
           <span className={estilos.montoClase} title="Hoy → con Sabbi">
             {pct1(fila.antesShare)} → <b>{pct1(fila.despuesShare)}</b>
+            {conBenchmark && (
+              <span className={estilos.vsTeorico}>{textoVsBenchmark(fila)}</span>
+            )}
           </span>
           <span className={`${estilos.delta} ${sinCambio ? estilos.deltaIgual : ''}`}>
             {textoDelta}
@@ -564,11 +590,29 @@ function FilaComparada({
               style={{ width: `${fila.antesShare * 100}%` }}
             />
           </div>
-          <div className={estilos.pista} title={`Con Sabbi: ${pct1(fila.despuesShare)}`}>
+          <div
+            className={estilos.pista}
+            title={`Con Sabbi: ${pct1(fila.despuesShare)}${
+              conBenchmark ? ` · teórico: ${pct1(fila.benchmarkShare)}` : ''
+            }`}
+          >
             <div
               className={`${estilos.barra} ${estilos[`barra_${fila.clase}`] ?? ''}`}
               style={{ width: `${fila.despuesShare * 100}%` }}
             />
+            {/*
+              La marca del benchmark: una línea vertical donde el modelo pondría
+              esta clase en teoría. La barra que llega antes de la marca es una
+              clase subponderada; la que la pasa, sobreponderada. Es el «al
+              costado» dicho en la misma pista, sin una columna más.
+            */}
+            {conBenchmark && (
+              <span
+                className={estilos.marcaBench}
+                style={{ left: `${Math.min(100, fila.benchmarkShare * 100)}%` }}
+                aria-hidden="true"
+              />
+            )}
           </div>
         </div>
       </summary>

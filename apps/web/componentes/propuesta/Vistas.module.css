@@ -298,12 +298,34 @@
 
 /* La barra de participacion, debajo de la cabecera de la fila. */
 .pista {
+  position: relative;
   margin-top: 9px;
   height: 5px;
   border-radius: 3px;
   background: var(--hundido);
   border: 1px solid var(--borde-suave);
   overflow: hidden;
+}
+
+/* La marca del benchmark teórico sobre la barra del objetivo: un tick vertical
+   a contraste pleno. Donde cae dice dónde pondría el modelo esta clase; la
+   barra que no llega está subponderada, la que lo pasa, sobreponderada. */
+.marcaBench {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--tinta-2);
+}
+
+/* «teórico X% · sub/sobre Ypp» al lado del peso del objetivo. Tenue: acompaña
+   la cifra, no compite con ella. */
+.vsTeorico {
+  margin-left: 8px;
+  font-size: 10.5px;
+  color: var(--tinta-4);
+  white-space: nowrap;
 }
 
 .barra {

@@ -18,7 +18,8 @@
  * fraccion del dinero la sostiene. Sin base, la celda queda vacia.
  */
 
-import type { ClaseModelo } from '../domain/tipos.js'
+import type { Benchmark, ClaseModelo } from '../domain/tipos.js'
+import { CLASES } from '../domain/tipos.js'
 import type { Plan } from '../plan.js'
 import type { DatosProducto, PosicionPropuesta, Rango } from './tipos.js'
 import { seConservaUsd } from './foto.js'
@@ -117,6 +118,18 @@ export interface FilaComparativa {
   readonly despuesShare: number
   /** Despues menos antes, en puntos porcentuales. */
   readonly deltaPp: number
+  /**
+   * El peso teórico de la clase en el benchmark del perfil, como fracción.
+   *
+   * Es el objetivo del modelo antes de que el cliente entre en la cuenta. El
+   * «después» se aparta de acá por lo que el cliente ya conserva, por lo que el
+   * asesor clavó y por las clases que se disuelven —el inmobiliario que no
+   * toma, Otros bajo el ticket—. Comparar los dos es lo que dice si una clase
+   * quedó sub o sobreponderada contra la teoría.
+   */
+  readonly benchmarkShare: number
+  /** Puntos porcentuales del «después» sobre el benchmark. Negativo es subponderado. */
+  readonly vsBenchmarkPp: number
   readonly antesSub: readonly SubfilaVista[]
   readonly despuesSub: readonly SubfilaVista[]
   readonly rentabilidadAntes: RentabilidadPonderada | null
@@ -144,6 +157,8 @@ export interface VistaComparativa {
   readonly rentabilidadDistDespues: RentabilidadPonderada | null
   readonly distribucionAnualAntesUsd: Rango | null
   readonly distribucionAnualDespuesUsd: Rango | null
+  /** Si se pasó el benchmark: la vista solo muestra la columna teórica con él. */
+  readonly conBenchmark: boolean
 }
 
 /**
@@ -466,7 +481,14 @@ export function armarComparativa(
   plan: Plan,
   catalogo: ReadonlyMap<string, DatosProducto>,
   incluirInmueblesDeRenta = true,
+  benchmark?: Benchmark,
 ): VistaComparativa {
+  // El benchmark normalizado a fracción, para leerlo contra el share del
+  // «después». Sin benchmark —un llamador viejo— la comparación queda en cero
+  // y la vista simplemente no la muestra.
+  const escalaBench = benchmark === undefined ? 0 : CLASES.reduce((a, c) => a + benchmark[c], 0)
+  const benchShareDe = (clase: ClaseModelo): number =>
+    benchmark === undefined || escalaBench <= EPS ? 0 : benchmark[clase] / escalaBench
   // El "antes" tambien lee el catalogo, pero solo para el distributivo: el
   // retorno total sigue saliendo de la ficha. El catalogo aca cubre tanto los
   // nombres del plan como los de las posiciones (ver `armar-propuesta`).
@@ -489,6 +511,8 @@ export function armarComparativa(
         despuesUsd,
         despuesShare: share(despuesUsd, despues.totalUsd),
         deltaPp: (share(despuesUsd, despues.totalUsd) - share(antesUsd, hoy.totalUsd)) * 100,
+        benchmarkShare: benchShareDe(clase),
+        vsBenchmarkPp: (share(despuesUsd, despues.totalUsd) - benchShareDe(clase)) * 100,
         antesSub: antes?.subfilas ?? [],
         despuesSub: despues.subfilasDe(clase),
         rentabilidadAntes: antes?.rentabilidad ?? null,
@@ -515,6 +539,7 @@ export function armarComparativa(
     rentabilidadDistDespues: despues.rentabilidadDist,
     distribucionAnualAntesUsd: hoy.distribucionAnualUsd,
     distribucionAnualDespuesUsd: despues.distribucionAnualUsd,
+    conBenchmark: benchmark !== undefined && escalaBench > EPS,
   }
 }
 

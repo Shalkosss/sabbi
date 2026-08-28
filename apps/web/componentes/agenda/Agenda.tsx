@@ -38,7 +38,6 @@ interface Props {
   readonly fichas: readonly FichaEnAgenda[]
   /** El día de hoy en Lima, resuelto en el servidor. */
   readonly hoy: Dia
-  readonly esAdmin: boolean
   readonly sinTablaDeHitos: boolean
 }
 
@@ -51,7 +50,7 @@ interface Grupo {
   readonly urgente?: boolean
 }
 
-export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
+export function Agenda({ fichas, hoy, sinTablaDeHitos }: Props) {
   const [vista, setVista] = useState(() => mesDe(hoy))
   const [abierta, setAbierta] = useState<string | null>(null)
   const [enfocada, setEnfocada] = useState<string | null>(null)
@@ -268,7 +267,6 @@ export function Agenda({ fichas, hoy, esAdmin, sinTablaDeHitos }: Props) {
                           ruta={ruta}
                           abierta={abierta === ruta.fichaId}
                           atenuada={enfocada !== null && enfocada !== ruta.fichaId}
-                          esAdmin={esAdmin}
                           puedeMarcar={!sinTablaDeHitos}
                           guardando={enVuelo}
                           alAbrir={setAbierta}

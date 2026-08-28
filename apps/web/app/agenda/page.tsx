@@ -18,9 +18,10 @@ import { asesorActual } from '../../lib/supabase/servidor'
  * resolverlo ahí haría que el servidor y el cliente pinten calendarios
  * distintos. Entra una sola vez, desde Lima, y baja como dato.
  *
- * La agenda es del equipo entero. Marcar un hito, en cambio, es afirmar que un
- * trabajo está hecho, y eso queda para el dueño de la ficha o un admin — la
- * misma regla que ya tienen la ficha y sus posiciones.
+ * La agenda es del equipo entero, y marcar un hito también: si la ficha la
+ * trabaja cualquiera, decir que ese trabajo está hecho también. Antes era del
+ * dueño de la ficha o de un admin, y eso dejaba media agenda en solo lectura
+ * justo para quien había hecho el trabajo.
  */
 export default async function Pagina() {
   const asesor = await asesorActual()
@@ -33,7 +34,6 @@ export default async function Pagina() {
       <Agenda
         fichas={fichas}
         hoy={diaEnLima(new Date())}
-        esAdmin={asesor.rol === 'admin'}
         sinTablaDeHitos={sinTablaDeHitos}
       />
     </Marco>

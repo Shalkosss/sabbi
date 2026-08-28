@@ -219,8 +219,8 @@ todas— que sin embargo no protege el modelo: un permiso que obliga a pedirle a
 otro que teclee un número hace que la calibración se haga en una hoja suelta que
 después nadie puede auditar. Lo que la protege es que nada se sobreescribe:
 cada guardado queda con su autor, su fecha y su nota, y volver a la anterior es
-guardar otra vez. No hay política de `delete`: la historia no se borra ni siendo
-admin.
+guardar otra vez. No hay política de `delete`: la historia no se borra, y desde
+la `0018` no hay un rango que pudiera saltarse eso.
 
 Todo lo que la pantalla muestra se puede editar. Una pantalla que mezcla lo
 editable con lo que solo se lee obliga a probar cada celda para saber cuál es
@@ -286,7 +286,8 @@ Lo único que se guarda es lo contrario: si el hito ya se cumplió, en
 `agenda_hitos` (migración `0015`). Sin eso la agenda puede decir qué fecha toca
 pero nunca que algo va tarde, que es justo para lo que se abre el jueves por la
 tarde. La fila existe cuando el hito está cumplido; desmarcar la borra. Marcar
-sigue la regla de la ficha —su dueño o un admin—, leer es de todo el equipo.
+sigue la regla de la ficha, que desde la `0018` es la de toda la casa: la toca
+cualquier asesor dado de alta.
 
 La pantalla tiene dos mitades con trabajos distintos, y esa división es lo que
 la hizo legible. La primera versión ponía los cinco hitos como píldoras sueltas
@@ -327,40 +328,53 @@ empiece a contar el lunes.
 
 ## Quién ve y quién edita
 
-Una regla, y conviene tenerla escrita porque es la que decide qué pasa cuando
-dos personas trabajan al mismo tiempo:
+Una regla, y una sola:
 
-**La biblioteca es del equipo.** Cualquier asesor con fila en `advisors` lee y
-edita el trabajo de la mesa — fichas, posiciones, clientes y propuestas. No hay
-«mis fichas» y «las de otro»: una ficha la trabaja quien esté disponible, y la
-portada las lista todas con el nombre de quien la subió.
+**Todos los asesores tienen el mismo rango.** Cualquiera con fila en `advisors`
+lee y edita todo el trabajo de la mesa — fichas, posiciones, clientes,
+propuestas, agenda, catálogo, macro y configuración. Sabbi son cinco personas
+del mismo nivel; no hay «mis fichas» y «las de otro», ni un permiso que haya que
+pedirle a alguien de adentro.
 
-Esto no siempre fue así, y el cambio arregló una contradicción. La migración
-0014 publicó `ficha_positions` por Realtime para que dos asesores vieran los
-cursores del otro sobre la misma ficha, pero las políticas de escritura seguían
-pidiendo ser el creador: la función existía y no se podía usar. La única salida
-era hacer admin al segundo asesor, o sea darle la macro y el catálogo para que
-pudiera corregir un NAV.
+Queda **una** frontera, y no es de rango:
 
-La frontera no desapareció, se movió. Ahora está entre **asesor de Sabbi** y
-**cuenta de Auth sin dar de alta**: las cuentas las crea Sabbi a mano y la fila
-de `advisors` llega después, así que ese hueco existe de verdad y una cuenta a
-medio dar de alta no puede tocar el patrimonio de nadie. Lo que sigue cerrado:
+> Una cuenta de Supabase Auth **sin** fila en `advisors` no escribe nada.
 
-| Qué | Quién |
-|---|---|
-| Fichas, posiciones, clientes, propuestas | cualquier asesor dado de alta |
-| Alta de asesores (`advisors`) | solo admin |
-| Macro y catálogo (`config_versions`, `products`) | solo admin |
-| Una propuesta ya publicada | nadie la sobreescribe: se versiona |
+Las cuentas las crea Sabbi a mano y la fila llega después, así que ese hueco
+existe de verdad: una cuenta a medio dar de alta no tiene por qué tocar el
+patrimonio de un cliente. Es la diferencia entre estar en la mesa y no estar
+todavía.
+
+`advisors.rol` sigue existiendo y ya no decide nada: es el título en el
+organigrama. Si algún día vuelve a hacer falta una frontera, que se agregue
+explícita y con su motivo, no heredada.
+
+### Lo que esto costó descubrir
+
+El producto nació con la partición `asesor` / `admin` y con la biblioteca
+privada para escribir, y las dos ideas envejecieron mal contra cómo trabaja la
+mesa. Tres correcciones, en orden:
+
+1. La 0014 publicó `ficha_positions` por Realtime para que dos asesores vieran
+   los cursores del otro sobre la misma ficha. Las políticas de escritura
+   seguían pidiendo ser el creador: la función existía y no se podía usar.
+2. La **0017** abrió la ficha —y el cliente, y la propuesta— al equipo. Abrir
+   una sola de esas tablas deja el guardado fallando a mitad de camino: cambiar
+   el perfil escribe en `proposals` **y** en `clients`.
+3. La **0018** quitó lo que quedaba. Sobre todo el trigger
+   `no_editar_publicada`, que congelaba una propuesta publicada para todos
+   menos un admin: la intención era que lo ya enviado al cliente no cambiara
+   sin rastro, y el efecto era que dos personas no podían terminar el mismo
+   documento.
 
 ```bash
 DBPASS='...' node tools/probar-rls.mjs   # las políticas, con cuatro usuarios de prueba
 ```
 
-Ese script corre contra la base real dentro de una transacción que siempre se
-revierte, y comprueba las dos mitades: que Beto pueda corregir la ficha de Ana,
-y que una cuenta sin dar de alta no pueda tocar nada.
+Corre contra la base real dentro de una transacción que siempre se revierte, y
+comprueba las dos mitades: que un asesor pueda corregir la ficha de otro, tocar
+el catálogo y editar una propuesta ya publicada, y que una cuenta sin dar de
+alta no pueda nada de eso.
 
 ### Cuando algo no llega en vivo
 
@@ -502,6 +516,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 8 | Biblioteca compartida y versionado | |
 | — | Agenda de entregas: 4 días hábiles desde la ficha | hecho |
 | — | Retornos de fondos: tabla, matriz editable, curva y comparativos | hecho |
+| — | Permisos planos: todos los asesores, el mismo rango | hecho |
 | 9 | Asistencia opcional de IA | |
 | — | Macro editable, versionada y con historial | hecho |
 

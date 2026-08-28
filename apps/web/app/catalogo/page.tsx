@@ -12,7 +12,8 @@ import { asesorActual } from '../../lib/supabase/servidor'
  * texto: la composición se guarda contra claves foráneas, así que un nombre
  * inventado no llegaría a guardarse.
  *
- * Editar es de admin, igual que en el resto del catálogo — un producto mal
+ * Lo edita cualquier asesor: son cinco personas del mismo nivel y el catálogo
+ * es su herramienta de todos los días. Lo que hay que cuidar es que un producto mal
  * cargado sale en la propuesta de todos los asesores.
  */
 export default async function Pagina() {
@@ -31,7 +32,7 @@ export default async function Pagina() {
         productos={productos}
         listas={listas}
         descuadrados={[...descuadrados]}
-        puedeEditar={asesor.rol === 'admin'}
+        puedeEditar
       />
     </Marco>
   )

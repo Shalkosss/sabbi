@@ -2,6 +2,7 @@ import { armarMes, partirMes, rangoDeMeses } from '@sabbi/core'
 
 import { Marco } from '../../../componentes/Marco'
 import { SinAsesor } from '../../../componentes/SinAsesor'
+import { NavRetornos } from '../../../componentes/retornos/NavRetornos'
 import { CargaMensual } from '../../../componentes/retornos/CargaMensual'
 import type { FondoParaCargar } from '../../../componentes/retornos/CargaMensual'
 import { listarFondosConSerie, serieTreasury, ultimoMesCargado } from '../../../lib/datos/retornos'
@@ -69,6 +70,8 @@ export default async function Pagina({
       activo="retornos"
       migas={[{ texto: 'Retornos', ruta: '/retornos/fondos' }, { texto: 'Carga mensual' }]}
     >
+      <NavRetornos />
+
       <CargaMensual
         mes={mes}
         mesesDisponibles={disponibles.length === 0 ? [mes] : disponibles}

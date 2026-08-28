@@ -325,6 +325,113 @@ Sus tests fijan lo que un error de un día costaría caro: que el fin de semana 
 cuente, que Fiestas Patrias corra la entrega, y que una ficha subida un sábado
 empiece a contar el lunes.
 
+## Quién ve y quién edita
+
+Una regla, y conviene tenerla escrita porque es la que decide qué pasa cuando
+dos personas trabajan al mismo tiempo:
+
+**La biblioteca es del equipo.** Cualquier asesor con fila en `advisors` lee y
+edita el trabajo de la mesa — fichas, posiciones, clientes y propuestas. No hay
+«mis fichas» y «las de otro»: una ficha la trabaja quien esté disponible, y la
+portada las lista todas con el nombre de quien la subió.
+
+Esto no siempre fue así, y el cambio arregló una contradicción. La migración
+0014 publicó `ficha_positions` por Realtime para que dos asesores vieran los
+cursores del otro sobre la misma ficha, pero las políticas de escritura seguían
+pidiendo ser el creador: la función existía y no se podía usar. La única salida
+era hacer admin al segundo asesor, o sea darle la macro y el catálogo para que
+pudiera corregir un NAV.
+
+La frontera no desapareció, se movió. Ahora está entre **asesor de Sabbi** y
+**cuenta de Auth sin dar de alta**: las cuentas las crea Sabbi a mano y la fila
+de `advisors` llega después, así que ese hueco existe de verdad y una cuenta a
+medio dar de alta no puede tocar el patrimonio de nadie. Lo que sigue cerrado:
+
+| Qué | Quién |
+|---|---|
+| Fichas, posiciones, clientes, propuestas | cualquier asesor dado de alta |
+| Alta de asesores (`advisors`) | solo admin |
+| Macro y catálogo (`config_versions`, `products`) | solo admin |
+| Una propuesta ya publicada | nadie la sobreescribe: se versiona |
+
+```bash
+DBPASS='...' node tools/probar-rls.mjs   # las políticas, con cuatro usuarios de prueba
+```
+
+Ese script corre contra la base real dentro de una transacción que siempre se
+revierte, y comprueba las dos mitades: que Beto pueda corregir la ficha de Ana,
+y que una cuenta sin dar de alta no pueda tocar nada.
+
+### Cuando algo no llega en vivo
+
+Los cursores y los cambios viajan por **dos canales separados**. Los cursores
+son `broadcast` y no dependen de nada del servidor; los cambios son
+`postgres_changes` y sí — la tabla tiene que estar en la publicación
+`supabase_realtime`, que es lo que hace la migración 0014.
+
+Estaban en el mismo canal, y esa era la trampa: si el servidor rechazaba la
+suscripción a los cambios, el canal entero quedaba en error y se llevaba puestos
+los cursores, que no necesitan la base para nada. Peor, fallaba en silencio —
+una pantalla sin cursores se ve igual esté rota o esté sola.
+
+Ahora la barra de la ficha lo dice: **«Sin conexión en vivo»** si no hay canal,
+**«Cursores sí, cambios no»** si falta publicar la tabla. Para lo segundo:
+
+```bash
+npm run migrar -- --dry    # dice si 0014 está aplicada
+```
+
+## Los retornos de fondos
+
+Un módulo aparte del motor de propuestas: mide los productos del menú, no los
+portafolios de los clientes. Es la hoja `Distributivos` sin las fórmulas —
+sesenta fondos, cien meses, treinta y pico de métricas por fondo.
+
+**Nada derivado se guarda.** La base tiene dos cosas: el fondo y su observación
+mensual —NAV y retorno total—. Todas las métricas se calculan al leer, en
+`packages/core/src/retornos`. Por eso corregir un NAV de hace seis meses arregla
+las treinta columnas de esa fila sin ningún recálculo manual, y por eso un
+`insert` de un retorno de 1Y en `acciones.ts` sería un bug: esa cifra se
+desincroniza el día que alguien toque la serie vieja, que es la operación más
+común de todas.
+
+Cuatro vistas, cada una con una pregunta:
+
+| Vista | Contesta | Se edita |
+|---|---|---|
+| **Tabla maestra** | cuánto rindió cada fondo, en todas las ventanas | no |
+| **Matriz** | qué pasó en noviembre, y qué mes falta cargar | sí, celda por celda |
+| **Comparativos** | cuál es el mejor de su clase y cuál paga el riesgo | no |
+| **Cargar un mes** | el mes recién cerrado, fondo por fondo | sí, un mes entero |
+
+La **matriz** es la hoja tal como se veía —meses bajando, fondos al costado— y
+es donde el módulo se cargó de verdad: flechas para moverse, Enter para bajar,
+Ctrl+S para guardar y un bloque pegado desde Excel que cae donde está el
+cursor. Guarda solo las celdas que cambiaron de número, no las que alguien
+recorrió. La columna del mes trae su mediana y cuántos fondos tienen ese mes,
+que es el número que dice si falta algo.
+
+Cualquier fila de la tabla maestra **abre el fondo**: su curva de crecimiento
+compuesto, cuánto llegó a perder contra su máximo y cuánto tardó en
+recuperarlo, y la grilla de año por mes —la de toda la vida— editable ahí
+mismo. Una tabla de métricas no puede distinguir dos fondos con el mismo 12%
+anualizado a 3Y; la curva sí, y es la primera pregunta que hace un cliente
+cuando ve un número bueno.
+
+**El retorno se teclea en porcentaje**, en las tres pantallas que lo piden:
+0.83 es 0.83%, igual que en el reporte del manager. La conversión a la fracción
+que guarda la base vive en un solo lugar (`lib/retornos-celda.ts`). La primera
+versión pedía `0.0083` y ese salto es el error más caro del módulo — un cero de
+menos convierte un mes normal en un +83% que envenena las treinta métricas del
+fondo y no se nota hasta que el ranking sale raro.
+
+Dos detalles del cálculo que no son evidentes y están medidos contra el Excel:
+el Sharpe de cada fondo usa el **Treasury 10Y del mes en que termina su serie**,
+no una tasa común a la tabla —un fondo que reporta trimestral cierra en marzo y
+el resto en junio—, y los índices de mercado se muestran para comparar pero no
+entran a los rankings: «el mejor Sharpe de Private Equity: S&P 500» es una
+respuesta falsa a una pregunta razonable.
+
 ## El Excel
 
 Es el documento de trabajo de la mesa: el que se anota, se filtra y se manda
@@ -394,6 +501,7 @@ npm run revisar-deck    # el inventario, lámina por lámina
 | 7 | PPT rediseñado | hecho |
 | 8 | Biblioteca compartida y versionado | |
 | — | Agenda de entregas: 4 días hábiles desde la ficha | hecho |
+| — | Retornos de fondos: tabla, matriz editable, curva y comparativos | hecho |
 | 9 | Asistencia opcional de IA | |
 | — | Macro editable, versionada y con historial | hecho |
 

@@ -111,6 +111,8 @@ export type {
  * app lo consume por el mismo camino que todo lo demas.
  */
 export { abrirRetornos, calcularMetricas, ventanaDe } from './retornos/metricas.js'
+export { crecimiento, matrizMensual, maximaCaida, mediana, resumirSerie } from './retornos/serie.js'
+export type { Caida, FilaMatriz, PuntoCrecimiento, ResumenSerie } from './retornos/serie.js'
 export {
   dispersionRiesgoRetorno,
   extremosPorClase,

@@ -21,6 +21,8 @@ interface Props {
   readonly alSeleccionar: (elegida: boolean) => void
   readonly editar: (cambios: Partial<PosicionEditada>) => void
   readonly marcar: (cta: Cta) => void
+  /** Quitar la posición de la vista y del cálculo. Se restaura desde la tabla. */
+  readonly ocultar: () => void
 }
 
 const CLASES: readonly { readonly valor: ClaseModelo; readonly texto: string }[] = [
@@ -71,6 +73,7 @@ export function FilaPosicion({
   alSeleccionar,
   editar,
   marcar,
+  ocultar,
 }: Props) {
   const editado = (campo: string): string =>
     posicion.camposEditados.includes(campo) ? (estilos.editado ?? '') : ''
@@ -272,6 +275,22 @@ export function FilaPosicion({
         <tr>
           <td colSpan={8} className={estilos.celdaDetalle}>
             <DetallePosicion posicion={posicion} editar={editar} />
+            {/*
+              Quitar la fila de la vista. Vive en el detalle y no en la fila:
+              es una decisión que se toma una vez —limpiar lo que no se mira— y
+              no algo que se corrige a cada rato, así que no compite con los
+              controles que sí. Se restaura desde la barra al pie de la tabla.
+            */}
+            <div className={estilos.quitarVista}>
+              <button
+                type="button"
+                className={estilos.quitarVistaBoton}
+                onClick={ocultar}
+                title="La saca de la lista y del cálculo, pero la guarda: se restaura desde el pie de la tabla."
+              >
+                Quitar de la vista
+              </button>
+            </div>
           </td>
         </tr>
       )}

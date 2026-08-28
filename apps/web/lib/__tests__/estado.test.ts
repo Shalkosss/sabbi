@@ -38,6 +38,7 @@ const posicion = (parche: Partial<PosicionEditada> = {}): PosicionEditada => ({
   editadoManualmente: false,
   nota: '',
   camposEditados: [],
+  oculta: false,
   ...parche,
 })
 
@@ -184,6 +185,14 @@ describe('proyeccion al motor', () => {
     const proyectada = aRevisadas([posicion({ cta: 'venta_condicionada', destinos })])
 
     expect(proyectada[0]?.destinos).toEqual(destinos)
+  })
+
+  it('no manda al motor las posiciones ocultas', () => {
+    const proyectada = aRevisadas([
+      posicion({ id: 'visible' }),
+      posicion({ id: 'oculta', oculta: true }),
+    ])
+    expect(proyectada).toHaveLength(1)
   })
 })
 

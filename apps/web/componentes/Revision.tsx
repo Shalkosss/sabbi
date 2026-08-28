@@ -175,6 +175,18 @@ export function Revision({ inicial, asesor, productos }: Props) {
     editar(id, cambiosDeCta(posicion, cta))
   }
 
+  const ocultar = (id: string, oculta: boolean) => {
+    const posicion = estado.posiciones.find((candidata) => candidata.id === id)
+    if (posicion === undefined || posicion.oculta === oculta) return
+    // Quitar de la vista invalida el plan por la misma razón que corregir un
+    // monto: el objetivo se calculó con esta posición dentro.
+    setDesactualizado(true)
+    setRechazo([])
+    marcarMia(id)
+    despacharCrudo({ tipo: 'ocultar', id, oculta })
+    encolar(id, { oculta })
+  }
+
   const cambiarParametros = (cambios: Partial<Parametros>) => {
     setDesactualizado(true)
     setRechazo([])
@@ -406,6 +418,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
             productos={productos}
             editar={editar}
             marcar={marcar}
+            ocultar={ocultar}
             agregados={agregados}
             cambiarActivo={cambiarActivo}
             quitarActivo={quitarActivo}

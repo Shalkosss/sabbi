@@ -75,6 +75,7 @@ describe('vuelta desde la base', () => {
     nota: 'confirmar cap rate',
     editado_manualmente: true,
     campos_editados: ['valorUsd'],
+    oculta: false,
   }
 
   it('devuelve la posicion tal como se guardo', () => {

@@ -1,0 +1,26 @@
+
+/* «Quitar de la vista» va al pie del detalle, separado y discreto: es una
+   decisión de una vez, no un control de trabajo. */
+.quitarVista {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--borde);
+}
+
+.quitarVistaBoton {
+  border: 1px solid var(--borde-fuerte);
+  background: transparent;
+  color: var(--tinta-3);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--radio-control);
+  cursor: pointer;
+}
+
+.quitarVistaBoton:hover {
+  color: var(--alerta-texto);
+  border-color: var(--alerta);
+}

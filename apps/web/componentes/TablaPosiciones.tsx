@@ -18,6 +18,8 @@ interface Props {
   readonly productos: readonly ProductoOfrecible[]
   readonly editar: (id: string, cambios: Partial<PosicionEditada>) => void
   readonly marcar: (id: string, cta: Cta) => void
+  /** Quitar una posición de la vista y del cálculo, o restaurarla. */
+  readonly ocultar: (id: string, oculta: boolean) => void
   /**
    * Los activos que el asesor sumó al objetivo.
    *
@@ -70,6 +72,7 @@ export function TablaPosiciones({
   productos,
   editar,
   marcar,
+  ocultar,
   agregados,
   cambiarActivo,
   quitarActivo,
@@ -77,6 +80,11 @@ export function TablaPosiciones({
   const [abierta, setAbierta] = useState<string | null>(null)
   const [elegidas, setElegidas] = useState<ReadonlySet<string>>(new Set())
   const listaId = useId()
+
+  // Las ocultas no se dibujan ni cuentan: se quitaron de la vista. Siguen en
+  // `posiciones` —y en la base— para poder restaurarlas desde la barra de abajo.
+  const visibles = posiciones.filter((posicion) => !posicion.oculta)
+  const ocultas = posiciones.filter((posicion) => posicion.oculta)
   const claseDeProducto = new Map(productos.map((producto) => [producto.nombre, producto.clase]))
 
   // Elegir del menú trae la clase puesta: es el dato que el catálogo ya sabe y
@@ -97,11 +105,11 @@ export function TablaPosiciones({
       return siguiente
     })
 
-  const todas = elegidas.size > 0 && elegidas.size === posiciones.length
+  const todas = elegidas.size > 0 && elegidas.size === visibles.length
   const alternarTodas = () =>
-    setElegidas(todas ? new Set() : new Set(posiciones.map((posicion) => posicion.id)))
+    setElegidas(todas ? new Set() : new Set(visibles.map((posicion) => posicion.id)))
 
-  const enLote = posiciones.filter((posicion) => elegidas.has(posicion.id))
+  const enLote = visibles.filter((posicion) => elegidas.has(posicion.id))
 
   const asignarClase = (clase: ClaseModelo) => {
     for (const posicion of enLote) editar(posicion.id, { claseModelo: clase })
@@ -119,9 +127,9 @@ export function TablaPosiciones({
   const sinClase = enLote.filter((posicion) => posicion.claseModelo === null).length
   const fueraDelCalculo = enLote.filter((posicion) => !posicion.esInvertible).length
 
-  const financieras = posiciones.filter((posicion) => posicion.origen === 'financiero').length
-  const inmuebles = posiciones.length - financieras
-  const total = posiciones
+  const financieras = visibles.filter((posicion) => posicion.origen === 'financiero').length
+  const inmuebles = visibles.length - financieras
+  const total = visibles
     .filter((posicion) => posicion.esInvertible)
     .reduce((suma, posicion) => suma + posicion.valorUsd, 0)
 
@@ -217,7 +225,7 @@ export function TablaPosiciones({
             </tr>
           </thead>
           <tbody>
-            {posiciones.map((posicion) => (
+            {visibles.map((posicion) => (
               <FilaPosicion
                 key={posicion.id}
                 posicion={posicion}
@@ -228,6 +236,7 @@ export function TablaPosiciones({
                 alSeleccionar={(elegida) => elegir(posicion.id, elegida)}
                 editar={(cambios) => editar(posicion.id, cambios)}
                 marcar={(cta) => marcar(posicion.id, cta)}
+                ocultar={() => ocultar(posicion.id, true)}
               />
             ))}
           </tbody>
@@ -314,6 +323,30 @@ export function TablaPosiciones({
           ))}
         </datalist>
       </div>
+
+      {ocultas.length > 0 && (
+        <details className={estilos.ocultas}>
+          <summary>
+            {plural(ocultas.length, 'posición quitada', 'posiciones quitadas')} de la vista
+            <span className={estilos.ocultasNota}>no entran al cálculo — se pueden restaurar</span>
+          </summary>
+          <ul className={estilos.ocultasLista}>
+            {ocultas.map((posicion) => (
+              <li key={posicion.id} className={estilos.ocultaItem}>
+                <span className={estilos.ocultaNombre}>{posicion.institucionProducto}</span>
+                <span className={`${estilos.ocultaMonto} mono`}>{usd(posicion.valorUsd)}</span>
+                <button
+                  type="button"
+                  className={estilos.restaurar}
+                  onClick={() => ocultar(posicion.id, false)}
+                >
+                  Restaurar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </section>
   )
 }

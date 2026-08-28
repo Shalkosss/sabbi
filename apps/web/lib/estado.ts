@@ -28,6 +28,8 @@ export interface PosicionEditada extends PosicionFicha {
   readonly id: string
   readonly nota: string
   readonly camposEditados: readonly string[]
+  /** Quitada de la vista y del cálculo, pero guardada: se restaura. */
+  readonly oculta: boolean
 }
 
 export interface Parametros {
@@ -99,6 +101,8 @@ export interface EstadoRevision extends AjustesObjetivo {
 export type Accion =
   | { readonly tipo: 'editar'; readonly id: string; readonly cambios: Partial<PosicionEditada> }
   | { readonly tipo: 'cta'; readonly id: string; readonly cta: Cta }
+  /** Quitar la posición de la vista y del cálculo, o restaurarla. */
+  | { readonly tipo: 'ocultar'; readonly id: string; readonly oculta: boolean }
   | { readonly tipo: 'parametros'; readonly cambios: Partial<Parametros> }
   | { readonly tipo: 'activo'; readonly activo: ActivoAgregado }
   | { readonly tipo: 'quitar-activo'; readonly id: string }
@@ -200,6 +204,16 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
         ),
       }
 
+    case 'ocultar':
+      // No pasa por `aplicar`: ocultar no es corregir un dato de la ficha, así
+      // que no marca la posición como editada ni entra en `camposEditados`.
+      return {
+        ...estado,
+        posiciones: estado.posiciones.map((posicion) =>
+          posicion.id === accion.id ? { ...posicion, oculta: accion.oculta } : posicion,
+        ),
+      }
+
     case 'remoto':
       return {
         ...estado,
@@ -258,7 +272,11 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
 
 /** Proyecta las posiciones a lo que el motor entiende. */
 export const aRevisadas = (posiciones: readonly PosicionEditada[]): readonly PosicionRevisada[] =>
-  posiciones.map((posicion) => ({
+  posiciones
+    // Una posición oculta se quitó del cálculo: no entra al motor. Sigue en la
+    // base y en `estado.posiciones` para poder restaurarla, pero no acá.
+    .filter((posicion) => !posicion.oculta)
+    .map((posicion) => ({
     institucionProducto: posicion.institucionProducto,
     origen: posicion.origen,
     claseModelo: posicion.claseModelo,

@@ -59,16 +59,33 @@ export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
   )
 }
 
-/** La banda anual, con su cobertura al lado cuando no es total. */
 /**
- * De donde sale lo que el portafolio gana.
+ * Cuántos puntos de la rentabilidad pone una parte del portafolio.
  *
  * Se muestra al lado del peso, y la gracia es justamente la diferencia entre
- * los dos: una clase puede ser el 16% del dinero y el 2% de la renta. Sin
- * dato no se escribe un cero — un aporte que no se puede calcular no es un
- * aporte nulo.
+ * los dos: una clase puede ser el 16% del dinero y poner 0.3 puntos de los 4.9
+ * que rinde el portafolio. Va en la misma unidad que la cifra de la cabecera y
+ * la columna suma esa cifra, que es lo único que la vuelve verificable de un
+ * vistazo. Sin dato no se escribe un cero — un aporte que no se puede calcular
+ * no es un aporte nulo.
  */
 const aporte = (parte: number | null): string => (parte === null ? '—' : pct1(parte))
+
+/** El texto de ayuda de la columna. Una sola vez: lo usan las dos miradas. */
+const AYUDA_APORTE =
+  'Cuántos puntos de la rentabilidad del portafolio pone esta línea: su peso por su retorno. ' +
+  'La columna entera suma la rentabilidad estimada.'
+
+/**
+ * El aporte total de una lista de filas.
+ *
+ * `null` cuando ninguna tiene dato: una columna que no se puede sumar no
+ * imprime un cero al pie, que se leería como «no aporta nada».
+ */
+const aporteTotal = (partes: readonly (number | null)[]): number | null =>
+  partes.every((parte) => parte === null)
+    ? null
+    : partes.reduce((acc: number, parte) => acc + (parte ?? 0), 0)
 
 function rent(rentabilidad: RentabilidadPonderada | null): string {
   if (rentabilidad === null) return '—'
@@ -143,6 +160,20 @@ function PanelLadoALado({
         </div>
       </div>
 
+      {/*
+        Qué dice cada columna, una sola vez y arriba de las dos.
+
+        El rótulo de la tabla tiene que caber en su pista, así que dice «Aporte»
+        y nada más; sin esta línea, entender la columna obliga a pasar el mouse
+        por una celda — y en una propuesta impresa, a adivinar.
+      */}
+      <p className={estilos.leyendaColumnas}>
+        <b>Peso</b> es cuánto del dinero está en esa clase. <b>Aporte</b> es cuántos puntos de la
+        rentabilidad pone: su peso por su retorno. Las dos dicen cosas distintas — una clase
+        puede ser el 20% del dinero y no poner un solo punto —, y la columna de aportes suma
+        exactamente la rentabilidad estimada que dice el pie de su portafolio.
+      </p>
+
       <div className={estilos.columnas}>
         <ColumnaPortafolio
           titulo="Tu portafolio hoy"
@@ -186,7 +217,7 @@ interface FilaLado {
   readonly clase: FilaVistaClase['clase']
   readonly usd: number
   readonly share: number
-  /** Parte de la renta anual del portafolio que sale de esta clase. */
+  /** Puntos de la rentabilidad del portafolio que pone esta clase. */
   readonly aporteRenta: number | null
 }
 
@@ -213,6 +244,14 @@ function ColumnaPortafolio({
   // de este plan, y contra el total todos se verían igual de pálidos.
   const mayorMovimiento = Math.max(1, ...(movimientos ?? []).map((m) => Math.abs(m)))
 
+  // El ancho de las columnas numéricas es fijo y no `auto`: con `auto` cada
+  // lado se dimensiona contra sus propias cifras —«100,000» y «119,836» miden
+  // distinto— y las dos columnas dejan de leerse en horizontal, que es lo único
+  // que esta vista aporta sobre leer las dos por separado.
+  const rejilla = movimientos === undefined ? estilos.rejillaLado : estilos.rejillaLadoMov
+
+  const total = aporteTotal(filas.map((f) => f.aporteRenta))
+
   return (
     <section className={estilos.columna}>
       <header className={estilos.columnaCabecera}>
@@ -221,19 +260,28 @@ function ColumnaPortafolio({
       </header>
 
       <div className={estilos.lista}>
+        {/*
+          Los rótulos de las columnas. No estaban, y sin ellos la fila era tres
+          números sueltos: nadie puede saber que el segundo es un peso y el
+          tercero un aporte a la rentabilidad mirándolos.
+        */}
+        <div className={`${rejilla} ${estilos.rotulos}`}>
+          <span aria-hidden="true" />
+          <span>Clase</span>
+          <span>Monto</span>
+          <span>Peso</span>
+          <span title={AYUDA_APORTE}>Aporte</span>
+          {movimientos !== undefined && <span>A mover</span>}
+        </div>
+
         {filas.map((fila, i) => (
           <div key={fila.clase} className={estilos.filaLado}>
-            <div
-              className={`${estilos.encabezado} ${movimientos === undefined ? '' : estilos.conMovimiento}`}
-            >
+            <div className={rejilla}>
               <span className={`${estilos.punto} ${estilos[`punto_${fila.clase}`] ?? ''}`} />
               <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
               <span className={estilos.montoClase}>{usdTabla(fila.usd)}</span>
               <span className={estilos.shareClase}>{pct1(fila.share)}</span>
-              <span
-                className={estilos.aporteClase}
-                title="Parte de la renta anual del portafolio que sale de esta clase"
-              >
+              <span className={estilos.aporteClase} title={AYUDA_APORTE}>
                 {aporte(fila.aporteRenta)}
               </span>
               {movimientos !== undefined && (
@@ -252,6 +300,23 @@ function ColumnaPortafolio({
             </div>
           </div>
         ))}
+
+        {/*
+          El pie de la lista existe por el aporte: una columna que dice sumar la
+          rentabilidad y no muestra su suma obliga a sumar siete celdas a mano
+          para creerle. El peso da 100% por construcción y el monto es el total;
+          los tres juntos son el cuadre de la columna.
+        */}
+        <div className={`${rejilla} ${estilos.filaTotal}`}>
+          <span aria-hidden="true" />
+          <span>Total</span>
+          <span className={estilos.montoClase}>{usdTabla(totalUsd)}</span>
+          <span className={estilos.shareClase}>{pct1(filas.length === 0 ? 0 : 1)}</span>
+          <span className={estilos.aporteClase} title={AYUDA_APORTE}>
+            {aporte(total)}
+          </span>
+          {movimientos !== undefined && <span aria-hidden="true" />}
+        </div>
       </div>
 
       {/*
@@ -352,9 +417,31 @@ function PanelComparativo({ vista }: { readonly vista: VistaComparativa }) {
       </div>
 
       <div className={estilos.lista}>
+        {/* Los mismos rótulos que la mirada de al lado: la fila es la misma. */}
+        <div className={`${estilos.encabezado} ${estilos.rotulos}`}>
+          <span aria-hidden="true" />
+          <span>Clase</span>
+          <span>Hoy → con Sabbi</span>
+          <span>Cambio</span>
+          <span title={AYUDA_APORTE}>Aporte</span>
+          <span aria-hidden="true" />
+        </div>
+
         {vista.filas.map((fila) => (
           <FilaComparada key={fila.clase} fila={fila} />
         ))}
+
+        {/* El cuadre de la columna: la suma tiene que dar la cifra de arriba. */}
+        <div className={`${estilos.encabezado} ${estilos.filaTotal}`}>
+          <span aria-hidden="true" />
+          <span>Total con Sabbi</span>
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span className={estilos.aporteClase} title={AYUDA_APORTE}>
+            {aporte(aporteTotal(vista.filas.map((f) => f.aporteRentaDespues)))}
+          </span>
+          <span aria-hidden="true" />
+        </div>
       </div>
 
       {notas.map((nota) => (
@@ -388,10 +475,7 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
           <span className={`${estilos.delta} ${sinCambio ? estilos.deltaIgual : ''}`}>
             {textoDelta}
           </span>
-          <span
-            className={estilos.aporteClase}
-            title="Parte de la renta anual del portafolio propuesto que sale de esta clase"
-          >
+          <span className={estilos.aporteClase} title={AYUDA_APORTE}>
             {aporte(fila.aporteRentaDespues)}
           </span>
           <Chevron />
@@ -450,7 +534,7 @@ function Subfilas({ subfilas }: { readonly subfilas: readonly SubfilaVista[] }) 
           </span>
           <span className={estilos.subMonto}>{usdTabla(sub.usd)}</span>
           <span className={estilos.subShare}>{pct1(sub.share)}</span>
-          <span className={estilos.subAporte} title="Parte de la renta que sale de esta línea">
+          <span className={estilos.subAporte} title={AYUDA_APORTE}>
             {aporte(sub.aporteRenta)}
           </span>
         </div>

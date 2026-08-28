@@ -107,39 +107,52 @@ describe('armarVistaHoy', () => {
   })
 
   /**
-   * De donde sale lo que el portafolio gana.
+   * Cuantos puntos de la rentabilidad pone cada clase.
    *
    * Es la pregunta que el peso deja a medias, y por eso va en su propia
-   * columna: cash es el 40% del dinero de este caso y aporta el 57% de la
-   * renta; el inmueble es el 40% del dinero y no aporta nada, porque no tiene
-   * retorno cargado.
+   * columna: cash es el 40% del dinero de este caso y pone 2.67 de los 4.67
+   * puntos que rinde el portafolio; el inmueble es el 40% del dinero y no pone
+   * ninguno, porque no tiene retorno cargado.
+   *
+   * La base de las dos cifras es la misma —el dinero con dato, 600k— y eso es
+   * lo que hace que la columna sume exactamente la cabecera.
    */
-  describe('el aporte a la renta', () => {
+  describe('el aporte a la rentabilidad', () => {
     const renta = { cash: 300_000 * 0.05 + 100_000 * 0.01, fijo: 200_000 * 0.06 }
-    const total = renta.cash + renta.fijo
+    const base = 600_000
 
-    it('cada clase aporta su renta sobre la renta del portafolio', () => {
+    it('cada clase pone su renta sobre el dinero con dato', () => {
       expect(vista.filas.find((f) => f.clase === 'cash')?.aporteRenta).toBeCloseTo(
-        renta.cash / total,
+        renta.cash / base,
         10,
       )
       expect(vista.filas.find((f) => f.clase === 'fijo')?.aporteRenta).toBeCloseTo(
-        renta.fijo / total,
+        renta.fijo / base,
         10,
       )
     })
 
     it('lo que no tiene retorno cargado aporta cero, no se le supone uno', () => {
-      // El inmueble pesa 40% del patrimonio y aporta 0% de la renta. Es la
+      // El inmueble pesa 40% del patrimonio y no pone un solo punto. Es la
       // diferencia que la columna existe para mostrar.
       const inm = vista.filas.find((f) => f.clase === 'inm')
       expect(inm?.share).toBeCloseTo(0.4, 10)
       expect(inm?.aporteRenta).toBe(0)
     })
 
-    it('los aportes de las clases suman uno', () => {
+    /**
+     * El invariante de la columna, y la razon de que exista.
+     *
+     * Si esto se rompe, la pantalla muestra siete numeros que no dan la cifra
+     * que tienen encima, y el asesor no tiene forma de saber cual de las ocho
+     * esta mal.
+     */
+    it('los aportes de las clases suman la rentabilidad del portafolio', () => {
       const suma = vista.filas.reduce((acc, f) => acc + (f.aporteRenta ?? 0), 0)
-      expect(suma).toBeCloseTo(1, 10)
+      const banda = vista.rentabilidad
+      const medio = ((banda?.rango.min ?? 0) + (banda?.rango.max ?? 0)) / 2
+      expect(suma).toBeCloseTo(medio, 10)
+      expect(suma).toBeCloseTo(0.04666667, 6)
     })
 
     it('las subfilas de una clase suman su aporte', () => {
@@ -224,6 +237,35 @@ describe('armarComparativa', () => {
     // este test: la banda global se pondera solo sobre lo conocido.
     expect(comparativa.rentabilidadDespues?.cobertura).toBeLessThan(1)
     expect(comparativa.rentabilidadDespues?.cobertura).toBeGreaterThan(0)
+  })
+
+  /**
+   * El mismo invariante del lado del plan.
+   *
+   * Aca importa mas que en el "hoy": la cobertura del despues es parcial —el
+   * catalogo de este test no conoce los privados ni el club— y es justo el caso
+   * en el que una base mal elegida descuadra la columna sin que se note.
+   */
+  it('los aportes de cada lado suman la rentabilidad de ese lado', () => {
+    const sumar = (partes: readonly (number | null)[]) =>
+      partes.reduce((acc: number, parte) => acc + (parte ?? 0), 0)
+    const medio = (banda: { readonly rango: { min: number; max: number } } | null) =>
+      banda === null ? 0 : (banda.rango.min + banda.rango.max) / 2
+
+    expect(sumar(comparativa.filas.map((f) => f.aporteRentaAntes))).toBeCloseTo(
+      medio(comparativa.rentabilidadAntes),
+      10,
+    )
+    expect(sumar(comparativa.filas.map((f) => f.aporteRentaDespues))).toBeCloseTo(
+      medio(comparativa.rentabilidadDespues),
+      10,
+    )
+  })
+
+  it('las subfilas del despues suman el aporte de su clase', () => {
+    const variable = comparativa.filas.find((f) => f.clase === 'variable')
+    const suma = (variable?.despuesSub ?? []).reduce((acc, s) => acc + (s.aporteRenta ?? 0), 0)
+    expect(suma).toBeCloseTo(variable?.aporteRentaDespues ?? 0, 10)
   })
 
   it('los totales de los dos lados cuadran entre si', () => {

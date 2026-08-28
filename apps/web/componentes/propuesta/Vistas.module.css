@@ -158,10 +158,18 @@
   background: var(--hundido);
 }
 
-/* Cabecera de la fila: punto, nombre, monto, %, aporte, rentabilidad, chevron. */
+/*
+ * Cabecera de la fila del comparativo: punto, nombre, hoy→Sabbi, delta,
+ * aporte, chevron. Seis celdas y seis pistas — la septima que habia aca dejaba
+ * una columna vacia al final y corria el chevron hacia adentro.
+ *
+ * Las pistas numericas van en ancho fijo y no en `auto`. Con `auto` cada fila
+ * se dimensiona contra su propio texto y la tabla deja de tener columnas: son
+ * siete filas de numeros cada una en un sitio distinto.
+ */
 .encabezado {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto auto;
+  grid-template-columns: 9px minmax(0, 1fr) 132px 84px 68px 12px;
   align-items: baseline;
   gap: 12px;
 }
@@ -202,28 +210,27 @@
   text-align: right;
 }
 
+/* Sin `min-width`: el ancho lo fija la rejilla, y un minimo mayor que su pista
+   la desborda en silencio. Las celdas solo dicen su color. */
 .montoClase {
   color: var(--tinta-2);
-  min-width: 96px;
 }
 
 .shareClase {
   color: var(--tinta);
   font-weight: 700;
-  min-width: 52px;
 }
 
 .rentClase {
   color: var(--tinta-3);
-  min-width: 96px;
 }
 
-/* De donde sale lo que el portafolio gana. Se lee al lado del peso porque la
-   gracia es la diferencia entre los dos: cash puede ser el 16% del dinero y el
-   2% de la renta. */
+/* Cuantos puntos de la rentabilidad pone esta clase. Se lee al lado del peso
+   porque la gracia es la diferencia entre los dos: cash puede ser el 16% del
+   dinero y poner 0.3 de los 4.9 puntos que rinde el portafolio. */
 .aporteClase {
-  color: var(--tinta-3);
-  min-width: 56px;
+  color: var(--acento-texto);
+  font-weight: 600;
 }
 
 .chevron {
@@ -297,7 +304,6 @@
   border-radius: 999px;
   white-space: nowrap;
   align-self: center;
-  min-width: 78px;
   text-align: center;
   background: var(--hundido);
   border: 1px solid var(--borde-suave);
@@ -317,9 +323,10 @@
   border-top: 1px solid var(--borde-suave);
 }
 
+/* Cuatro celdas: nombre, monto, peso y aporte. Cuatro pistas. */
 .subfila {
   display: grid;
-  grid-template-columns: 1fr auto auto auto auto;
+  grid-template-columns: minmax(0, 1fr) 92px 54px 62px;
   gap: 12px;
   align-items: baseline;
   padding: 6px 0;
@@ -348,10 +355,10 @@
   text-align: right;
 }
 
-.subMonto { color: var(--tinta-2); min-width: 92px; }
-.subShare { color: var(--tinta-3); min-width: 48px; }
-.subAporte { color: var(--tinta-3); min-width: 48px; }
-.subRent { color: var(--tinta-3); min-width: 92px; }
+.subMonto { color: var(--tinta-2); }
+.subShare { color: var(--tinta-3); }
+.subAporte { color: var(--acento-texto); }
+.subRent { color: var(--tinta-3); }
 
 .marcaConservada {
   display: inline-block;
@@ -545,10 +552,106 @@
   border-bottom: none;
 }
 
-/* La cabecera de la fila aca no lleva chevron ni rentabilidad: son cuatro
-   columnas, no seis. */
-.filaLado .encabezado {
-  grid-template-columns: auto 1fr auto auto;
+/*
+ * La rejilla de la mirada lado a lado.
+ *
+ * Vive en su propia clase y no en `.filaLado .encabezado` por una razon que
+ * costo un bug visible: un selector descendiente pesa mas que una clase suelta,
+ * asi que ese `.filaLado .encabezado` le ganaba a `.conMovimiento` y dejaba la
+ * fila con cuatro pistas para cinco o seis celdas. Las que sobraban caian a una
+ * segunda linea del grid, debajo del nombre — que es de donde salia el aporte
+ * flotando a la izquierda de la barra.
+ *
+ * Los anchos son fijos, no `auto`: las dos columnas tienen que leerse en
+ * horizontal, y `auto` las dimensiona a cada una contra sus propias cifras.
+ */
+.rejillaLado,
+.rejillaLadoMov {
+  display: grid;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.rejillaLado {
+  grid-template-columns: 9px minmax(0, 1fr) 92px 54px 62px;
+}
+
+/* La columna del objetivo lleva una celda mas: lo que hay que mover. */
+.rejillaLadoMov {
+  grid-template-columns: 9px minmax(0, 1fr) 92px 54px 62px 96px;
+}
+
+/*
+ * La franja incomoda: las dos columnas todavia entran lado a lado pero las
+ * pistas anchas se comen el nombre de la clase. Se aprietan las numericas
+ * antes que dejar «Mercados Priv…» en cada fila.
+ */
+@media (min-width: 901px) and (max-width: 1120px) {
+  .rejillaLado,
+  .rejillaLadoMov {
+    gap: 8px;
+  }
+
+  .rejillaLado {
+    grid-template-columns: 9px minmax(0, 1fr) 76px 46px 52px;
+  }
+
+  .rejillaLadoMov {
+    grid-template-columns: 9px minmax(0, 1fr) 76px 46px 52px 82px;
+  }
+}
+
+/*
+ * Los rotulos de columna y el pie de la lista.
+ *
+ * Comparten la rejilla de las filas y ponen solo la tipografia. Van con el
+ * mismo padding lateral que `.filaLado` y que el `summary` del comparativo:
+ * si no, la cabecera diria una cosa y la columna estaria en otro sitio.
+ */
+.rotulos {
+  padding: 9px 18px 8px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--hundido);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-4);
+}
+
+.rotulos > span {
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* El nombre de la clase es la unica columna de texto: se alinea con el resto. */
+.rotulos > span:nth-child(2) {
+  text-align: left;
+}
+
+.filaTotal {
+  padding: 11px 18px;
+  border-top: 1px solid var(--borde);
+  background: var(--hundido);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--tinta);
+}
+
+.filaTotal > span:nth-child(2) {
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.filaTotal .montoClase,
+.filaTotal .shareClase,
+.filaTotal .aporteClase {
+  color: var(--tinta);
+  font-weight: 700;
 }
 
 /* ── El pie de cada columna ─────────────────────────────────────────────── */
@@ -590,15 +693,7 @@
 
 /* ── Lo que hay que mover para llegar ───────────────────────────────────── */
 
-/* La columna del objetivo lleva una celda mas. El ancho fijo es lo que
-   mantiene las dos columnas alineadas fila contra fila, que es lo unico que
-   esta vista aporta sobre leerlas por separado. */
-.conMovimiento {
-  grid-template-columns: auto 1fr auto auto auto auto;
-}
-
 .movimiento {
-  min-width: 96px;
   text-align: right;
   padding: 2px 8px;
   border-radius: var(--radio-control);
@@ -640,4 +735,24 @@
 .sinMovimiento {
   color: var(--tinta-4);
   font-weight: 400;
+}
+
+/*
+ * La linea que dice que es cada columna.
+ *
+ * Los rotulos de la tabla tienen que caber en su pista y por eso son cortos;
+ * esto es donde se explican una sola vez, arriba de las dos columnas, para que
+ * nadie tenga que pasar el mouse por una celda para entender la tabla.
+ */
+.leyendaColumnas {
+  margin: 0 0 12px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--tinta-4);
+  max-width: 96ch;
+}
+
+.leyendaColumnas b {
+  color: var(--tinta-3);
+  font-weight: 700;
 }

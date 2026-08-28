@@ -47,21 +47,24 @@ export interface RentabilidadPonderada {
 }
 
 /**
- * Cuanto de la renta del portafolio sale de esta parte.
+ * Cuantos puntos de la rentabilidad del portafolio pone esta parte.
  *
- * Es la otra mitad de la pregunta que el peso deja a medias. Cash puede ser el
- * 16% del dinero y aportar el 2% de la renta; un club deal puede ser el 5% del
- * dinero y aportar el 15%. Sin esta columna las dos lineas se leen igual de
- * grandes, y la conversacion con el cliente —de donde viene lo que gana— se
- * tiene mirando el peso, que no es de donde viene.
+ * Es la otra mitad de la pregunta que el peso deja a medias, y se lee en la
+ * misma unidad que la cifra grande de arriba: si el portafolio rinde 4.9%, esta
+ * columna dice que Inmobiliario pone 2.4 de esos puntos y Cash 0.3. Las siete
+ * filas suman exactamente la rentabilidad del portafolio, y esa suma es lo que
+ * hace la columna legible — un peso del 16% con un aporte de 0.3 puntos dice de
+ * un vistazo que ese dinero no esta trabajando.
  *
- * Se calcula sobre el punto medio de cada banda, que es el unico numero con el
- * que se pueden sumar aportes: una banda no se suma con otra. Y sobre el dinero
- * que tiene retorno conocido, igual que la rentabilidad de al lado — por eso la
+ * Es el aporte clasico: peso por retorno. Sale del punto medio de cada banda,
+ * que es el unico numero con el que se pueden sumar aportes — una banda no se
+ * suma con otra — y se divide por el dinero que tiene retorno conocido, que es
+ * la misma base de la rentabilidad de al lado. Por eso las dos cuadran: la
+ * suma de la columna es el punto medio de la banda que dice la cabecera, y la
  * cobertura que ya se muestra vale para las dos.
  *
- * `null` cuando nada en el portafolio tiene retorno conocido: sin base, una
- * parte de la renta no es cero, es una cifra que no se puede afirmar.
+ * `null` cuando nada en el portafolio tiene retorno conocido: sin base, un
+ * aporte no es cero, es una cifra que no se puede afirmar.
  */
 export type AporteRenta = number | null
 
@@ -71,7 +74,7 @@ export interface SubfilaVista {
   /** Sobre el total del portafolio, no de la clase: se lee contra el 100%. */
   readonly share: number
   readonly rentabilidad: RentabilidadPonderada | null
-  /** Parte de la renta anual del portafolio que sale de esta linea. */
+  /** Puntos de la rentabilidad del portafolio que pone esta linea. */
   readonly aporteRenta: AporteRenta
   /** Solo en el despues: la linea ya la tenia el cliente y se conserva. */
   readonly conservada?: boolean
@@ -82,7 +85,7 @@ export interface FilaVistaClase {
   readonly usd: number
   readonly share: number
   readonly rentabilidad: RentabilidadPonderada | null
-  /** Parte de la renta anual del portafolio que sale de esta clase. */
+  /** Puntos de la rentabilidad del portafolio que pone esta clase. */
   readonly aporteRenta: AporteRenta
   readonly subfilas: readonly SubfilaVista[]
 }
@@ -161,13 +164,37 @@ const rangoDe = (valor: number | null): Rango | null =>
 const rentaDe = (usd: number, rango: Rango | null): number =>
   rango === null ? 0 : (usd * (rango.min + rango.max)) / 2
 
-/** Un aporte contra la renta total. Sin renta que repartir, no hay aporte. */
-const aporte = (renta: number, rentaTotal: number): AporteRenta =>
-  rentaTotal <= EPS ? null : renta / rentaTotal
+/**
+ * El aporte de una parte a la rentabilidad del portafolio, en fraccion.
+ *
+ * Renta de la parte sobre la base con dato, no sobre la renta total: dividir
+ * por la renta daria el reparto de la renta —cuanto del total sale de aca, en
+ * porcentaje de la renta— y la columna sumaria 100% siempre, dijera lo que
+ * dijera la rentabilidad. Dividiendo por la base, la columna suma la
+ * rentabilidad del portafolio y se lee en sus mismas unidades.
+ *
+ * La base es el dinero con retorno conocido, la misma de `ponderar`. Es lo que
+ * hace que las dos cifras cuadren: la suma de esta columna es el punto medio
+ * de la banda que muestra la cabecera.
+ */
+const aporte = (renta: number, baseUsd: number): AporteRenta =>
+  baseUsd <= EPS ? null : renta / baseUsd
 
 /** La renta anual esperada de un conjunto de partes. */
 const rentaTotalDe = (partes: readonly Ponderable[]): number =>
   partes.reduce((acc, p) => acc + rentaDe(p.usd, p.rango), 0)
+
+/**
+ * El dinero que sostiene la rentabilidad: el que tiene retorno conocido.
+ *
+ * Es el mismo denominador que usa `ponderar`, escrito una sola vez para que no
+ * puedan desincronizarse. Si se calcularan por separado, la suma de la columna
+ * de aportes dejaria de dar la cifra de la cabecera el dia que uno de los dos
+ * cambiara de criterio, y esa es exactamente la clase de descuadre que nadie
+ * encuentra despues.
+ */
+const baseConDato = (partes: readonly Ponderable[]): number =>
+  partes.reduce((acc, p) => (p.rango !== null && p.usd > EPS ? acc + p.usd : acc), 0)
 
 const rentaAnual = (
   rentabilidad: RentabilidadPonderada | null,
@@ -214,7 +241,7 @@ export function armarVistaHoy(
     usd: p.valorUsd,
     rango: rangoDe(p.rendimientoEst),
   })
-  const rentaTotal = rentaTotalDe(invertibles.map(ponderable))
+  const baseUsd = baseConDato(invertibles.map(ponderable))
 
   const filas = ORDEN_CLASES.flatMap((clase): FilaVistaClase[] => {
     const propias = invertibles.filter((p) => p.claseModelo === clase)
@@ -236,7 +263,7 @@ export function armarVistaHoy(
           usd: usdSub,
           share: share(usdSub, totalUsd),
           rentabilidad: ponderar(grupo.map(ponderable)),
-          aporteRenta: aporte(rentaTotalDe(grupo.map(ponderable)), rentaTotal),
+          aporteRenta: aporte(rentaTotalDe(grupo.map(ponderable)), baseUsd),
         }
       })
       .sort((a, b) => b.usd - a.usd)
@@ -247,7 +274,7 @@ export function armarVistaHoy(
         usd,
         share: share(usd, totalUsd),
         rentabilidad: ponderar(propias.map(ponderable)),
-        aporteRenta: aporte(rentaTotalDe(propias.map(ponderable)), rentaTotal),
+        aporteRenta: aporte(rentaTotalDe(propias.map(ponderable)), baseUsd),
         subfilas,
       },
     ]
@@ -311,7 +338,7 @@ function leerPlan(
     rango: rangoDeLinea(l.instrumento),
   })
   const rentabilidad = ponderar(plan.lineas.map(ponderable))
-  const rentaTotal = rentaTotalDe(plan.lineas.map(ponderable))
+  const baseUsd = baseConDato(plan.lineas.map(ponderable))
 
   return {
     totalUsd,
@@ -328,13 +355,13 @@ function leerPlan(
             usd: l.usd,
             share: share(l.usd, totalUsd),
             rentabilidad: rango === null ? null : { rango, cobertura: 1 },
-            aporteRenta: aporte(rentaDe(l.usd, rango), rentaTotal),
+            aporteRenta: aporte(rentaDe(l.usd, rango), baseUsd),
             conservada: conservadas.has(l.instrumento),
           }
         })
         .sort((a, b) => b.usd - a.usd),
     rentabilidadDe: (clase) => ponderar(lineasDe(clase).map(ponderable)),
-    aporteRentaDe: (clase) => aporte(rentaTotalDe(lineasDe(clase).map(ponderable)), rentaTotal),
+    aporteRentaDe: (clase) => aporte(rentaTotalDe(lineasDe(clase).map(ponderable)), baseUsd),
   }
 }
 

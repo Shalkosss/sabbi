@@ -149,8 +149,15 @@ export function construirPropuesta(
   // El catalogo se empareja contra los nombres que el motor acaba de imprimir,
   // no contra los del benchmark: son dos espacios de nombres distintos. Los dos
   // portafolios se leen en la misma tabla, así que entran los nombres de ambos.
+  //
+  // Y también los de las posiciones de hoy: el «antes» necesita el distributivo
+  // del catálogo, que la ficha no guarda. El retorno total del «antes» sigue
+  // saliendo de la ficha; el catálogo aporta ahí solo la banda de distribución.
   const catalogo = emparejarCatalogo(
-    plan.lineas.map((linea) => linea.instrumento),
+    [
+      ...plan.lineas.map((linea) => linea.instrumento),
+      ...posiciones.map((posicion) => posicion.institucionProducto),
+    ],
     opciones.catalogo,
   )
 

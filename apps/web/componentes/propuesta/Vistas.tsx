@@ -29,8 +29,16 @@ import estilos from './Vistas.module.css'
  * detalle por subclase y la rentabilidad de cada lado. Es la que se usa para
  * explicar, no para mirar.
  */
+/**
+ * Qué retorno mira la tabla de aporte: el total —lo que sube el activo— o el
+ * distributivo —lo que paga en efectivo—. El peso y el monto no cambian; solo
+ * la columna «Aporte» y el detalle por subclase leen una métrica u otra.
+ */
+export type Metrica = 'retorno' | 'distributivo'
+
 export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
   const [mirada, setMirada] = useState<'lado' | 'comparativo'>('lado')
+  const [metrica, setMetrica] = useState<Metrica>('retorno')
 
   const pestana = (valor: typeof mirada, texto: string) => (
     <button
@@ -46,18 +54,59 @@ export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
 
   return (
     <section aria-label="Las miradas del portafolio">
-      <div className={estilos.selector} role="tablist" aria-label="Elegir mirada">
-        {pestana('lado', 'Hoy y objetivo')}
-        {pestana('comparativo', 'Hoy contra Sabbi')}
+      <div className={estilos.barraSelectores}>
+        <div className={estilos.selector} role="tablist" aria-label="Elegir mirada">
+          {pestana('lado', 'Hoy y objetivo')}
+          {pestana('comparativo', 'Hoy contra Sabbi')}
+        </div>
+        <SelectorMetrica metrica={metrica} alCambiar={setMetrica} />
       </div>
 
       {mirada === 'lado' && (
-        <PanelLadoALado vista={propuesta.comparativa} hoy={propuesta.vistaHoy} />
+        <PanelLadoALado vista={propuesta.comparativa} hoy={propuesta.vistaHoy} metrica={metrica} />
       )}
-      {mirada === 'comparativo' && <PanelComparativo vista={propuesta.comparativa} />}
+      {mirada === 'comparativo' && (
+        <PanelComparativo vista={propuesta.comparativa} metrica={metrica} />
+      )}
     </section>
   )
 }
+
+/** El interruptor Retorno / Distributivo. */
+function SelectorMetrica({
+  metrica,
+  alCambiar,
+}: {
+  readonly metrica: Metrica
+  readonly alCambiar: (m: Metrica) => void
+}) {
+  const opcion = (valor: Metrica, texto: string, ayuda: string) => (
+    <button
+      type="button"
+      className={`${estilos.metrica} ${metrica === valor ? estilos.metricaActiva : ''}`}
+      aria-pressed={metrica === valor}
+      onClick={() => alCambiar(valor)}
+      title={ayuda}
+    >
+      {texto}
+    </button>
+  )
+
+  return (
+    <div className={estilos.selectorMetrica} role="group" aria-label="Aporte por retorno o por distribución">
+      <span className={estilos.metricaRotulo}>Aporte al</span>
+      {opcion('retorno', 'Retorno total', 'El aporte por clase mira el retorno total: lo que sube el activo, distribuya o no.')}
+      {opcion('distributivo', 'Distributivo', 'El aporte por clase mira solo lo que el activo paga en efectivo: la renta que el cliente cobra.')}
+    </div>
+  )
+}
+
+/** Los campos de aporte y rentabilidad que corresponden a la métrica elegida. */
+const aporteClaseDe = (fila: FilaComparativa, metrica: Metrica) =>
+  metrica === 'retorno' ? fila.aporteRentaDespues : fila.aporteDistDespues
+
+const aporteSubDe = (sub: SubfilaVista, metrica: Metrica) =>
+  metrica === 'retorno' ? sub.aporteRenta : sub.aporteDist
 
 /**
  * Cuántos puntos de la rentabilidad pone una parte del portafolio.
@@ -71,10 +120,13 @@ export function Vistas({ propuesta }: { readonly propuesta: Propuesta }) {
  */
 const aporte = (parte: number | null): string => (parte === null ? '—' : pct1(parte))
 
-/** El texto de ayuda de la columna. Una sola vez: lo usan las dos miradas. */
-const AYUDA_APORTE =
-  'Cuántos puntos de la rentabilidad del portafolio pone esta línea: su peso por su retorno. ' +
-  'La columna entera suma la rentabilidad estimada.'
+/** El texto de ayuda de la columna, según la métrica elegida. */
+const ayudaAporte = (metrica: Metrica): string =>
+  metrica === 'retorno'
+    ? 'Cuántos puntos del retorno total del portafolio pone esta línea: su peso por su retorno. ' +
+      'La columna entera suma la rentabilidad estimada.'
+    : 'Cuántos puntos de la distribución en efectivo pone esta línea: su peso por su distributivo. ' +
+      'La columna entera suma el distributivo estimado.'
 
 /**
  * El aporte total de una lista de filas.
@@ -119,9 +171,11 @@ function notaCobertura(
 function PanelLadoALado({
   vista,
   hoy,
+  metrica,
 }: {
   readonly vista: VistaComparativa
   readonly hoy: VistaHoy
+  readonly metrica: Metrica
 }) {
   const notas = [
     notaCobertura(vista.rentabilidadAntes, 'tu portafolio actual'),
@@ -145,18 +199,20 @@ function PanelLadoALado({
             </span>
             <b>{rent(vista.rentabilidadDespues)}</b>
           </div>
-          <span className={estilos.cifraNota}>hoy → objetivo</span>
+          <span className={estilos.cifraNota}>retorno total · hoy → objetivo</span>
         </div>
         <div className={estilos.cifra}>
-          <span>Renta anual estimada</span>
+          <span>Renta anual · distribuciones</span>
           <div className={estilos.transicion}>
-            <span className={`mono ${estilos.antes}`}>{rangoUsd(vista.rentaAnualAntesUsd)}</span>
+            <span className={`mono ${estilos.antes}`}>
+              {rangoUsd(vista.distribucionAnualAntesUsd)}
+            </span>
             <span className={estilos.flecha} aria-hidden="true">
               →
             </span>
-            <b>{rangoUsd(vista.rentaAnualDespuesUsd)}</b>
+            <b>{rangoUsd(vista.distribucionAnualDespuesUsd)}</b>
           </div>
-          <span className={estilos.cifraNota}>hoy → objetivo</span>
+          <span className={estilos.cifraNota}>lo que paga en efectivo · hoy → objetivo</span>
         </div>
       </div>
 
@@ -168,36 +224,39 @@ function PanelLadoALado({
         por una celda — y en una propuesta impresa, a adivinar.
       */}
       <p className={estilos.leyendaColumnas}>
-        <b>Peso</b> es cuánto del dinero está en esa clase. <b>Aporte</b> es cuántos puntos de la
-        rentabilidad pone: su peso por su retorno. Las dos dicen cosas distintas — una clase
-        puede ser el 20% del dinero y no poner un solo punto —, y la columna de aportes suma
-        exactamente la rentabilidad estimada que dice el pie de su portafolio.
+        <b>Peso</b> es cuánto del dinero está en esa clase. <b>Aporte</b> es cuántos puntos{' '}
+        {metrica === 'retorno' ? 'del retorno total' : 'de la distribución en efectivo'} pone esa
+        clase: su peso por su {metrica === 'retorno' ? 'retorno' : 'distributivo'}. La columna suma
+        exactamente {metrica === 'retorno' ? 'la rentabilidad' : 'el distributivo'} que dice el pie
+        de su portafolio.
       </p>
 
       <div className={estilos.columnas}>
         <ColumnaPortafolio
           titulo="Tu portafolio hoy"
           totalUsd={vista.totalAntesUsd}
-          rentabilidad={vista.rentabilidadAntes}
-          rentaAnualUsd={vista.rentaAnualAntesUsd}
+          rentabilidad={metrica === 'retorno' ? vista.rentabilidadAntes : vista.rentabilidadDistAntes}
+          rentaAnualUsd={metrica === 'retorno' ? vista.rentaAnualAntesUsd : vista.distribucionAnualAntesUsd}
+          metrica={metrica}
           filas={vista.filas.map((f) => ({
             clase: f.clase,
             usd: f.antesUsd,
             share: f.antesShare,
-            aporteRenta: f.aporteRentaAntes,
+            aporteRenta: metrica === 'retorno' ? f.aporteRentaAntes : f.aporteDistAntes,
           }))}
           esObjetivo={false}
         />
         <ColumnaPortafolio
           titulo="El portafolio objetivo"
           totalUsd={vista.totalDespuesUsd}
-          rentabilidad={vista.rentabilidadDespues}
-          rentaAnualUsd={vista.rentaAnualDespuesUsd}
+          rentabilidad={metrica === 'retorno' ? vista.rentabilidadDespues : vista.rentabilidadDistDespues}
+          rentaAnualUsd={metrica === 'retorno' ? vista.rentaAnualDespuesUsd : vista.distribucionAnualDespuesUsd}
+          metrica={metrica}
           filas={vista.filas.map((f) => ({
             clase: f.clase,
             usd: f.despuesUsd,
             share: f.despuesShare,
-            aporteRenta: f.aporteRentaDespues,
+            aporteRenta: metrica === 'retorno' ? f.aporteRentaDespues : f.aporteDistDespues,
           }))}
           esObjetivo
           movimientos={vista.filas.map((f) => f.despuesUsd - f.antesUsd)}
@@ -226,6 +285,7 @@ function ColumnaPortafolio({
   totalUsd,
   rentabilidad,
   rentaAnualUsd,
+  metrica,
   filas,
   esObjetivo,
   movimientos,
@@ -234,6 +294,7 @@ function ColumnaPortafolio({
   readonly totalUsd: number
   readonly rentabilidad: RentabilidadPonderada | null
   readonly rentaAnualUsd: Parameters<typeof rangoUsd>[0]
+  readonly metrica: Metrica
   readonly filas: readonly FilaLado[]
   readonly esObjetivo: boolean
   /** Lo que hay que mover en cada clase para llegar. Solo el objetivo lo trae. */
@@ -270,7 +331,7 @@ function ColumnaPortafolio({
           <span>Clase</span>
           <span>Monto</span>
           <span>Peso</span>
-          <span title={AYUDA_APORTE}>Aporte</span>
+          <span title={ayudaAporte(metrica)}>{metrica === 'retorno' ? 'Aporte' : 'Aporte dist.'}</span>
           {movimientos !== undefined && <span>A mover</span>}
         </div>
 
@@ -281,7 +342,7 @@ function ColumnaPortafolio({
               <span className={estilos.nombreClase}>{NOMBRE_CLASE_CORTO[fila.clase]}</span>
               <span className={estilos.montoClase}>{usdTabla(fila.usd)}</span>
               <span className={estilos.shareClase}>{pct1(fila.share)}</span>
-              <span className={estilos.aporteClase} title={AYUDA_APORTE}>
+              <span className={estilos.aporteClase} title={ayudaAporte(metrica)}>
                 {aporte(fila.aporteRenta)}
               </span>
               {movimientos !== undefined && (
@@ -312,7 +373,7 @@ function ColumnaPortafolio({
           <span>Total</span>
           <span className={estilos.montoClase}>{usdTabla(totalUsd)}</span>
           <span className={estilos.shareClase}>{pct1(filas.length === 0 ? 0 : 1)}</span>
-          <span className={estilos.aporteClase} title={AYUDA_APORTE}>
+          <span className={estilos.aporteClase} title={ayudaAporte(metrica)}>
             {aporte(total)}
           </span>
           {movimientos !== undefined && <span aria-hidden="true" />}
@@ -330,11 +391,11 @@ function ColumnaPortafolio({
           <dd className="mono">{usdTabla(totalUsd)}</dd>
         </div>
         <div>
-          <dt>Rentabilidad estimada</dt>
+          <dt>{metrica === 'retorno' ? 'Rentabilidad estimada' : 'Distributivo estimado'}</dt>
           <dd>{rent(rentabilidad)}</dd>
         </div>
         <div>
-          <dt>Renta anual estimada</dt>
+          <dt>{metrica === 'retorno' ? 'Renta anual estimada' : 'Distribución anual'}</dt>
           <dd>{rangoUsd(rentaAnualUsd)}</dd>
         </div>
       </dl>
@@ -378,7 +439,13 @@ function Movimiento({ usd, mayor }: { readonly usd: number; readonly mayor: numb
 
 // ── Mirada 2: el comparativo ──────────────────────────────────────────────
 
-function PanelComparativo({ vista }: { readonly vista: VistaComparativa }) {
+function PanelComparativo({
+  vista,
+  metrica,
+}: {
+  readonly vista: VistaComparativa
+  readonly metrica: Metrica
+}) {
   const notas = [
     notaCobertura(vista.rentabilidadAntes, 'tu portafolio actual'),
     notaCobertura(vista.rentabilidadDespues, 'el portafolio propuesto'),
@@ -396,18 +463,20 @@ function PanelComparativo({ vista }: { readonly vista: VistaComparativa }) {
             </span>
             <b>{rent(vista.rentabilidadDespues)}</b>
           </div>
-          <span className={estilos.cifraNota}>hoy → con Sabbi</span>
+          <span className={estilos.cifraNota}>retorno total · hoy → con Sabbi</span>
         </div>
         <div className={estilos.cifra}>
-          <span>Renta anual estimada</span>
+          <span>Renta anual · distribuciones</span>
           <div className={estilos.transicion}>
-            <span className={`mono ${estilos.antes}`}>{rangoUsd(vista.rentaAnualAntesUsd)}</span>
+            <span className={`mono ${estilos.antes}`}>
+              {rangoUsd(vista.distribucionAnualAntesUsd)}
+            </span>
             <span className={estilos.flecha} aria-hidden="true">
               →
             </span>
-            <b>{rangoUsd(vista.rentaAnualDespuesUsd)}</b>
+            <b>{rangoUsd(vista.distribucionAnualDespuesUsd)}</b>
           </div>
-          <span className={estilos.cifraNota}>hoy → con Sabbi</span>
+          <span className={estilos.cifraNota}>lo que paga en efectivo · hoy → con Sabbi</span>
         </div>
         <div className={estilos.cifra}>
           <span>Patrimonio</span>
@@ -423,12 +492,14 @@ function PanelComparativo({ vista }: { readonly vista: VistaComparativa }) {
           <span>Clase</span>
           <span>Hoy → con Sabbi</span>
           <span>Cambio</span>
-          <span title={AYUDA_APORTE}>Aporte</span>
+          <span title={ayudaAporte(metrica)}>
+            {metrica === 'retorno' ? 'Aporte' : 'Aporte dist.'}
+          </span>
           <span aria-hidden="true" />
         </div>
 
         {vista.filas.map((fila) => (
-          <FilaComparada key={fila.clase} fila={fila} />
+          <FilaComparada key={fila.clase} fila={fila} metrica={metrica} />
         ))}
 
         {/* El cuadre de la columna: la suma tiene que dar la cifra de arriba. */}
@@ -437,8 +508,8 @@ function PanelComparativo({ vista }: { readonly vista: VistaComparativa }) {
           <span>Total con Sabbi</span>
           <span aria-hidden="true" />
           <span aria-hidden="true" />
-          <span className={estilos.aporteClase} title={AYUDA_APORTE}>
-            {aporte(aporteTotal(vista.filas.map((f) => f.aporteRentaDespues)))}
+          <span className={estilos.aporteClase} title={ayudaAporte(metrica)}>
+            {aporte(aporteTotal(vista.filas.map((f) => aporteClaseDe(f, metrica))))}
           </span>
           <span aria-hidden="true" />
         </div>
@@ -453,7 +524,13 @@ function PanelComparativo({ vista }: { readonly vista: VistaComparativa }) {
   )
 }
 
-function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
+function FilaComparada({
+  fila,
+  metrica,
+}: {
+  readonly fila: FilaComparativa
+  readonly metrica: Metrica
+}) {
   const delta = fila.deltaPp
   // Subir no es bueno ni bajar es malo: bajar el cash es la mejora y bajar el
   // inmobiliario también. El chip dice la dirección y el tamaño; juzgar es del
@@ -475,8 +552,8 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
           <span className={`${estilos.delta} ${sinCambio ? estilos.deltaIgual : ''}`}>
             {textoDelta}
           </span>
-          <span className={estilos.aporteClase} title={AYUDA_APORTE}>
-            {aporte(fila.aporteRentaDespues)}
+          <span className={estilos.aporteClase} title={ayudaAporte(metrica)}>
+            {aporte(aporteClaseDe(fila, metrica))}
           </span>
           <Chevron />
         </div>
@@ -500,7 +577,7 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
           <div className={estilos.lado}>
             <span>Hoy · {usdTabla(fila.antesUsd)}</span>
             {fila.antesSub.length > 0 ? (
-              <Subfilas subfilas={fila.antesSub} />
+              <Subfilas subfilas={fila.antesSub} metrica={metrica} />
             ) : (
               <p className={estilos.vacio}>Hoy no tenés nada en esta clase.</p>
             )}
@@ -508,7 +585,7 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
           <div className={estilos.lado}>
             <span>Con Sabbi · {usdTabla(fila.despuesUsd)}</span>
             {fila.despuesSub.length > 0 ? (
-              <Subfilas subfilas={fila.despuesSub} />
+              <Subfilas subfilas={fila.despuesSub} metrica={metrica} />
             ) : (
               <p className={estilos.vacio}>El modelo no asigna nada acá.</p>
             )}
@@ -521,7 +598,13 @@ function FilaComparada({ fila }: { readonly fila: FilaComparativa }) {
 
 // ── Piezas compartidas ────────────────────────────────────────────────────
 
-function Subfilas({ subfilas }: { readonly subfilas: readonly SubfilaVista[] }) {
+function Subfilas({
+  subfilas,
+  metrica,
+}: {
+  readonly subfilas: readonly SubfilaVista[]
+  readonly metrica: Metrica
+}) {
   return (
     <div>
       {subfilas.map((sub) => (
@@ -534,8 +617,8 @@ function Subfilas({ subfilas }: { readonly subfilas: readonly SubfilaVista[] }) 
           </span>
           <span className={estilos.subMonto}>{usdTabla(sub.usd)}</span>
           <span className={estilos.subShare}>{pct1(sub.share)}</span>
-          <span className={estilos.subAporte} title={AYUDA_APORTE}>
-            {aporte(sub.aporteRenta)}
+          <span className={estilos.subAporte} title={ayudaAporte(metrica)}>
+            {aporte(aporteSubDe(sub, metrica))}
           </span>
         </div>
       ))}

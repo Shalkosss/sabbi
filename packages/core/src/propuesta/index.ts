@@ -78,7 +78,7 @@ export function armarPropuesta(entrada: EntradaPropuesta): Propuesta {
 
   return {
     cliente,
-    vistaHoy: armarVistaHoy(posiciones, incluirInmueblesDeRenta),
+    vistaHoy: armarVistaHoy(posiciones, incluirInmueblesDeRenta, catalogo),
     comparativa: armarComparativa(posiciones, plan, catalogo, incluirInmueblesDeRenta),
     antesYDespues: armarAntesYDespues(posiciones, plan, incluirInmueblesDeRenta),
     seccion1,

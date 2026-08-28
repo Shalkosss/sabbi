@@ -193,16 +193,6 @@ export function PanelPlan({
         ))}
       </div>
 
-      {modificaciones && (
-        <p className={estilos.comoEditar}>
-          Escribí encima de cualquier monto. En una <b>clase</b>, el resto del patrimonio se
-          reparte entre las demás clases; en un <b>instrumento</b>, el resto de su clase se
-          reparte entre sus hermanos y el total de la clase no se mueve. El <b>×</b> devuelve la
-          fila al modelo. Lo que el cliente ya conserva no se toca desde acá — eso se marca como
-          venta en la ficha.
-        </p>
-      )}
-
       {mirada === 'detalle' && (
         <Detalle
           plan={plan}

@@ -147,11 +147,14 @@ export function emparejarCatalogo(
 
     if (encontrado === undefined || encontrado === null) continue
 
+    const [retMin, retMax] = conDispersion(encontrado.retMin, encontrado.retMax)
+    const [distMin, distMax] = conDispersion(encontrado.distMin, encontrado.distMax)
+
     indice.set(instrumento, {
-      retMin: encontrado.retMin,
-      retMax: encontrado.retMax,
-      distMin: encontrado.distMin,
-      distMax: encontrado.distMax,
+      retMin,
+      retMax,
+      distMin,
+      distMax,
       distFrecuencia: encontrado.distFrecuencia,
       moneda: encontrado.moneda,
       liquidez: encontrado.liquidez,
@@ -159,4 +162,38 @@ export function emparejarCatalogo(
   }
 
   return indice
+}
+
+/**
+ * La dispersión estándar de un retorno esperado, arriba y abajo del punto.
+ *
+ * El catálogo carga muchos productos con un solo número —«5%», no «4–6%»—, y
+ * un solo número imprime un portafolio objetivo sin rango, como si el retorno
+ * fuera una certeza. No lo es: es una estimación. Se le abre una banda
+ * simétrica de ±20% relativo, así el 10% se lee 8–12% y el 4% se lee 3.2–4.8%
+ * —la incertidumbre crece con el retorno, que es lo que uno espera—.
+ *
+ * Es relativo y no absoluto a propósito: dos puntos absolutos harían del 4% un
+ * 2–6% y del 26% un 24–28%, al revés de como se comporta el riesgo.
+ */
+const DISPERSION = 0.2
+
+/**
+ * Abre un punto en banda; deja intacto lo que ya venía con rango real.
+ *
+ * Un producto que el catálogo cargó como «4–6%» ya trae la banda que la mesa
+ * quiso; solo se ensancha el que vino como un único número. `null` sigue
+ * siendo `null`: sin dato no se inventa una banda alrededor de la nada.
+ */
+function conDispersion(
+  min: number | null,
+  max: number | null,
+): readonly [number | null, number | null] {
+  if (min === null || max === null) return [min, max]
+  if (min !== max) return [min, max]
+  // Con un retorno negativo, `v*(1-d)` queda por encima de `v*(1+d)`; se ordena
+  // para que el «min» sea siempre el piso de la banda.
+  const a = min * (1 - DISPERSION)
+  const b = max * (1 + DISPERSION)
+  return [Math.min(a, b), Math.max(a, b)]
 }

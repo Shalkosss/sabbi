@@ -1,0 +1,50 @@
+name: Tarea
+description: Algo que hay que construir o cambiar. Es el formato que Claude entiende mejor.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cuanto más concreto sea el criterio de aceptación, menos vueltas da
+        Claude y más barata sale la corrida. Si el issue queda ambiguo, va a
+        elegir la lectura más conservadora y a dejarla escrita en el pull
+        request.
+
+        No pegues nombres, patrimonios ni tenencias de clientes reales: este
+        repositorio es público.
+
+  - type: textarea
+    id: falta
+    attributes:
+      label: Qué falta hoy
+      description: El comportamiento actual y por qué no alcanza.
+      placeholder: La lámina 4 arma las barras con el alto del cliente de referencia, así que no coinciden con los porcentajes que tienen encima.
+    validations:
+      required: true
+
+  - type: textarea
+    id: listo
+    attributes:
+      label: Cómo se sabe que quedó bien
+      description: El criterio de aceptación. Si se puede escribir como test, mejor.
+      placeholder: Para una propuesta cualquiera, el alto de cada barra es proporcional al porcentaje que muestra, y hay un test que lo comprueba con dos casos distintos.
+    validations:
+      required: true
+
+  - type: textarea
+    id: donde
+    attributes:
+      label: Dónde mirar
+      description: Archivos, paquetes o comandos por los que conviene empezar.
+      placeholder: "packages/export/src/pptx/replica/, y `npm run revisar-deck` para ver el estado de las 22 láminas."
+    validations:
+      required: false
+
+  - type: textarea
+    id: limites
+    attributes:
+      label: Qué no tocar
+      description: Lo que tiene que quedar igual aunque parezca mejorable.
+      placeholder: El mapa de tokens de la plantilla no se regenera en este cambio.
+    validations:
+      required: false

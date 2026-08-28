@@ -270,7 +270,7 @@ function Detalle({
       bloque.agregados.length > 0,
   )
 
-  const columnas = modificar === null ? 4 : 5
+  const columnas = modificar === null ? 5 : 6
 
   return (
     <table className={estilos.tabla}>
@@ -282,6 +282,13 @@ function Detalle({
           </th>
           <th scope="col" className={estilos.num}>
             Peso %
+          </th>
+          <th
+            scope="col"
+            className={estilos.num}
+            title="El peso teórico de la clase en el benchmark del perfil (Asset Allocation detallado), y si el objetivo quedó por encima o por debajo"
+          >
+            Teórico
           </th>
           <th scope="col" className={estilos.num} title="Lo que hay que comprar para llegar">
             A ejecutar
@@ -322,6 +329,10 @@ function Detalle({
               <td className={`${estilos.num} mono`}>
                 {pct(peso(bloque.resumen?.objetivoUsd ?? 0))}
               </td>
+              <CeldaTeorico
+                objetivoShare={peso(bloque.resumen?.objetivoUsd ?? 0)}
+                benchmarkShare={bloque.resumen?.benchmarkShare ?? 0}
+              />
               <td className={`${estilos.num} mono ${estilos.tenue}`}>
                 {(bloque.resumen?.dineroNuevoUsd ?? 0) > 0
                   ? usd(bloque.resumen?.dineroNuevoUsd ?? 0)
@@ -349,6 +360,9 @@ function Detalle({
                   )}
                 </td>
                 <td className={`${estilos.num} mono`}>{pct(peso(linea.usd))}</td>
+                {/* El teórico es de la clase, no del instrumento: la fila de
+                    la línea deja esa celda vacía. */}
+                <td className={estilos.num} />
                 <td className={estilos.num} />
                 {modificar !== null && (
                   <td className={estilos.celdaSoltar}>
@@ -399,11 +413,42 @@ function Detalle({
           <td>Total del portafolio</td>
           <td className={`${estilos.num} mono`}>{usd(total)}</td>
           <td className={`${estilos.num} mono`}>{pct(total > 0 ? 1 : 0)}</td>
+          <td className={`${estilos.num} mono`}>{pct(1)}</td>
           <td className={`${estilos.num} mono`}>{usd(plan.dineroNuevoUsd)}</td>
           {modificar !== null && <td />}
         </tr>
       </tfoot>
     </table>
+  )
+}
+
+/**
+ * La celda del benchmark teórico y el desvío del objetivo.
+ *
+ * Muestra el peso que el modelo le daría a la clase en teoría —de la hoja
+ * Asset Allocation detallado— y, debajo, cuántos puntos porcentuales el
+ * objetivo quedó por encima o por debajo. Con flecha y sin color: ni sobre ni
+ * sub es bueno o malo por sí —bajar el cash es la mejora, que el inmobiliario
+ * quede bajo es que el cliente no accede—; juzgar es del asesor.
+ */
+function CeldaTeorico({
+  objetivoShare,
+  benchmarkShare,
+}: {
+  readonly objetivoShare: number
+  readonly benchmarkShare: number
+}) {
+  const pp = (objetivoShare - benchmarkShare) * 100
+  const enLinea = Math.abs(pp) < 0.05
+  const desvio = enLinea
+    ? 'en línea'
+    : `${pp > 0 ? 'sobre ↑' : 'sub ↓'}${Math.abs(pp).toFixed(1)}pp`
+
+  return (
+    <td className={`${estilos.num} ${estilos.celdaTeorico}`}>
+      <span className="mono">{pct(benchmarkShare)}</span>
+      <span className={estilos.desvioTeorico}>{desvio}</span>
+    </td>
   )
 }
 
@@ -634,6 +679,13 @@ function Clases({ plan, total, peso }: VistaProps) {
           <th scope="col" className={estilos.num}>
             %
           </th>
+          <th
+            scope="col"
+            className={estilos.num}
+            title="El peso teórico de la clase en el benchmark del perfil (Asset Allocation detallado), y si el objetivo quedó por encima o por debajo"
+          >
+            Teórico
+          </th>
           <th scope="col" className={estilos.num} title="Lo que hay que comprar para llegar">
             A ejecutar
           </th>
@@ -648,6 +700,10 @@ function Clases({ plan, total, peso }: VistaProps) {
             </td>
             <td className={`${estilos.num} mono`}>{usd(clase.objetivoUsd)}</td>
             <td className={`${estilos.num} mono ${estilos.tenue}`}>{pct(peso(clase.objetivoUsd))}</td>
+            <CeldaTeorico
+              objetivoShare={peso(clase.objetivoUsd)}
+              benchmarkShare={clase.benchmarkShare}
+            />
             <td className={`${estilos.num} mono`}>
               {clase.dineroNuevoUsd > 0 ? usd(clase.dineroNuevoUsd) : '—'}
             </td>
@@ -659,6 +715,7 @@ function Clases({ plan, total, peso }: VistaProps) {
           <td>Total</td>
           <td className={`${estilos.num} mono`}>{usd(total)}</td>
           <td className={`${estilos.num} mono`}>{pct(total > 0 ? 1 : 0)}</td>
+          <td className={`${estilos.num} mono`}>{pct(1)}</td>
           <td className={`${estilos.num} mono`}>{usd(plan.dineroNuevoUsd)}</td>
         </tr>
       </tfoot>

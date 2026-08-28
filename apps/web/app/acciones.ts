@@ -1,6 +1,6 @@
 'use server'
 
-import { benchmarkDe, pesosDeClase } from '@sabbi/config'
+import { benchmarkDe, CLASES, pesosDeClase } from '@sabbi/config'
 import { armarEntradaPlan, generarPlan } from '@sabbi/core'
 import type {
   AjusteClase,
@@ -156,6 +156,13 @@ export interface PlanResumido {
     readonly dineroNuevoUsd: number
     readonly cerrada: boolean
     readonly fijada: boolean
+    /**
+     * El peso teórico de la clase en el benchmark del perfil (hoja «Asset
+     * Allocation detallado»), como fracción. Un peso negativo se lleva a 0% y
+     * el resto se prorratea. Es el «contra qué» del peso del objetivo: si la
+     * clase quedó sub o sobreponderada respecto de la teoría.
+     */
+    readonly benchmarkShare: number
   }[]
   readonly lineas: readonly {
     readonly instrumento: string
@@ -196,9 +203,18 @@ export async function calcularPlan(
   posiciones: readonly PosicionRevisada[],
   parametros: ParametrosCalculo,
 ): Promise<ResultadoCalculo> {
+  const benchmark = benchmarkDe(parametros.perfil)
+  // El benchmark teórico normalizado, con los negativos en 0 y el resto
+  // prorrateado: es lo que se compara contra el peso del objetivo.
+  const pesoBench = (clase: string): number =>
+    Math.max(0, benchmark[clase as keyof typeof benchmark] ?? 0)
+  const escalaBench = CLASES.reduce((acc, clase) => acc + pesoBench(clase), 0)
+  const benchShare = (clase: string): number =>
+    escalaBench > 0 ? pesoBench(clase) / escalaBench : 0
+
   const derivacion = armarEntradaPlan(posiciones, {
     perfil: parametros.perfil,
-    benchmark: benchmarkDe(parametros.perfil),
+    benchmark,
     pesos: {
       fijo: pesosDeClase('fijo', parametros.perfil),
       variable: pesosDeClase('variable', parametros.perfil),
@@ -234,6 +250,7 @@ export async function calcularPlan(
         dineroNuevoUsd: clase.dineroNuevoUsd,
         cerrada: clase.cerrada,
         fijada: clase.fijada,
+        benchmarkShare: benchShare(clase.clase),
       })),
       lineas: plan.lineas.map((linea) => ({
         instrumento: linea.instrumento,

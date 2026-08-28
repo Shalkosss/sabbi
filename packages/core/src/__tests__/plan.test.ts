@@ -372,3 +372,90 @@ describe('generarPlan — el reparto sigue a las lineas', () => {
     invariantes(plan, 400_000, 'piso en otros')
   })
 })
+
+describe('generarPlan — los montos clavados por linea', () => {
+  /**
+   * La tercera palanca, probada donde importa: contra el motor entero.
+   *
+   * `fijarLineas` tiene sus propios tests unitarios; lo que se fija aca es que
+   * el paso convive con los que vienen despues. El barrido de residuales corre
+   * a continuacion y podria deshacer lo clavado, y `realinearConLasLineas`
+   * podria dejar el reparto diciendo un objetivo que sus lineas ya no suman.
+   */
+  const conLineas = (instrumento: string, montoUsd: number) =>
+    generarPlan({
+      ...ENTRADA,
+      ajustesDeLinea: [{ clase: 'fijo', instrumento, montoUsd }],
+    })
+
+  const sinAjustar = generarPlan(ENTRADA)
+  const lineasDeFijo = sinAjustar.lineas.filter((l) => l.clase === 'fijo' && l.piso === undefined)
+
+  it('el motor imprime mas de una linea libre en Fijo, que es lo que esto supone', () => {
+    expect(lineasDeFijo.length).toBeGreaterThan(1)
+  })
+
+  it('la linea sale con el monto que el asesor escribio', () => {
+    const objetivoFijo = objetivo(sinAjustar, 'fijo')
+    const cual = lineasDeFijo[0]?.instrumento ?? ''
+    // Un monto que cabe en la clase pero no es el que el modelo le dio.
+    const pedido = Math.round(objetivoFijo * 0.4)
+
+    const plan = conLineas(cual, pedido)
+    expect(monto(plan.lineas, cual)).toBeCloseTo(pedido, 2)
+  })
+
+  it('el total de la clase y el del portafolio no se mueven', () => {
+    const cual = lineasDeFijo[0]?.instrumento ?? ''
+    const antes = objetivo(sinAjustar, 'fijo')
+    const plan = conLineas(cual, Math.round(antes * 0.4))
+
+    expect(objetivo(plan, 'fijo')).toBeCloseTo(antes, 2)
+    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
+    invariantes(plan, PATRIMONIO, 'linea clavada')
+  })
+
+  /**
+   * Sin la exencion, una linea clavada por debajo del ticket la barreria el
+   * paso siguiente y el numero que el asesor escribio no saldria impreso —
+   * silenciosamente, que es la peor forma de no salir.
+   */
+  it('lo clavado sobrevive al barrido aunque no llegue al ticket minimo', () => {
+    const cual = lineasDeFijo[0]?.instrumento ?? ''
+    const plan = conLineas(cual, 5_000)
+
+    expect(monto(plan.lineas, cual)).toBeCloseTo(5_000, 2)
+    expect(objetivo(plan, 'fijo')).toBeCloseTo(objetivo(sinAjustar, 'fijo'), 2)
+    expect(plan.totalObjetivoUsd).toBeCloseTo(PATRIMONIO, 2)
+  })
+
+  it('lo conservado no se toca desde el objetivo: el ajuste se ignora', () => {
+    const plan = generarPlan({
+      ...ENTRADA,
+      ajustesDeLinea: [
+        { clase: 'fijo', instrumento: 'DPF Caja Huancayo 2', montoUsd: 1_000 },
+      ],
+    })
+
+    expect(monto(plan.lineas, 'DPF Caja Huancayo 2')).toBe(16_000)
+    invariantes(plan, PATRIMONIO, 'piso intocable')
+  })
+
+  it('pedir mas de lo que la clase tiene se recorta y queda escrito en los avisos', () => {
+    const cual = lineasDeFijo[0]?.instrumento ?? ''
+    const plan = conLineas(cual, 10_000_000)
+
+    expect(objetivo(plan, 'fijo')).toBeCloseTo(objetivo(sinAjustar, 'fijo'), 2)
+    expect(plan.avisos.some((a) => a.includes('fija el monto de la clase'))).toBe(true)
+    invariantes(plan, PATRIMONIO, 'pedido excesivo')
+  })
+
+  it('sigue siendo puro: la misma entrada da el mismo plan', () => {
+    const cual = lineasDeFijo[0]?.instrumento ?? ''
+    const entrada: EntradaPlan = {
+      ...ENTRADA,
+      ajustesDeLinea: [{ clase: 'fijo', instrumento: cual, montoUsd: 30_000 }],
+    }
+    expect(generarPlan(entrada)).toStrictEqual(generarPlan(entrada))
+  })
+})

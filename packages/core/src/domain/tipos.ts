@@ -175,6 +175,29 @@ export interface AjusteClase {
   readonly montoUsd: number
 }
 
+/**
+ * Ajuste del asesor sobre una linea del portafolio objetivo.
+ *
+ * Un nivel mas abajo que `AjusteClase`: la clase ya tiene su monto y esto dice
+ * como se reparte adentro. «De los 94,691 de Renta Fija, 50,000 en el Treasury
+ * 7-10y» — el resto de las lineas de esa clase se prorratea entre si.
+ *
+ * El total de la clase no se mueve. Quien decide cuanto vale Renta Fija es el
+ * benchmark corregido por los ajustes de clase; esto solo decide con que se
+ * ejecuta. Mover dinero entre clases sigue siendo un `AjusteClase`, que es
+ * donde el asesor puede verlo contra el modelo.
+ *
+ * No se puede clavar una linea que sale de un piso —lo conservado vale lo que
+ * el cliente tiene, y bajarlo es vender— ni la unica linea libre de su clase,
+ * cuyo monto es el de la clase. Ver `fijarLineas`.
+ */
+export interface AjusteLinea {
+  readonly clase: ClaseModelo
+  /** El nombre con el que el motor imprime la linea. Es su clave. */
+  readonly instrumento: string
+  readonly montoUsd: number
+}
+
 /** Un ajuste ya pasado por el solver, con lo que realmente pudo aplicar. */
 export interface AjusteAplicado {
   readonly clase: ClaseModelo
@@ -219,6 +242,15 @@ export interface LineaPlan {
    * que v8 hace con los productos privados.
    */
   readonly residuales?: 'exenta' | 'reserva'
+  /**
+   * De donde sale la linea, cuando no la puso el modelo.
+   *
+   * Una linea con piso no es una decision del benchmark: es lo que el cliente
+   * ya tiene —`conservado`— o lo que el asesor agrego a mano —`restriccion`—.
+   * Importa porque su monto no se puede reprorratear: bajar lo conservado es
+   * vender, y eso se marca en la ficha. Ver `fijarLineas`.
+   */
+  readonly piso?: 'conservado' | 'restriccion'
   readonly nota?: string
 }
 

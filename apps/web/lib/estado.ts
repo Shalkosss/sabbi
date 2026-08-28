@@ -1,5 +1,6 @@
 import type {
   AjusteClase,
+  AjusteLinea,
   ClaseModelo,
   Cta,
   EstadoInstitucional,
@@ -62,6 +63,14 @@ export interface Parametros {
 export interface AjustesObjetivo {
   readonly agregados: readonly ActivoAgregado[]
   readonly ajustes: readonly AjusteClase[]
+  /**
+   * Montos clavados instrumento por instrumento.
+   *
+   * La tercera palanca, un nivel por debajo de `ajustes`: la clase ya tiene su
+   * monto y esto dice con qué se ejecuta. No mueve el total de la clase, así
+   * que nunca puede descuadrar la propuesta contra el patrimonio.
+   */
+  readonly ajustesLinea: readonly AjusteLinea[]
 }
 
 /**
@@ -93,6 +102,13 @@ export type Accion =
   | { readonly tipo: 'quitar-activo'; readonly id: string }
   /** `ajuste` en `null` saca el ajuste y devuelve la clase al benchmark. */
   | { readonly tipo: 'ajuste'; readonly clase: ClaseModelo; readonly ajuste: AjusteClase | null }
+  /** `montoUsd` en `null` suelta la línea y la devuelve al reparto de su clase. */
+  | {
+      readonly tipo: 'ajuste-linea'
+      readonly clase: ClaseModelo
+      readonly instrumento: string
+      readonly montoUsd: number | null
+    }
   /**
    * Una posición que cambió del otro lado y llegó por el canal de la ficha.
    *
@@ -211,6 +227,28 @@ export function reducir(estado: EstadoRevision, accion: Accion): EstadoRevision 
       return {
         ...estado,
         ajustes: accion.ajuste === null ? resto : [...resto, accion.ajuste],
+      }
+    }
+
+    case 'ajuste-linea': {
+      // La clave es el par (clase, instrumento): el mismo nombre puede salir en
+      // dos clases y un ajuste sobre uno no puede mover al otro.
+      const resto = estado.ajustesLinea.filter(
+        (a) => a.clase !== accion.clase || a.instrumento !== accion.instrumento,
+      )
+      return {
+        ...estado,
+        ajustesLinea:
+          accion.montoUsd === null
+            ? resto
+            : [
+                ...resto,
+                {
+                  clase: accion.clase,
+                  instrumento: accion.instrumento,
+                  montoUsd: accion.montoUsd,
+                },
+              ],
       }
     }
   }

@@ -4,6 +4,7 @@ import { benchmarkDe, pesosDeClase } from '@sabbi/config'
 import { armarEntradaPlan, generarPlan } from '@sabbi/core'
 import type {
   AjusteClase,
+  AjusteLinea,
   AnotacionLinea,
   Bloqueo,
   EstadoInstitucional,
@@ -18,7 +19,11 @@ import { redirect } from 'next/navigation'
 
 import { FALLBACKS } from '../lib/catalogo'
 import type { ActivoAgregado } from '../lib/catalogo'
-import { guardarActivoAgregado, guardarAjusteDeClase } from '../lib/datos/ajustes'
+import {
+  guardarActivoAgregado,
+  guardarAjusteDeClase,
+  guardarAjusteDeLinea,
+} from '../lib/datos/ajustes'
 import { guardarFichaNueva } from '../lib/datos/fichas'
 import { guardarAnotacion } from '../lib/datos/propuestas'
 import { guardarParametros, guardarPosicion } from '../lib/datos/revision'
@@ -105,6 +110,19 @@ export async function guardarCambioAjuste(
 }
 
 /**
+ * Autoguardado del monto que el asesor clavó en una línea del objetivo.
+ *
+ * `eliminado` suelta la línea y la devuelve al reparto de su clase.
+ */
+export async function guardarCambioAjusteLinea(
+  propuestaId: string,
+  ajuste: AjusteLinea,
+  eliminado: boolean,
+): Promise<{ readonly error?: string }> {
+  return guardarAjusteDeLinea(propuestaId, ajuste, eliminado)
+}
+
+/**
  * Autoguardado de lo que el asesor escribe sobre una línea del objetivo.
  *
  * Descripción y propósito son las dos columnas del anexo del deck que ningún
@@ -139,7 +157,19 @@ export interface PlanResumido {
     readonly cerrada: boolean
     readonly fijada: boolean
   }[]
-  readonly lineas: readonly { readonly instrumento: string; readonly clase: string; readonly usd: number }[]
+  readonly lineas: readonly {
+    readonly instrumento: string
+    readonly clase: string
+    readonly usd: number
+    /**
+     * De dónde sale la línea, cuando no la puso el modelo.
+     *
+     * Baja a la pantalla porque decide si su monto se puede tocar: lo
+     * conservado vale lo que el cliente tiene y bajarlo es vender, que se marca
+     * en la ficha; un activo agregado ya tiene su monto en su propia fila.
+     */
+    readonly piso: 'conservado' | 'restriccion' | null
+  }[]
   readonly totalObjetivoUsd: number
   readonly dineroNuevoUsd: number
   readonly baseRedistribucion: number
@@ -158,6 +188,8 @@ export interface ParametrosCalculo {
   readonly restricciones?: readonly Restriccion[]
   /** Montos clavados por clase. La única palanca que empuja hacia abajo. */
   readonly ajustes?: readonly AjusteClase[]
+  /** Montos clavados por instrumento. Reparten dentro de una clase. */
+  readonly ajustesDeLinea?: readonly AjusteLinea[]
 }
 
 export async function calcularPlan(
@@ -185,7 +217,12 @@ export async function calcularPlan(
 
   if (!derivacion.ok) return { ok: false, bloqueos: derivacion.bloqueos }
 
-  const plan = generarPlan(derivacion.entrada)
+  // Los ajustes de línea no pasan por `armarEntradaPlan`: no derivan pisos ni
+  // bloqueos, solo reparten dentro de una clase que el solver ya resolvió.
+  const plan = generarPlan({
+    ...derivacion.entrada,
+    ajustesDeLinea: parametros.ajustesDeLinea ?? [],
+  })
 
   return {
     ok: true,
@@ -202,6 +239,7 @@ export async function calcularPlan(
         instrumento: linea.instrumento,
         clase: linea.clase,
         usd: linea.usd,
+        piso: linea.piso ?? null,
       })),
       totalObjetivoUsd: plan.totalObjetivoUsd,
       dineroNuevoUsd: plan.dineroNuevoUsd,

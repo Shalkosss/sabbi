@@ -20,6 +20,8 @@ export { resolverInmobiliario } from './rules/inmobiliario.js'
 export type { OpcionesInmobiliario, ResultadoInmobiliario } from './rules/inmobiliario.js'
 export { recortarCash, PERFIL_DEL_RECORTE } from './rules/cash.js'
 export { prorratearResiduales } from './rules/residuales.js'
+export { fijarLineas } from './rules/lineas.js'
+export type { ResultadoAjustesDeLinea } from './rules/lineas.js'
 export {
   aperturaFm,
   evaluarSenalInstitucional,

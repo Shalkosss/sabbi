@@ -1,6 +1,6 @@
 'use client'
 
-import type { AjusteClase, ClaseModelo } from '@sabbi/core'
+import type { AjusteClase, AjusteLinea, ClaseModelo } from '@sabbi/core'
 import Link from 'next/link'
 import { useState } from 'react'
 
@@ -14,17 +14,29 @@ import estilos from './PanelPlan.module.css'
 /**
  * Lo que hace falta para poder tocar el objetivo desde acá.
  *
- * Va agrupado y no suelto en los props por una razón práctica: son seis cosas
+ * Va agrupado y no suelto en los props por una razón práctica: son ocho cosas
  * que solo tienen sentido juntas, y el panel las ignora enteras cuando las
  * modificaciones están apagadas.
+ *
+ * Son tres palancas, de la más gruesa a la más fina: `cambiarAjuste` decide
+ * cuánto vale una clase, `cambiarActivo` agrega una línea que el modelo no
+ * propone, y `cambiarAjusteLinea` reparte dentro de una clase que ya tiene su
+ * monto. Solo la primera mueve dinero entre clases.
  */
 export interface Modificar {
   readonly agregados: readonly ActivoAgregado[]
   readonly ajustes: readonly AjusteClase[]
+  readonly ajustesLinea: readonly AjusteLinea[]
   readonly productos: readonly ProductoOfrecible[]
   readonly cambiarActivo: (activo: ActivoAgregado) => void
   readonly quitarActivo: (id: string) => void
   readonly cambiarAjuste: (clase: ClaseModelo, ajuste: AjusteClase | null) => void
+  /** `montoUsd` en `null` suelta la línea y la devuelve al reparto de su clase. */
+  readonly cambiarAjusteLinea: (
+    clase: ClaseModelo,
+    instrumento: string,
+    montoUsd: number | null,
+  ) => void
 }
 
 interface Props {
@@ -95,6 +107,12 @@ export function PanelPlan({
         </p>
 
         <div className={estilos.enlace}>
+          {/*
+            El rótulo dice lo que el botón hace y no cómo se llama el modo.
+            «Modificaciones» describía el estado de la pantalla; «Editar los
+            montos» describe lo que uno vino a hacer, que es lo que alguien
+            busca cuando el objetivo no cierra.
+          */}
           <button
             type="button"
             className={`${estilos.tuerca} ${modificaciones ? estilos.tuercaActiva : ''}`}
@@ -102,12 +120,12 @@ export function PanelPlan({
             onClick={() => setModificaciones((previo) => !previo)}
             title={
               modificaciones
-                ? 'Cerrar las modificaciones: el objetivo vuelve a ser solo de lectura'
-                : 'Abrir las modificaciones para fijar montos y agregar productos'
+                ? 'Cerrar la edición: el objetivo vuelve a ser solo de lectura'
+                : 'Escribir encima de los montos por clase y agregar productos'
             }
           >
             <Tuerca />
-            Modificaciones
+            {modificaciones ? 'Terminar de editar' : 'Editar los montos'}
           </button>
 
           {desactualizado && (
@@ -144,10 +162,20 @@ export function PanelPlan({
         algo, que es cuando uno quiere ver qué cambió.
       */}
       {desactualizado && (
-        <p className={estilos.desactualizado} role="status">
-          Tocaste algo después de calcular: estas cifras son las de antes.
-          <b> Actualizá</b> para que el objetivo vuelva a cuadrar.
-        </p>
+        <div className={estilos.desactualizado} role="status">
+          <p>
+            Tocaste algo después de calcular: <b>estas cifras son las de antes</b>. Actualizá para
+            que el objetivo vuelva a cuadrar.
+          </p>
+          <button
+            type="button"
+            className={estilos.actualizarAqui}
+            onClick={alActualizar}
+            disabled={recalculando}
+          >
+            {recalculando ? 'Actualizando…' : 'Actualizar'}
+          </button>
+        </div>
       )}
 
       <div className={estilos.selector} role="tablist" aria-label="Cómo mirar el portafolio">
@@ -164,6 +192,16 @@ export function PanelPlan({
           </button>
         ))}
       </div>
+
+      {modificaciones && (
+        <p className={estilos.comoEditar}>
+          Escribí encima de cualquier monto. En una <b>clase</b>, el resto del patrimonio se
+          reparte entre las demás clases; en un <b>instrumento</b>, el resto de su clase se
+          reparte entre sus hermanos y el total de la clase no se mueve. El <b>×</b> devuelve la
+          fila al modelo. Lo que el cliente ya conserva no se toca desde acá — eso se marca como
+          venta en la ficha.
+        </p>
+      )}
 
       {mirada === 'detalle' && (
         <Detalle
@@ -218,17 +256,31 @@ function Detalle({
 }: VistaProps & { readonly modificar: Modificar | null }) {
   // Con las modificaciones abiertas salen las siete clases, tenga o no monto:
   // una clase en cero es justamente a la que uno quiere agregarle algo.
-  const bloques = ORDEN_CLASES.map((clase) => ({
-    clase,
-    resumen: plan.porClase.find((c) => c.clase === clase),
-    lineas: plan.lineas.filter((l) => l.clase === clase),
-    agregados: (modificar?.agregados ?? []).filter((a) => a.clase === clase),
-  })).filter(
+  const bloques = ORDEN_CLASES.map((clase) => {
+    const lineas = plan.lineas.filter((l) => l.clase === clase)
+    return {
+      clase,
+      resumen: plan.porClase.find((c) => c.clase === clase),
+      // Un activo agregado sale como línea del plan —el motor lo cuenta como
+      // piso— y además tiene su propia fila editable más abajo. Con la edición
+      // abierta se muestra una sola vez, en la que se puede tocar; cerrada, la
+      // fila editable no existe y la línea del plan es la única que queda, así
+      // que sacarla haría desaparecer el activo de la tabla.
+      lineas: modificar === null ? lineas : lineas.filter((l) => l.piso !== 'restriccion'),
+      // Cuántas líneas del modelo tiene la clase. Con una sola, su monto es el
+      // de la clase y clavarla sería fijar la clase escribiendo en el sitio
+      // equivocado: el motor la devolvería al total y el campo mentiría.
+      libres: lineas.filter((l) => l.piso === null).length,
+      agregados: (modificar?.agregados ?? []).filter((a) => a.clase === clase),
+    }
+  }).filter(
     (bloque) =>
       modificar !== null ||
       (bloque.resumen?.objetivoUsd ?? 0) > 0 ||
       bloque.agregados.length > 0,
   )
+
+  const columnas = modificar === null ? 4 : 5
 
   return (
     <table className={estilos.tabla}>
@@ -241,10 +293,11 @@ function Detalle({
           <th scope="col" className={estilos.num}>
             Peso %
           </th>
+          <th scope="col" className={estilos.num} title="Lo que hay que comprar para llegar">
+            A ejecutar
+          </th>
           {modificar !== null && (
-            <th scope="col" className={estilos.colFijar}>
-              Fijar la clase
-            </th>
+            <th scope="col" className={estilos.colSoltar} aria-label="Soltar la clase" />
           )}
         </tr>
       </thead>
@@ -257,13 +310,36 @@ function Detalle({
                 {nombreDe(bloque.clase)}
                 <Marca resumen={bloque.resumen} />
               </th>
-              <td className={`${estilos.num} mono`}>{usd(bloque.resumen?.objetivoUsd ?? 0)}</td>
+
+              {/*
+                El monto de la clase es la celda editable, y es la misma celda
+                que se lee con las modificaciones cerradas. Antes el monto se
+                escribía en una columna aparte, dos celdas a la derecha del
+                número que iba a cambiar: se corregía a ciegas.
+              */}
+              <td className={`${estilos.num} mono`}>
+                {modificar === null ? (
+                  usd(bloque.resumen?.objetivoUsd ?? 0)
+                ) : (
+                  <MontoDeClase
+                    clase={bloque.clase}
+                    objetivoUsd={bloque.resumen?.objetivoUsd ?? 0}
+                    modificar={modificar}
+                  />
+                )}
+              </td>
+
               <td className={`${estilos.num} mono`}>
                 {pct(peso(bloque.resumen?.objetivoUsd ?? 0))}
               </td>
+              <td className={`${estilos.num} mono ${estilos.tenue}`}>
+                {(bloque.resumen?.dineroNuevoUsd ?? 0) > 0
+                  ? usd(bloque.resumen?.dineroNuevoUsd ?? 0)
+                  : '—'}
+              </td>
               {modificar !== null && (
-                <td>
-                  <Fijar clase={bloque.clase} modificar={modificar} />
+                <td className={estilos.celdaSoltar}>
+                  <Soltar clase={bloque.clase} modificar={modificar} />
                 </td>
               )}
             </tr>
@@ -271,9 +347,24 @@ function Detalle({
             {bloque.lineas.map((linea) => (
               <tr key={linea.instrumento} className={estilos.filaLinea}>
                 <td title={linea.instrumento}>{linea.instrumento}</td>
-                <td className={`${estilos.num} mono`}>{usd(linea.usd)}</td>
+                <td className={`${estilos.num} mono`}>
+                  {modificar === null ? (
+                    usd(linea.usd)
+                  ) : (
+                    <MontoDeLinea
+                      linea={linea}
+                      libres={bloque.libres}
+                      modificar={modificar}
+                    />
+                  )}
+                </td>
                 <td className={`${estilos.num} mono`}>{pct(peso(linea.usd))}</td>
-                {modificar !== null && <td />}
+                <td className={estilos.num} />
+                {modificar !== null && (
+                  <td className={estilos.celdaSoltar}>
+                    <SoltarLinea linea={linea} modificar={modificar} />
+                  </td>
+                )}
               </tr>
             ))}
 
@@ -284,7 +375,7 @@ function Detalle({
 
             {modificar !== null && (
               <tr className={estilos.filaSumar}>
-                <td colSpan={4}>
+                <td colSpan={columnas}>
                   <button
                     type="button"
                     className={estilos.sumar}
@@ -318,6 +409,7 @@ function Detalle({
           <td>Total del portafolio</td>
           <td className={`${estilos.num} mono`}>{usd(total)}</td>
           <td className={`${estilos.num} mono`}>{pct(total > 0 ? 1 : 0)}</td>
+          <td className={`${estilos.num} mono`}>{usd(plan.dineroNuevoUsd)}</td>
           {modificar !== null && <td />}
         </tr>
       </tfoot>
@@ -325,48 +417,157 @@ function Detalle({
   )
 }
 
-/** Clavar el monto de una clase, o devolverla al modelo. */
-function Fijar({
+/**
+ * El monto de una clase, escrito sobre el numero que va a cambiar.
+ *
+ * Arranca mostrando lo que el modelo repartió: teclear encima es clavar la
+ * clase en lo tecleado, y el resto del patrimonio se prorratea entre las
+ * demás. No hay un paso previo de «activar la edición de esta clase» — ese
+ * paso era la columna «Fijar la clase», y obligaba a apretar un botón para que
+ * apareciera un campo en cero mientras el monto real seguía dos celdas a la
+ * izquierda.
+ *
+ * Mientras la clase está libre el campo se ve como un número: la caja aparece
+ * al pasar el mouse o al enfocarlo. Un portafolio calculado se lee muchas más
+ * veces de las que se toca, y siete cajas de formulario dicen «formulario»
+ * donde tendría que decir «resultado».
+ */
+function MontoDeClase({
+  clase,
+  objetivoUsd,
+  modificar,
+}: {
+  readonly clase: ClaseModelo
+  readonly objetivoUsd: number
+  readonly modificar: Modificar
+}) {
+  const ajuste = modificar.ajustes.find((a) => a.clase === clase) ?? null
+
+  return (
+    <CampoMonto
+      className={`${estilos.montoClase} ${ajuste === null ? '' : estilos.montoFijado}`}
+      valor={ajuste === null ? objetivoUsd : ajuste.montoUsd}
+      aria-label={`Monto de ${nombreDe(clase)}, en dólares`}
+      alCambiar={(valor) =>
+        modificar.cambiarAjuste(clase, { clase, modo: 'fijar', montoUsd: valor ?? 0 })
+      }
+    />
+  )
+}
+
+/**
+ * El monto de un instrumento, escrito sobre el número que va a cambiar.
+ *
+ * Lo que se clava acá no mueve el total de su clase: el resto de las líneas de
+ * esa misma clase se prorratea entre sí. Quien decide cuánto vale Renta Fija
+ * sigue siendo el benchmark corregido por el ajuste de clase, que está una
+ * fila más arriba y también se edita.
+ *
+ * Dos líneas no llevan campo, y no por comodidad:
+ *
+ *  - Las conservadas. Valen lo que el cliente tiene, y bajarlas es vender —
+ *    eso se marca en la ficha, no acá.
+ *  - La única línea del modelo en su clase. Su monto *es* el de la clase, así
+ *    que el motor lo devolvería al total y el campo habría mentido. Se dice
+ *    dónde cambiarlo en vez de ofrecer un control que no hace nada.
+ */
+function MontoDeLinea({
+  linea,
+  libres,
+  modificar,
+}: {
+  readonly linea: PlanResumido['lineas'][number]
+  readonly libres: number
+  readonly modificar: Modificar
+}) {
+  const clase = linea.clase as ClaseModelo
+
+  if (linea.piso === 'conservado') {
+    return (
+      <span
+        className={estilos.montoFijo}
+        title="El cliente ya lo tiene: su monto sale de la ficha. Para bajarlo, marcá la venta ahí."
+      >
+        {usd(linea.usd)}
+      </span>
+    )
+  }
+
+  if (libres < 2) {
+    return (
+      <span
+        className={estilos.montoFijo}
+        title={`${nombreDe(clase)} tiene una sola línea, así que su monto es el de la clase. Cambialo en la fila de arriba.`}
+      >
+        {usd(linea.usd)}
+      </span>
+    )
+  }
+
+  const ajuste =
+    modificar.ajustesLinea.find(
+      (a) => a.clase === clase && a.instrumento === linea.instrumento,
+    ) ?? null
+
+  return (
+    <CampoMonto
+      className={`${estilos.montoClase} ${ajuste === null ? '' : estilos.montoFijado}`}
+      valor={ajuste === null ? linea.usd : ajuste.montoUsd}
+      aria-label={`Monto de ${linea.instrumento}, en dólares`}
+      alCambiar={(valor) =>
+        modificar.cambiarAjusteLinea(clase, linea.instrumento, valor ?? 0)
+      }
+    />
+  )
+}
+
+/** Devuelve una línea al reparto de su clase. Solo si el asesor la clavó. */
+function SoltarLinea({
+  linea,
+  modificar,
+}: {
+  readonly linea: PlanResumido['lineas'][number]
+  readonly modificar: Modificar
+}) {
+  const clase = linea.clase as ClaseModelo
+  const clavada = modificar.ajustesLinea.some(
+    (a) => a.clase === clase && a.instrumento === linea.instrumento,
+  )
+  if (!clavada) return null
+
+  return (
+    <button
+      type="button"
+      className={estilos.soltar}
+      aria-label={`Devolver ${linea.instrumento} al reparto de su clase`}
+      title="Devolver la línea al reparto de su clase"
+      onClick={() => modificar.cambiarAjusteLinea(clase, linea.instrumento, null)}
+    >
+      ×
+    </button>
+  )
+}
+
+/** Devuelve la clase al modelo. Solo aparece cuando el asesor la clavó. */
+function Soltar({
   clase,
   modificar,
 }: {
   readonly clase: ClaseModelo
   readonly modificar: Modificar
 }) {
-  const ajuste = modificar.ajustes.find((a) => a.clase === clase) ?? null
-
-  if (ajuste === null) {
-    return (
-      <button
-        type="button"
-        className={estilos.fijarVacio}
-        onClick={() => modificar.cambiarAjuste(clase, { clase, modo: 'fijar', montoUsd: 0 })}
-        title="Clavar el monto de esta clase; el resto se prorratea entre las demás"
-      >
-        según el modelo
-      </button>
-    )
-  }
+  if (!modificar.ajustes.some((a) => a.clase === clase)) return null
 
   return (
-    <span className={estilos.fijado}>
-      <CampoMonto
-        valor={ajuste.montoUsd}
-        aria-label={`Monto fijado para ${nombreDe(clase)}`}
-        alCambiar={(valor) =>
-          modificar.cambiarAjuste(clase, { clase, modo: 'fijar', montoUsd: valor ?? 0 })
-        }
-      />
-      <button
-        type="button"
-        className={estilos.soltar}
-        aria-label={`Devolver ${nombreDe(clase)} al modelo`}
-        title="Devolver la clase al modelo"
-        onClick={() => modificar.cambiarAjuste(clase, null)}
-      >
-        ×
-      </button>
-    </span>
+    <button
+      type="button"
+      className={estilos.soltar}
+      aria-label={`Devolver ${nombreDe(clase)} al modelo`}
+      title="Devolver la clase al modelo"
+      onClick={() => modificar.cambiarAjuste(clase, null)}
+    >
+      ×
+    </button>
   )
 }
 
@@ -408,13 +609,15 @@ function Agregado({
       </td>
       <td className={estilos.num}>
         <CampoMonto
+          className={estilos.montoClase}
           valor={activo.montoUsd}
           aria-label={`Monto de ${activo.nombre === '' ? 'el producto agregado' : activo.nombre}`}
           alCambiar={(valor) => modificar.cambiarActivo({ ...activo, montoUsd: valor ?? 0 })}
         />
       </td>
       <td className={`${estilos.num} ${estilos.tenue}`}>agregado</td>
-      <td>
+      <td className={estilos.num} />
+      <td className={estilos.celdaSoltar}>
         <button
           type="button"
           className={estilos.soltar}
@@ -441,8 +644,8 @@ function Clases({ plan, total, peso }: VistaProps) {
           <th scope="col" className={estilos.num}>
             %
           </th>
-          <th scope="col" className={estilos.num}>
-            A comprar
+          <th scope="col" className={estilos.num} title="Lo que hay que comprar para llegar">
+            A ejecutar
           </th>
         </tr>
       </thead>

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import type { AjusteClase, ClaseModelo } from '@sabbi/core'
+import type { AjusteClase, AjusteLinea, ClaseModelo } from '@sabbi/core'
 
 import type { ActivoAgregado, ProductoOfrecible } from '../catalogo'
 import type { AjustesObjetivo } from '../estado'
@@ -9,12 +9,13 @@ import { asesorActual, clienteServidor } from '../supabase/servidor'
 /**
  * Lo que el asesor le hace al portafolio objetivo.
  *
- * Dos tablas y dos ideas. `proposal_restrictions` guarda los activos que el
- * asesor agrega al objetivo — existían desde el esquema inicial y nadie las
- * escribía todavía —; `proposal_class_adjustments`, los montos que clava por
- * clase. Las dos cuelgan de la propuesta, no de la ficha: son decisiones sobre
- * esta propuesta en particular, y otra propuesta del mismo cliente arranca
- * limpia.
+ * Tres tablas y tres ideas, de la más gruesa a la más fina.
+ * `proposal_class_adjustments` decide cuánto vale una clase;
+ * `proposal_restrictions` agrega al objetivo una línea que el modelo no
+ * propone; `proposal_line_adjustments` reparte dentro de una clase que ya tiene
+ * su monto. Las tres cuelgan de la propuesta, no de la ficha: son decisiones
+ * sobre esta propuesta en particular, y otra propuesta del mismo cliente
+ * arranca limpia.
  */
 
 interface FilaRestriccion {
@@ -50,12 +51,18 @@ interface FilaAjuste {
   monto_usd: number
 }
 
+interface FilaAjusteLinea {
+  clase: string
+  instrumento: string
+  monto_usd: number
+}
+
 export async function cargarAjustesObjetivo(propuestaId: string): Promise<AjustesObjetivo> {
-  if (propuestaId === '') return { agregados: [], ajustes: [] }
+  if (propuestaId === '') return { agregados: [], ajustes: [], ajustesLinea: [] }
 
   const supabase = await clienteServidor()
 
-  const [{ data: restricciones }, { data: ajustes }] = await Promise.all([
+  const [{ data: restricciones }, { data: ajustes }, { data: ajustesLinea }] = await Promise.all([
     supabase
       .from('proposal_restrictions')
       .select(
@@ -70,6 +77,11 @@ export async function cargarAjustesObjetivo(propuestaId: string): Promise<Ajuste
       .select('clase, modo, monto_usd')
       .eq('proposal_id', propuestaId)
       .returns<FilaAjuste[]>(),
+    supabase
+      .from('proposal_line_adjustments')
+      .select('clase, instrumento, monto_usd')
+      .eq('proposal_id', propuestaId)
+      .returns<FilaAjusteLinea[]>(),
   ])
 
   return {
@@ -94,6 +106,13 @@ export async function cargarAjustesObjetivo(propuestaId: string): Promise<Ajuste
       (fila): AjusteClase => ({
         clase: fila.clase as ClaseModelo,
         modo: fila.modo === 'excluir' ? 'excluir' : 'fijar',
+        montoUsd: Number(fila.monto_usd),
+      }),
+    ),
+    ajustesLinea: (ajustesLinea ?? []).map(
+      (fila): AjusteLinea => ({
+        clase: fila.clase as ClaseModelo,
+        instrumento: fila.instrumento,
         montoUsd: Number(fila.monto_usd),
       }),
     ),
@@ -233,6 +252,51 @@ export async function guardarAjusteDeClase(
     clase: ajuste.clase,
     modo: ajuste.modo,
     monto_usd: ajuste.modo === 'excluir' ? 0 : ajuste.montoUsd,
+    created_by: asesor?.id ?? null,
+    updated_at: new Date().toISOString(),
+  })
+
+  return error === null ? {} : { error: error.message }
+}
+
+/**
+ * Guarda —o suelta— el monto que el asesor clavó en una línea.
+ *
+ * Soltar borra la fila en vez de escribir un cero: son cosas distintas. Un cero
+ * es «no quiero este instrumento», y el motor lo respeta dejando la línea en
+ * cero para que se pueda deshacer; la ausencia de fila es «que decida el
+ * modelo», que es el estado por defecto.
+ */
+export async function guardarAjusteDeLinea(
+  propuestaId: string,
+  ajuste: AjusteLinea,
+  eliminado: boolean,
+): Promise<{ readonly error?: string }> {
+  if (propuestaId === '') {
+    return { error: 'Esta ficha no tiene una propuesta abierta. Volvé a subirla.' }
+  }
+
+  const supabase = await clienteServidor()
+
+  if (eliminado) {
+    const { error } = await supabase
+      .from('proposal_line_adjustments')
+      .delete()
+      .eq('proposal_id', propuestaId)
+      .eq('clase', ajuste.clase)
+      .eq('instrumento', ajuste.instrumento)
+    return error === null ? {} : { error: error.message }
+  }
+
+  const asesor = await asesorActual()
+
+  const { error } = await supabase.from('proposal_line_adjustments').upsert({
+    proposal_id: propuestaId,
+    clase: ajuste.clase,
+    instrumento: ajuste.instrumento,
+    // La columna tiene un `check (monto_usd >= 0)`: un negativo es un error de
+    // tecleo y se lee como cero, igual que hace el motor.
+    monto_usd: Math.max(0, ajuste.montoUsd),
     created_by: asesor?.id ?? null,
     updated_at: new Date().toISOString(),
   })

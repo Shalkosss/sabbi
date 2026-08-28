@@ -292,23 +292,6 @@
   cursor: not-allowed;
 }
 
-/* Como se edita, dicho una vez y solo cuando la edicion esta abierta. */
-.comoEditar {
-  margin: 0 0 12px;
-  padding: 9px 13px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--tinta-3);
-  background: var(--hundido);
-  border: 1px dashed var(--borde-fuerte);
-  border-radius: var(--radio-control);
-  max-width: 92ch;
-}
-
-.comoEditar b {
-  color: var(--tinta-2);
-}
-
 /* ── Modificar desde el objetivo ────────────────────────────────────────── */
 
 /* Solo el × cabe aca: la columna existe para no empujarlo dentro de la celda

@@ -365,7 +365,12 @@ export function Revision({ inicial, asesor, productos }: Props) {
 
       {hayAvisos && (
         <div className={estilos.avisos}>
-          <Avisos bloqueos={aMostrar} avisos={avisos} ignoradas={estado.ignoradas} />
+          <Avisos
+            bloqueos={aMostrar}
+            avisos={avisos}
+            ignoradas={estado.ignoradas}
+            fichaId={estado.fichaId}
+          />
         </div>
       )}
 

@@ -106,3 +106,48 @@ describe('emparejarCatalogo', () => {
     expect(indice.size).toBe(0)
   })
 })
+
+describe('dispersión de retornos con un solo punto', () => {
+  const conPunto = (nombre: string, ret: number): ProductoCatalogo => ({
+    nombre,
+    retMin: ret,
+    retMax: ret,
+    distMin: ret / 2,
+    distMax: ret / 2,
+    distFrecuencia: null,
+    moneda: 'USD',
+    liquidez: null,
+  })
+
+  it('abre en banda ±20% un retorno cargado como un solo número', () => {
+    const indice = emparejarCatalogo(['Fondo X'], [conPunto('Fondo X', 0.1)])
+    const p = indice.get('Fondo X')
+    expect(p?.retMin).toBeCloseTo(0.08, 10)
+    expect(p?.retMax).toBeCloseTo(0.12, 10)
+    // El distributivo también: 5% se abre a 4–6%.
+    expect(p?.distMin).toBeCloseTo(0.04, 10)
+    expect(p?.distMax).toBeCloseTo(0.06, 10)
+  })
+
+  it('no toca un producto que ya vino con banda real', () => {
+    const real: ProductoCatalogo = {
+      nombre: 'Fondo Y',
+      retMin: 0.04,
+      retMax: 0.09,
+      distMin: null,
+      distMax: null,
+      distFrecuencia: null,
+      moneda: 'USD',
+      liquidez: null,
+    }
+    const p = emparejarCatalogo(['Fondo Y'], [real]).get('Fondo Y')
+    expect(p?.retMin).toBe(0.04)
+    expect(p?.retMax).toBe(0.09)
+  })
+
+  it('con retorno negativo el piso queda abajo y el techo arriba', () => {
+    const p = emparejarCatalogo(['Fondo Z'], [conPunto('Fondo Z', -0.05)]).get('Fondo Z')
+    expect(p?.retMin).toBeCloseTo(-0.06, 10)
+    expect(p?.retMax).toBeCloseTo(-0.04, 10)
+  })
+})

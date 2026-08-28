@@ -54,6 +54,7 @@ const filaBase = (fichaId: string) => ({
   nota: null as string | null,
   editado_manualmente: false,
   campos_editados: [] as string[],
+  oculta: false,
 })
 
 export const filaDePosicion = (posicion: PosicionFicha, fichaId: string) => ({
@@ -127,6 +128,7 @@ export interface FilaPosicion {
   nota: string | null
   editado_manualmente: boolean
   campos_editados: string[] | null
+  oculta: boolean | null
 }
 
 export const posicionDeFila = (fila: FilaPosicion): PosicionEditada => ({
@@ -166,6 +168,7 @@ export const posicionDeFila = (fila: FilaPosicion): PosicionEditada => ({
   nota: fila.nota ?? '',
   editadoManualmente: fila.editado_manualmente,
   camposEditados: fila.campos_editados ?? [],
+  oculta: fila.oculta ?? false,
 })
 
 /** Columna de `ficha_positions` para cada campo que el asesor puede corregir. */
@@ -185,4 +188,5 @@ export const COLUMNA_DE_CAMPO: Readonly<Record<string, string>> = {
   nota: 'nota',
   esInvertible: 'es_invertible',
   camposEditados: 'campos_editados',
+  oculta: 'oculta',
 }

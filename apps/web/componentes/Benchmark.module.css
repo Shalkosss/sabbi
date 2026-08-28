@@ -217,6 +217,13 @@
   width: 19%;
 }
 
+/* El nombre del bloque, a la izquierda; los montos y los pesos, a la derecha.
+   Estaban los dos en el mismo selector `.tabla td, .tabla tbody th`, que vale
+   dos clases y le ganaba a este: la columna de dinero salia a la izquierda. */
+.tabla tbody th {
+  text-align: left;
+}
+
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -225,7 +232,6 @@
 .tabla td,
 .tabla tbody th {
   padding: 3px 8px;
-  text-align: left;
   border-bottom: 1px solid var(--borde-suave);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -331,4 +337,12 @@
 
 .iliquido {
   background: var(--clase-privados-tinta);
+}
+
+/* La cabecera de una columna de numeros va donde van sus numeros. El
+   `text-align: left` de arriba lleva el tipo de elemento adentro y por eso pesa
+   mas que la clase numerica suelta: sin esta regla el rotulo queda contra el
+   borde izquierdo de una columna cuyas cifras estan contra el derecho. */
+.tabla thead th.num {
+  text-align: right;
 }

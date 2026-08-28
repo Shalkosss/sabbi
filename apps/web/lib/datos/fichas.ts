@@ -266,7 +266,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
 
   // Lo que el asesor le hizo al portafolio objetivo cuelga de la propuesta, no
   // de la ficha: sin propuesta abierta no hay ajustes que traer.
-  const { agregados, ajustes } = await cargarAjustesObjetivo(propuesta?.id ?? '')
+  const { agregados, ajustes, ajustesLinea } = await cargarAjustesObjetivo(propuesta?.id ?? '')
 
   const guardadas = ((filas ?? []) as FilaPosicion[])
     // Las deudas viven en la misma tabla pero no se revisan ni entran al motor.
@@ -313,6 +313,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
     posiciones,
     agregados,
     ajustes,
+    ajustesLinea,
     parametros: {
       perfil: (propuesta?.perfil ?? 'Moderado') as Parametros['perfil'],
       necesitaFlujos: cliente?.necesita_flujos ?? false,

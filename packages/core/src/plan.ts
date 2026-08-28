@@ -26,7 +26,9 @@
  *  7. Reparto por clase, sobre el dinero nuevo: la misma cascada de ETFs en
  *     Fijo y en Variable, los subfondos en Privados, la etiqueta en Club, los
  *     dos instrumentos en Otros.
- *  8. Prorrateo de residuales. Barre las lineas inejecutables al final, cuando
+ *  8. Montos clavados por linea. Reparten dentro de una clase sin mover su
+ *     total, y quedan exentos del barrido que viene despues.
+ *  9. Prorrateo de residuales. Barre las lineas inejecutables al final, cuando
  *     ya se sabe cuanto le toco a cada una.
  *
  * La funcion es pura: no lee configuracion, no toca la red y no mira el reloj.
@@ -38,6 +40,7 @@ import type { ReglasMotor } from './domain/reglas.js'
 import type {
   AjusteAplicado,
   AjusteClase,
+  AjusteLinea,
   Benchmark,
   ClaseModelo,
   LineaPlan,
@@ -48,6 +51,7 @@ import type {
 } from './domain/tipos.js'
 import { CLASES, NOMBRE_CLASE } from './domain/tipos.js'
 import { repartirEtfs } from './rules/cascada.js'
+import { fijarLineas } from './rules/lineas.js'
 import { recortarCash } from './rules/cash.js'
 import { resolverInmobiliario } from './rules/inmobiliario.js'
 import type { EstadoInstitucional } from './rules/institucional.js'
@@ -119,6 +123,13 @@ export interface EntradaPlan {
    */
   readonly ajustes?: readonly AjusteClase[]
   /**
+   * Montos que el asesor clavo instrumento por instrumento.
+   *
+   * Un nivel mas abajo que `ajustes`: reparten dentro de una clase sin mover su
+   * total. Ver `fijarLineas`.
+   */
+  readonly ajustesDeLinea?: readonly AjusteLinea[]
+  /**
    * La macro: los umbrales y minimos con los que se calcula.
    *
    * Es lo que la mesa edita en la pantalla de Macro y lo que hace que dos
@@ -158,6 +169,7 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     institucional = 'auto',
     accedeInmobiliario = false,
     ajustes = [],
+    ajustesDeLinea = [],
     reglas = REGLAS_V4,
   } = entrada
 
@@ -270,7 +282,14 @@ export function generarPlan(entrada: EntradaPlan): Plan {
     }),
   )
 
-  const finales = ordenar(prorratearResiduales(lineas, ticketMinimoUsd))
+  // ── 8. Los montos que el asesor clavo linea por linea ─────────────────
+  // Va antes del barrido y deja lo clavado exento: despues del barrido, una
+  // linea libre podria quedar bajo el ticket minimo y sobrevivir porque ya no
+  // queda quien la absorba.
+  const conAjustesDeLinea = fijarLineas(lineas, ajustesDeLinea)
+  avisos.push(...conAjustesDeLinea.avisos)
+
+  const finales = ordenar(prorratearResiduales(conAjustesDeLinea.lineas, ticketMinimoUsd))
 
   return {
     reparto: realinearConLasLineas(reparto, finales),
@@ -465,7 +484,13 @@ function lineasDeClase(
 
   const conservadas: LineaPlan[] = ctx.pisos
     .filter((p) => p.clase === clase && p.montoUsd > EPS)
-    .map((p) => ({ instrumento: p.etiqueta, clase, usd: p.montoUsd, residuales: 'exenta' }))
+    .map((p) => ({
+      instrumento: p.etiqueta,
+      clase,
+      usd: p.montoUsd,
+      residuales: 'exenta',
+      piso: p.origen,
+    }))
 
   if (dineroNuevoUsd <= EPS) return conservadas
 

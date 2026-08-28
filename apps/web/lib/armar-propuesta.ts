@@ -137,7 +137,14 @@ export function construirPropuesta(
 
   if (!derivacion.ok) return { ok: false, bloqueos: derivacion.bloqueos }
 
-  const plan = generarPlan(derivacion.entrada)
+  // Los ajustes de línea no pasan por `armarEntradaPlan`: no derivan pisos ni
+  // bloqueos, solo reparten dentro de una clase que el solver ya resolvió. Pero
+  // sí tienen que entrar acá — esta es la propuesta que ve el cliente, y si no
+  // los aplicara diría otra cosa que el panel donde el asesor los escribió.
+  const plan = generarPlan({
+    ...derivacion.entrada,
+    ajustesDeLinea: revision.ajustesLinea,
+  })
 
   // El catalogo se empareja contra los nombres que el motor acaba de imprimir,
   // no contra los del benchmark: son dos espacios de nombres distintos. Los dos
@@ -162,6 +169,7 @@ export function construirPropuesta(
       ...derivacion.entrada,
       pisos: [],
       ajustes: [],
+      ajustesDeLinea: [],
     }),
     pisos: derivacion.entrada.pisos,
     benchmark: derivacion.entrada.benchmark,

@@ -53,6 +53,7 @@ const revision = (posiciones: readonly PosicionEditada[]): EstadoRevision => ({
   modelo: null,
   posiciones,
   agregados: [],
+  ajustesLinea: [],
   ajustes: [],
   parametros: {
     perfil: 'Moderado',

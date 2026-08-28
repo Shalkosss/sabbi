@@ -1,13 +1,14 @@
 'use client'
 
 import { evaluarRevision, posicionesIncompletas } from '@sabbi/core'
-import type { AjusteClase, Bloqueo, ClaseModelo, Cta } from '@sabbi/core'
+import type { AjusteClase, AjusteLinea, Bloqueo, ClaseModelo, Cta } from '@sabbi/core'
 import { useMemo, useReducer, useRef, useState, useTransition } from 'react'
 
 import {
   calcularPlan,
   guardarCambioActivo,
   guardarCambioAjuste,
+  guardarCambioAjusteLinea,
   guardarCambioParametros,
   guardarCambioPosicion,
 } from '../app/acciones'
@@ -50,11 +51,18 @@ import estilos from './Revision.module.css'
 const CLAVE_PARAMETROS = 'parametros'
 const PREFIJO_ACTIVO = 'activo:'
 const PREFIJO_AJUSTE = 'ajuste:'
+const PREFIJO_LINEA = 'linea:'
 
 type ActivoEnCola = ActivoAgregado & { readonly eliminado: boolean }
 type AjusteEnCola = AjusteClase & { readonly eliminado: boolean }
+type LineaEnCola = AjusteLinea & { readonly eliminado: boolean }
 
-type Cambio = Partial<PosicionEditada> | Parametros | ActivoEnCola | AjusteEnCola
+type Cambio =
+  | Partial<PosicionEditada>
+  | Parametros
+  | ActivoEnCola
+  | AjusteEnCola
+  | LineaEnCola
 
 interface Props {
   readonly inicial: EstadoRevision
@@ -97,6 +105,10 @@ export function Revision({ inicial, asesor, productos }: Props) {
     if (clave.startsWith(PREFIJO_AJUSTE)) {
       const { eliminado, ...ajuste } = cambios as AjusteEnCola
       return guardarCambioAjuste(estado.propuestaId, ajuste, eliminado)
+    }
+    if (clave.startsWith(PREFIJO_LINEA)) {
+      const { eliminado, ...ajuste } = cambios as LineaEnCola
+      return guardarCambioAjusteLinea(estado.propuestaId, ajuste, eliminado)
     }
     if (clave !== CLAVE_PARAMETROS) {
       return guardarCambioPosicion(clave, cambios as Partial<PosicionEditada>)
@@ -197,7 +209,30 @@ export function Revision({ inicial, asesor, productos }: Props) {
     )
   }
 
-  const { cliente, posiciones, parametros, agregados, ajustes } = estado
+  /**
+   * Clavar —o soltar— el monto de una línea del objetivo.
+   *
+   * La clave de la cola lleva la clase y el instrumento porque el mismo nombre
+   * puede salir en dos clases: sin ella, teclear en el oro de Otros pisaría el
+   * guardado del oro de otra clase mientras los dos están en vuelo.
+   */
+  const cambiarAjusteLinea = (
+    clase: ClaseModelo,
+    instrumento: string,
+    montoUsd: number | null,
+  ) => {
+    setDesactualizado(true)
+    setRechazo([])
+    despacharCrudo({ tipo: 'ajuste-linea', clase, instrumento, montoUsd })
+    encolar(`${PREFIJO_LINEA}${clase}:${instrumento}`, {
+      clase,
+      instrumento,
+      montoUsd: montoUsd ?? 0,
+      eliminado: montoUsd === null,
+    })
+  }
+
+  const { cliente, posiciones, parametros, agregados, ajustes, ajustesLinea } = estado
 
   const revision = useMemo(
     () =>
@@ -249,6 +284,7 @@ export function Revision({ inicial, asesor, productos }: Props) {
         ticketMinimoUsd: parametros.ticketMinimoUsd,
         restricciones: agregados,
         ajustes,
+        ajustesDeLinea: ajustesLinea,
       })
       setPlan(resultado.ok ? resultado.plan : null)
       setRechazo(resultado.ok ? [] : resultado.bloqueos)
@@ -388,10 +424,12 @@ export function Revision({ inicial, asesor, productos }: Props) {
             modificar={{
               agregados,
               ajustes,
+              ajustesLinea,
               productos,
               cambiarActivo,
               quitarActivo,
               cambiarAjuste,
+              cambiarAjusteLinea,
             }}
           />
         </div>

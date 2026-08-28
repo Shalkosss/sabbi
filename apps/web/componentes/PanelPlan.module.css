@@ -185,9 +185,14 @@
   font-weight: 700;
   color: var(--tinta);
   background: var(--hundido);
-  text-align: left;
   padding: 7px 8px;
   border-bottom: 1px solid var(--borde);
+}
+
+/* El nombre de la clase, a la izquierda. Los numeros de la fila NO: se alinean
+   con los de sus instrumentos, que es contra lo que se los lee. */
+.filaClase th {
+  text-align: left;
 }
 
 .filaClase th {
@@ -248,43 +253,131 @@
    marca, porque esconderlo dejaba la pantalla en blanco justo despues de
    tocar algo. */
 .desactualizado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
   margin: 0 0 12px;
-  padding: 9px 13px;
+  padding: 9px 10px 9px 13px;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--atencion-texto);
   background: var(--atencion-suave);
+  border: 1px solid var(--atencion);
   border-radius: var(--radio-control);
+}
+
+/* El boton va en el aviso porque es donde esta mirando quien acaba de tocar un
+   monto. El de la cabecera sigue estando; este es el que se encuentra. */
+.actualizarAqui {
+  flex: none;
+  border: 1px solid var(--atencion);
+  border-radius: var(--radio-boton);
+  background: var(--atencion);
+  color: var(--hueso);
+  padding: 5px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: filter 120ms ease;
+}
+
+.actualizarAqui:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.actualizarAqui:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Como se edita, dicho una vez y solo cuando la edicion esta abierta. */
+.comoEditar {
+  margin: 0 0 12px;
+  padding: 9px 13px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--tinta-3);
+  background: var(--hundido);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  max-width: 92ch;
+}
+
+.comoEditar b {
+  color: var(--tinta-2);
 }
 
 /* ── Modificar desde el objetivo ────────────────────────────────────────── */
 
-.colFijar {
-  width: 190px;
+/* Solo el × cabe aca: la columna existe para no empujarlo dentro de la celda
+   del monto, donde competiria con la cifra. */
+.colSoltar {
+  width: 34px;
 }
 
-.fijarVacio {
+.celdaSoltar {
+  text-align: center;
+  padding-left: 0 !important;
+  padding-right: 4px !important;
+}
+
+/*
+ * El monto de una clase, editable en su sitio.
+ *
+ * Se ve como el numero que era hasta que alguien lo va a tocar: sin caja, sin
+ * fondo, alineado a la derecha igual que las demas cifras de la columna. La
+ * caja aparece con el mouse encima o con el foco puesto. Es lo que permite que
+ * la misma celda sea el resultado que se lee y el campo que se corrige, sin
+ * que la tabla se convierta en un formulario de siete cajas.
+ *
+ * El ancho es fijo para que la columna no cambie de tamano al alternar entre
+ * los dos estados: un salto de layout al abrir la edicion mueve todas las
+ * cifras de la tabla justo cuando uno esta apuntando a una.
+ */
+.montoClase {
+  width: 148px;
   background: transparent;
-  border: 1px dashed var(--borde-fuerte);
-  border-radius: var(--radio-control);
-  padding: 4px 10px;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--tinta-4);
-  cursor: pointer;
-  width: 100%;
+  border-color: transparent;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
-.fijarVacio:hover {
-  color: var(--atencion-texto);
+.montoClase:hover {
+  background: var(--superficie);
+  border-color: var(--borde-fuerte);
+}
+
+.montoClase:focus-within {
+  background: var(--superficie);
+}
+
+/*
+ * Un monto que no se puede tocar desde aca.
+ *
+ * Lo conservado sale de la ficha y la unica linea de su clase vale lo que vale
+ * la clase. Se ve como un numero y no como un campo apagado: un control
+ * deshabilitado invita a apretarlo y despues no explica por que no pasa nada.
+ * El `title` dice donde se cambia.
+ */
+.montoFijo {
+  display: inline-block;
+  padding: 5px 9px;
+  border-bottom: 1px dotted var(--borde-fuerte);
+  cursor: help;
+}
+
+/* Una clase clavada no se disfraza de calculada: el campo se queda visible. */
+.montoFijado {
+  background: var(--atencion-suave);
   border-color: var(--atencion);
-  border-style: solid;
 }
 
-.fijado {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.montoFijado:hover {
+  background: var(--atencion-suave);
+  border-color: var(--atencion);
 }
 
 .soltar {
@@ -362,4 +455,12 @@
 .sumar:hover {
   color: var(--acento-texto);
   background: var(--acento-suave);
+}
+
+/* La cabecera de una columna de numeros va donde van sus numeros. El
+   `text-align: left` de arriba lleva el tipo de elemento adentro y por eso pesa
+   mas que la clase numerica suelta: sin esta regla el rotulo queda contra el
+   borde izquierdo de una columna cuyas cifras estan contra el derecho. */
+.tabla th.num {
+  text-align: right;
 }

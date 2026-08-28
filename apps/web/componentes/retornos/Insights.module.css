@@ -158,8 +158,13 @@
 .tabla th,
 .tabla td {
   padding: 9px 14px;
-  text-align: left;
   border-bottom: 1px solid var(--borde-suave);
+}
+
+/* Igual que en la tabla maestra: aca el `text-align: left` compartido le ganaba
+   a `.num` y dejaba los retornos alineados a la izquierda. */
+.tabla th {
+  text-align: left;
 }
 
 .tabla thead th {
@@ -239,4 +244,12 @@
   color: var(--tinta-4);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+/* La cabecera de una columna de numeros va donde van sus numeros. El
+   `text-align: left` de arriba lleva el tipo de elemento adentro y por eso pesa
+   mas que la clase numerica suelta: sin esta regla el rotulo queda contra el
+   borde izquierdo de una columna cuyas cifras estan contra el derecho. */
+.tabla th.num {
+  text-align: right;
 }

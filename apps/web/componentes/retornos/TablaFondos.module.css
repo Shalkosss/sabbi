@@ -143,9 +143,16 @@
 .tabla th,
 .tabla td {
   padding: 7px 10px;
-  text-align: left;
   white-space: nowrap;
   border-bottom: 1px solid var(--borde-suave);
+}
+
+/* El `text-align` va solo en los encabezados. Puesto en el selector de arriba
+   —que vale dos clases— le ganaba a `.numerica`, que vale una, y las treinta
+   columnas de porcentajes salian alineadas a la izquierda: los millares de una
+   fila caian donde las unidades de la de arriba. */
+.tabla th {
+  text-align: left;
 }
 
 .tabla thead th {
@@ -310,4 +317,12 @@
   letter-spacing: 0.04em;
   color: var(--tinta-3);
   vertical-align: middle;
+}
+
+/* La cabecera de una columna de numeros va donde van sus numeros. El
+   `text-align: left` de arriba lleva el tipo de elemento adentro y por eso pesa
+   mas que la clase numerica suelta: sin esta regla el rotulo queda contra el
+   borde izquierdo de una columna cuyas cifras estan contra el derecho. */
+.tabla th.numerica {
+  text-align: right;
 }

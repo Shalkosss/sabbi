@@ -36,6 +36,7 @@ import { Cabecera } from './Cabecera'
 import { Guardado } from './Guardado'
 import { Marco } from './Marco'
 import { PanelPlan } from './PanelPlan'
+import { QuitarFicha } from './QuitarFicha'
 import { TablaPosiciones } from './TablaPosiciones'
 import estilos from './Revision.module.css'
 
@@ -333,6 +334,11 @@ export function Revision({ inicial, asesor, productos }: Props) {
           <Companeros companeros={companeros} />
           <EstadoEnVivo estado={estadoCanal} cambiosEnVivo={cambiosEnVivo} />
           <Guardado estado={guardado} sinGuardar={posicionesSinGuardar} />
+          <QuitarFicha
+            fichaId={estado.fichaId}
+            cliente={cliente.nombre ?? estado.archivo}
+            ocultaEnAgenda={estado.ocultaEnAgenda}
+          />
         </>
       }
     >

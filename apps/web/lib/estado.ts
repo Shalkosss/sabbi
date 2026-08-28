@@ -92,6 +92,8 @@ export interface EstadoRevision extends AjustesObjetivo {
   readonly modelo: PortafolioModelo | null
   readonly posiciones: readonly PosicionEditada[]
   readonly parametros: Parametros
+  /** Si la ficha aparece en el calendario de la agenda. */
+  readonly ocultaEnAgenda: boolean
 }
 
 export type Accion =

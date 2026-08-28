@@ -248,3 +248,56 @@ export async function calcularPlan(
     },
   }
 }
+
+/**
+ * Quita una ficha entera: sus posiciones, sus hitos de agenda y las propuestas
+ * en borrador que dependen de ella. Una propuesta publicada la protege — eso
+ * salio al cliente y no se tira en silencio; hay que despublicarla antes.
+ */
+export async function quitarFicha(
+  fichaId: string,
+): Promise<{ readonly ok: true } | { readonly ok: false; readonly error: string }> {
+  const { clienteServidor } = await import('../lib/supabase/servidor')
+  const supabase = await clienteServidor()
+
+  const { data: propuestas } = await supabase
+    .from('proposals')
+    .select('id, estado')
+    .eq('ficha_id', fichaId)
+
+  const publicada = (propuestas ?? []).find((p) => p.estado === 'publicada')
+  if (publicada !== undefined) {
+    return {
+      ok: false,
+      error:
+        'Esta ficha tiene una propuesta publicada al cliente. Despublicá esa propuesta antes de quitar la ficha.',
+    }
+  }
+
+  const ids = (propuestas ?? []).map((p) => p.id)
+  if (ids.length > 0) {
+    const { error: errBorrarProp } = await supabase.from('proposals').delete().in('id', ids)
+    if (errBorrarProp !== null) {
+      return { ok: false, error: `No se pudieron quitar las propuestas: ${errBorrarProp.message}` }
+    }
+  }
+
+  const { error } = await supabase.from('fichas').delete().eq('id', fichaId)
+  if (error !== null) return { ok: false, error: `No se pudo quitar la ficha: ${error.message}` }
+  return { ok: true }
+}
+
+/** Esconde la ficha del calendario de la agenda, sin borrarla. */
+export async function ocultarFichaEnAgenda(
+  fichaId: string,
+  oculta: boolean,
+): Promise<{ readonly error?: string }> {
+  const { clienteServidor } = await import('../lib/supabase/servidor')
+  const supabase = await clienteServidor()
+  const { error } = await supabase
+    .from('fichas')
+    .update({ oculta_en_agenda: oculta })
+    .eq('id', fichaId)
+  if (error !== null) return { error: error.message }
+  return {}
+}

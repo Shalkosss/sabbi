@@ -64,3 +64,6 @@ Deck de muestra*.pptx
 # La matriz del benchmark: se regenera con `npm run exportar-benchmark`
 benchmark*.csv
 benchmark*.png
+
+# Respaldos locales (nunca al repo — contienen datos de clientes)
+respaldo-*.json

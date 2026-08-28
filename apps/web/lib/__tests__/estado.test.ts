@@ -66,6 +66,7 @@ const revision = (posiciones: readonly PosicionEditada[]): EstadoRevision => ({
     ticketMinimoUsd: 20_000,
     fxPenUsd: 3.4,
   },
+  ocultaEnAgenda: false,
 })
 
 describe('camposTrasEditar', () => {

@@ -484,11 +484,15 @@ export function armarComparativa(
   benchmark?: Benchmark,
 ): VistaComparativa {
   // El benchmark normalizado a fracción, para leerlo contra el share del
-  // «después». Sin benchmark —un llamador viejo— la comparación queda en cero
-  // y la vista simplemente no la muestra.
-  const escalaBench = benchmark === undefined ? 0 : CLASES.reduce((a, c) => a + benchmark[c], 0)
+  // «después». Viene de la hoja «Asset Allocation detallado»; un peso negativo
+  // ahí no es una clase que se pueda mostrar como objetivo, así que se lleva a
+  // 0% y el resto se prorratea entre las clases con peso. Sin benchmark —un
+  // llamador viejo— la comparación queda en cero y la vista no la muestra.
+  const pesoBench = (clase: ClaseModelo): number =>
+    benchmark === undefined ? 0 : Math.max(0, benchmark[clase])
+  const escalaBench = CLASES.reduce((a, c) => a + pesoBench(c), 0)
   const benchShareDe = (clase: ClaseModelo): number =>
-    benchmark === undefined || escalaBench <= EPS ? 0 : benchmark[clase] / escalaBench
+    escalaBench <= EPS ? 0 : pesoBench(clase) / escalaBench
   // El "antes" tambien lee el catalogo, pero solo para el distributivo: el
   // retorno total sigue saliendo de la ficha. El catalogo aca cubre tanto los
   // nombres del plan como los de las posiciones (ver `armar-propuesta`).

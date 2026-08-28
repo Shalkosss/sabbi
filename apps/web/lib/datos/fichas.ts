@@ -211,6 +211,7 @@ interface FilaFicha {
   modelo: unknown
   flujo_actual: string | null
   flujo_retiro: string | null
+  oculta_en_agenda: boolean | null
   clients: {
     nombre: string
     horizonte: string | null
@@ -239,7 +240,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
     .from('fichas')
     .select(
       'id, client_id, archivo_nombre, hoja, parse_warnings, ignoradas, modelo, ' +
-        'flujo_actual, flujo_retiro, ' +
+        'flujo_actual, flujo_retiro, oculta_en_agenda, ' +
         'clients(nombre, horizonte, notas, necesita_flujos, us_person)',
     )
     .eq('id', fichaId)
@@ -325,6 +326,7 @@ export async function cargarRevision(fichaId: string): Promise<EstadoRevision | 
       ticketMinimoUsd: propuesta?.ticket_minimo_etf_usd ?? (await ticketEtfPorDefecto()),
       fxPenUsd: propuesta?.fx ?? 3.4,
     },
+    ocultaEnAgenda: ficha.oculta_en_agenda === true,
   }
 }
 

@@ -58,6 +58,7 @@ export async function cargarAgenda(limite = 240): Promise<AgendaCargada> {
   const { data: fichas } = await supabase
     .from('fichas')
     .select('id, created_at, created_by, clients(nombre)')
+    .eq('oculta_en_agenda', false)
     .order('created_at', { ascending: false })
     .limit(limite)
     .returns<FilaFicha[]>()

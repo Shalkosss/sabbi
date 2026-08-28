@@ -3,7 +3,7 @@ import { SinAsesor } from '../../../componentes/SinAsesor'
 import { NavRetornos } from '../../../componentes/retornos/NavRetornos'
 import { Insights } from '../../../componentes/retornos/Insights'
 import { SinRetornos } from '../../../componentes/retornos/SinRetornos'
-import { metricasDeFondos, diagnosticar } from '../../../lib/datos/retornos'
+import { metricasDeFondos } from '../../../lib/datos/retornos'
 import { asesorActual } from '../../../lib/supabase/servidor'
 
 /**
@@ -18,8 +18,7 @@ export default async function Pagina() {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const { metricas, riskFree, fondos } = await metricasDeFondos()
-  const falta = diagnosticar(fondos)
+  const { metricas, riskFree, falta } = await metricasDeFondos()
 
   return (
     <Marco

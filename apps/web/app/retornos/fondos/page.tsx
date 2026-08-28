@@ -4,7 +4,7 @@ import { SinRetornos } from '../../../componentes/retornos/SinRetornos'
 import { NavRetornos } from '../../../componentes/retornos/NavRetornos'
 import { TablaFondos } from '../../../componentes/retornos/TablaFondos'
 import type { SerieDeFondo } from '../../../componentes/retornos/TablaFondos'
-import { clasesDeFondos, metricasDeFondos, diagnosticar } from '../../../lib/datos/retornos'
+import { clasesDeFondos, metricasDeFondos } from '../../../lib/datos/retornos'
 import { mesLargo } from '../../../lib/formato'
 import { asesorActual } from '../../../lib/supabase/servidor'
 
@@ -26,12 +26,10 @@ export default async function Pagina() {
   const asesor = await asesorActual()
   if (asesor === null) return <SinAsesor />
 
-  const [{ metricas, riskFree, ultimoMes, sinTreasury, fondos }, clases] = await Promise.all([
+  const [{ metricas, riskFree, ultimoMes, sinTreasury, fondos, falta }, clases] = await Promise.all([
     metricasDeFondos(),
     clasesDeFondos(),
   ])
-
-  const falta = diagnosticar(fondos)
 
   const series: readonly SerieDeFondo[] = fondos.map((f) => ({
     fondoId: f.ficha.id,

@@ -218,7 +218,10 @@ describe('generarPlan — las reglas de la v4', () => {
     expect(plan.avisos.some((a) => a.includes('Inmobiliario Directo'))).toBe(false)
   })
 
-  it('si el cliente accede, la clase se queda con ticket chico', () => {
+  it('si el cliente accede pero el TBD no llega al ticket, ese dinero pasa a Cash', () => {
+    // Con 80k y el peso de la clase, el TBD queda muy por debajo del ticket
+    // de 100k que se pide para una nueva inversion inmobiliaria: la linea no
+    // se crea y su monto se lleva a Cash. `totalObjetivoUsd` se conserva.
     const plan = generarPlan({
       ...ENTRADA,
       patrimonioTotalUsd: 80_000,
@@ -226,8 +229,22 @@ describe('generarPlan — las reglas de la v4', () => {
       accedeInmobiliario: true,
     })
 
-    expect(objetivo(plan, 'inm')).toBeGreaterThan(0)
-    invariantes(plan, 80_000, 'accede')
+    expect(objetivo(plan, 'inm')).toBe(0)
+    expect(plan.avisos.some((a) => a.includes('ticket de 100000'))).toBe(true)
+    invariantes(plan, 80_000, 'accede pero no llega')
+  })
+
+  it('si accede y el TBD llega al ticket, la clase se queda abierta', () => {
+    // Con patrimonio grande el TBD supera 100k y la linea se emite.
+    const plan = generarPlan({
+      ...ENTRADA,
+      patrimonioTotalUsd: 2_000_000,
+      pisos: [],
+      accedeInmobiliario: true,
+    })
+
+    expect(objetivo(plan, 'inm')).toBeGreaterThan(100_000)
+    invariantes(plan, 2_000_000, 'accede y llega')
   })
 
   it('Otros se pliega a Privados cuando no llega al ticket', () => {

@@ -101,3 +101,118 @@
   color: var(--tinta-3);
   font-size: 12px;
 }
+
+/* ── Notas del asesor ─────────────────────────────────────────────────────
+   Una nota es un aviso propio: el asesor escribe algo que quiere ver la
+   proxima vez que abra la ficha. Comparte lugar y forma con los del parser
+   —van en la misma pila, arriba, antes de calcular— pero se distingue con
+   una etiqueta suave para que no se confunda con lo que detecto la maquina. */
+.nota {
+  background: var(--hundido);
+  border-left-color: var(--tinta-4);
+}
+
+.notaEtiqueta {
+  flex: none;
+  align-self: flex-start;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  background: var(--borde);
+  padding: 1px 7px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.notaEdicion {
+  flex-wrap: wrap;
+}
+
+.notaCampo {
+  flex: 1;
+  min-width: 220px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-control);
+  padding: 6px 10px;
+  resize: vertical;
+}
+
+.notaCampo:focus {
+  outline: 2px solid var(--anillo);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.notaAcciones {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.notaGuardar,
+.notaCancelar {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--radio-control);
+  border: 1px solid var(--borde-fuerte);
+  cursor: pointer;
+}
+
+.notaGuardar {
+  background: var(--acento);
+  color: var(--fondo);
+  border-color: var(--acento);
+  font-weight: 600;
+}
+
+.notaGuardar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notaCancelar {
+  background: transparent;
+  color: var(--tinta-2);
+}
+
+.agregarNota {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--borde-fuerte);
+  color: var(--tinta-3);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--radio-control);
+  cursor: pointer;
+}
+
+.agregarNota:hover {
+  color: var(--tinta);
+  border-color: var(--tinta-3);
+}
+
+.restaurar {
+  font-size: 12px;
+  color: var(--tinta-3);
+  margin: 0;
+  padding: 4px 2px;
+}
+
+.restaurarBoton {
+  background: transparent;
+  border: 0;
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}

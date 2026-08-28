@@ -289,7 +289,25 @@ export function generarPlan(entrada: EntradaPlan): Plan {
   const conAjustesDeLinea = fijarLineas(lineas, ajustesDeLinea)
   avisos.push(...conAjustesDeLinea.avisos)
 
-  const finales = ordenar(prorratearResiduales(conAjustesDeLinea.lineas, ticketMinimoUsd))
+  // Una linea de Inmobiliario Directo — nueva inversion (TBD) por debajo del
+  // ticket del inmobiliario no compra nada real: con menos que ese piso no se
+  // toma una propiedad. Su monto se va a Cash — la caja se lleva lo que no
+  // llega a un ticket, que es la regla que ya usan las demas clases y coincide
+  // con lo que el asesor haria a mano. Un piso conservado (un inmueble que ya
+  // tiene) queda intacto: eso es una propiedad, no una promesa.
+  const derivadas = derivarTbdIncompleto(
+    conAjustesDeLinea.lineas,
+    reglas.inmobiliario.umbralUsd,
+  )
+  if (derivadas.derivadoUsd > 0) {
+    avisos.push(
+      `El objetivo de Inmobiliario Directo (${derivadas.derivadoUsd.toFixed(0)} USD) no llega ` +
+        `al ticket de ${reglas.inmobiliario.umbralUsd.toFixed(0)} para una nueva inversion; se ` +
+        `paso a Cash.`,
+    )
+  }
+
+  const finales = ordenar(prorratearResiduales(derivadas.lineas, ticketMinimoUsd))
 
   return {
     reparto: realinearConLasLineas(reparto, finales),
@@ -560,6 +578,45 @@ function lineasDeClase(
     ...conservadas,
     { instrumento, clase, usd: dineroNuevoUsd, residuales: 'exenta' as const },
   ]
+}
+
+/**
+ * Deriva a Cash la linea TBD de inmobiliario cuando no llega al ticket.
+ *
+ * Un TBD por debajo del umbral no compra una propiedad. En vez de dejar una
+ * linea que dice «19 mil USD para una nueva inversion inmobiliaria» que nadie
+ * podria colocar, el monto pasa a Cash — sumado a la linea de Cash si ya hay
+ * una, o creada como linea nueva si no la hay. `totalObjetivoUsd` no cambia
+ * porque el dinero solo cambia de columna.
+ *
+ * Un inmueble conservado no se toca: eso es una propiedad que ya esta.
+ */
+function derivarTbdIncompleto(
+  lineas: readonly LineaPlan[],
+  umbralUsd: number,
+): { readonly lineas: readonly LineaPlan[]; readonly derivadoUsd: number } {
+  const tbd = lineas.find((l) => l.instrumento === INMOBILIARIO_TBD)
+  if (tbd === undefined || tbd.usd <= 0 || tbd.usd >= umbralUsd) {
+    return { lineas, derivadoUsd: 0 }
+  }
+
+  const sinTbd = lineas.filter((l) => l !== tbd)
+  const cashExistente = sinTbd.find((l) => l.instrumento === LINEA_CASH)
+
+  const lineasFinales =
+    cashExistente === undefined
+      ? [
+          ...sinTbd,
+          {
+            instrumento: LINEA_CASH,
+            clase: 'cash' as const,
+            usd: tbd.usd,
+            residuales: 'exenta' as const,
+          },
+        ]
+      : sinTbd.map((l) => (l === cashExistente ? { ...l, usd: l.usd + tbd.usd } : l))
+
+  return { lineas: lineasFinales, derivadoUsd: tbd.usd }
 }
 
 function claseDe(reparto: ResultadoReparto, clase: ClaseModelo) {

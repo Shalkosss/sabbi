@@ -447,3 +447,18 @@
 .tabla th.num {
   text-align: right;
 }
+
+/* La celda del benchmark teórico: el peso teórico arriba y el desvío del
+   objetivo debajo, tenue. Con flecha, sin color: la dirección la dice el
+   texto, no un semáforo. */
+.celdaTeorico {
+  line-height: 1.2;
+}
+
+.desvioTeorico {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--tinta-4);
+  white-space: nowrap;
+}

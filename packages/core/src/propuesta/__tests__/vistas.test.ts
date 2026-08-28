@@ -267,6 +267,23 @@ describe('armarComparativa', () => {
     }
   })
 
+  it('un peso negativo del benchmark se lleva a 0% y el resto se prorratea', () => {
+    // La hoja Allocation detallado puede traer un peso negativo; no es una
+    // clase que se pueda mostrar como objetivo.
+    const conNegativo: Benchmark = { ...BENCHMARK, otros: -0.1 }
+    const sumaPositivos = Object.values(conNegativo).reduce((a, w) => a + Math.max(0, w), 0)
+
+    const r = armarComparativa(posiciones, plan, catalogo, true, conNegativo)
+    const otros = r.filas.find((f) => f.clase === 'otros')
+    // Si otros aparece en la vista, su teórico es 0, nunca negativo.
+    if (otros !== undefined) expect(otros.benchmarkShare).toBe(0)
+
+    // El resto se prorratea sobre la suma de los positivos: el peso teórico de
+    // variable sube respecto de cuando otros contaba en el denominador.
+    const variable = r.filas.find((f) => f.clase === 'variable')
+    expect(variable?.benchmarkShare).toBeCloseTo(BENCHMARK.variable / sumaPositivos, 6)
+  })
+
   it('el despues abre en los instrumentos del plan', () => {
     const variable = comparativa.filas.find((f) => f.clase === 'variable')
     expect(variable?.despuesSub.map((s) => s.etiqueta)).toContain('iShares Core S&P 500')

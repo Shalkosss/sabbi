@@ -246,6 +246,44 @@ describe('armarComparativa', () => {
     expect(club?.despuesUsd).toBeGreaterThan(0)
   })
 
+  it('sin benchmark no hay comparación teórica', () => {
+    expect(comparativa.conBenchmark).toBe(false)
+    expect(comparativa.filas[0]?.benchmarkShare).toBe(0)
+  })
+
+  it('con benchmark marca sub y sobreponderación contra el teórico', () => {
+    const conBench = armarComparativa(posiciones, plan, catalogo, true, BENCHMARK)
+    expect(conBench.conBenchmark).toBe(true)
+
+    const variable = conBench.filas.find((f) => f.clase === 'variable')
+    // BENCHMARK.variable = 0.25 sobre una suma de 1: teórico 25%.
+    expect(variable?.benchmarkShare).toBeCloseTo(0.25, 10)
+    // El después de variable también ronda 25%: en línea con el teórico.
+    expect(Math.abs(variable?.vsBenchmarkPp ?? 99)).toBeLessThan(1)
+
+    // El desvío es exactamente el share del después menos el teórico, en pp.
+    for (const fila of conBench.filas) {
+      expect(fila.vsBenchmarkPp).toBeCloseTo((fila.despuesShare - fila.benchmarkShare) * 100, 6)
+    }
+  })
+
+  it('un peso negativo del benchmark se lleva a 0% y el resto se prorratea', () => {
+    // La hoja Allocation detallado puede traer un peso negativo; no es una
+    // clase que se pueda mostrar como objetivo.
+    const conNegativo: Benchmark = { ...BENCHMARK, otros: -0.1 }
+    const sumaPositivos = Object.values(conNegativo).reduce((a, w) => a + Math.max(0, w), 0)
+
+    const r = armarComparativa(posiciones, plan, catalogo, true, conNegativo)
+    const otros = r.filas.find((f) => f.clase === 'otros')
+    // Si otros aparece en la vista, su teórico es 0, nunca negativo.
+    if (otros !== undefined) expect(otros.benchmarkShare).toBe(0)
+
+    // El resto se prorratea sobre la suma de los positivos: el peso teórico de
+    // variable sube respecto de cuando otros contaba en el denominador.
+    const variable = r.filas.find((f) => f.clase === 'variable')
+    expect(variable?.benchmarkShare).toBeCloseTo(BENCHMARK.variable / sumaPositivos, 6)
+  })
+
   it('el despues abre en los instrumentos del plan', () => {
     const variable = comparativa.filas.find((f) => f.clase === 'variable')
     expect(variable?.despuesSub.map((s) => s.etiqueta)).toContain('iShares Core S&P 500')

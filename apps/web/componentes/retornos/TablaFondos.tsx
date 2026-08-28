@@ -175,7 +175,12 @@ export function TablaFondos({ metricas, clases, riskFree, sinTreasury }: Props) 
                 </button>
               </th>
               <th scope="col">Inception</th>
-              <th scope="col" title="Retorno objetivo de corto plazo que publica el manager">
+              {/* Celda numerica: la cabecera se alinea con su columna. */}
+              <th
+                scope="col"
+                className={estilos.numerica}
+                title="Retorno objetivo de corto plazo que publica el manager"
+              >
                 Guidance
               </th>
               <th scope="col">Domicilio</th>

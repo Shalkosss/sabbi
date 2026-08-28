@@ -163,3 +163,11 @@
   color: var(--alerta-texto);
   background: var(--alerta-suave);
 }
+
+/* La cabecera de una columna de numeros va donde van sus numeros. El
+   `text-align: left` de arriba lleva el tipo de elemento adentro y por eso pesa
+   mas que la clase numerica suelta: sin esta regla el rotulo queda contra el
+   borde izquierdo de una columna cuyas cifras estan contra el derecho. */
+.tabla thead th.derecha {
+  text-align: right;
+}

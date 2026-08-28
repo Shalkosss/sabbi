@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-import { diaCorto, diaLargo, nombreDeDiaSemana } from '../../lib/agenda'
+import { diaCorto, diaLargo } from '../../lib/agenda'
 import type { ClaveHito, Ruta } from '../../lib/agenda'
 import { plural } from '../../lib/formato'
 import { pinta } from './tono'
@@ -11,25 +11,29 @@ import estilos from './Agenda.module.css'
 /**
  * Una ruta abierta, con todo lo que se hace sobre ella.
  *
- * Es la ficha de trabajo de la agenda: el calendario dice cuándo, y acá se ve
- * en qué anda y se marca lo que ya está. Cerrada muestra lo que se contesta de
- * un vistazo —cuánto falta, cuánto se atrasó y por dónde va la cinta—; abierta,
- * los cinco hitos con su fecha y su casilla.
+ * La tarjeta se lee entera de una vez. Antes escondia sus cinco hitos detras
+ * de un desplegable que repetia abajo —con fecha, titulo, detalle y una
+ * casilla— lo que la cinta de puntos ya venia diciendo arriba: dos dibujos del
+ * mismo estado, y el unico que se podia tocar era el de adentro.
  *
- * Se abre una a la vez. Cinco tarjetas desplegadas son una lista que hay que
- * recorrer con scroll para encontrar la que importaba.
+ * Ahora el punto es el control. Se marca un hito apretandolo donde se lo ve, y
+ * la fecha va debajo de su rotulo: la ruta se lee y se corrige en el mismo
+ * gesto, sin abrir nada.
+ *
+ * El dia cero no se marca —la ficha esta subida, eso es un hecho— y por eso su
+ * punto no es un boton.
  */
 
 interface Props {
   readonly ruta: Ruta
   /** Ancla para que el calendario pueda traer esta tarjeta a la vista. */
   readonly id: string
-  readonly abierta: boolean
+  /** La trajo a la vista un clic en el calendario. Solo la resalta. */
+  readonly resaltada: boolean
   readonly atenuada: boolean
   /** Falso mientras la base no tenga la tabla de hitos. */
   readonly puedeMarcar: boolean
   readonly guardando: boolean
-  readonly alAbrir: (fichaId: string | null) => void
   readonly alEnfocar: (fichaId: string | null) => void
   readonly alAlternar: (ruta: Ruta, hito: ClaveHito, hecho: boolean) => void
 }
@@ -37,11 +41,10 @@ interface Props {
 export function RutaCliente({
   ruta,
   id,
-  abierta,
+  resaltada,
   atenuada,
   puedeMarcar,
   guardando,
-  alAbrir,
   alEnfocar,
   alAlternar,
 }: Props) {
@@ -50,23 +53,20 @@ export function RutaCliente({
       id={id}
       className={estilos.tarjetaRuta}
       style={pinta(ruta.tono)}
-      data-abierta={abierta || undefined}
+      data-resaltada={resaltada || undefined}
       data-atenuada={atenuada || undefined}
       data-vencida={ruta.vencida || undefined}
       onMouseEnter={() => alEnfocar(ruta.fichaId)}
       onMouseLeave={() => alEnfocar(null)}
     >
-      <button
-        type="button"
-        className={estilos.cabezaRuta}
-        aria-expanded={abierta}
-        onClick={() => alAbrir(abierta ? null : ruta.fichaId)}
-      >
+      <div className={estilos.cabezaRuta}>
         <span className={estilos.avatarRuta} aria-hidden="true">
           {ruta.iniciales}
         </span>
         <span className={estilos.identidadRuta}>
-          <span className={estilos.nombreRuta}>{ruta.cliente}</span>
+          <Link href={`/fichas/${ruta.fichaId}`} className={estilos.nombreRuta}>
+            {ruta.cliente}
+          </Link>
           <span className={estilos.metaRuta}>
             Entrega el {diaCorto(ruta.entrega)} · {restante(ruta)}
           </span>
@@ -74,93 +74,51 @@ export function RutaCliente({
         {ruta.atrasados > 0 && (
           <span className={estilos.insignia}>{ruta.atrasados} sin marcar</span>
         )}
-        <span className={estilos.chevron} aria-hidden="true">
-          {abierta ? '▾' : '▸'}
-        </span>
-      </button>
+      </div>
 
-      <span className={estilos.cinta} aria-hidden="true">
-        {ruta.hitos.map((hito) => (
-          <span
-            key={hito.clave}
-            className={estilos.nodo}
-            style={pinta(ruta.tono, hito.certeza)}
-            data-estado={hito.estado}
-          >
-            <span className={estilos.nodoPunto} />
-            <span className={estilos.nodoRotulo}>{hito.corto}</span>
-          </span>
-        ))}
-      </span>
+      <ol className={estilos.cinta}>
+        {ruta.hitos.map((hito) => {
+          const cumplido = hito.estado === 'hecho'
+          /* El hito de la ficha no se marca: se cumple subiendola. */
+          const marcable = puedeMarcar && hito.clave !== 'ficha'
 
-      {abierta && (
-        <div className={estilos.detalleRuta}>
-          <ol className={estilos.hitosRuta}>
-            {ruta.hitos.map((hito) => {
-              const cumplido = hito.estado === 'hecho'
-              /* El hito de la ficha no se marca: se cumple subiéndola. */
-              const marcable = puedeMarcar && hito.clave !== 'ficha'
+          const cuerpo = (
+            <>
+              <span className={estilos.nodoPunto} />
+              <span className={estilos.nodoRotulo}>{hito.corto}</span>
+              <span className={estilos.nodoFecha}>{diaCorto(hito.dia)}</span>
+            </>
+          )
 
-              return (
-                <li
-                  key={hito.clave}
-                  className={estilos.hitoRuta}
-                  style={pinta(ruta.tono, hito.certeza)}
-                  data-estado={hito.estado}
+          return (
+            <li
+              key={hito.clave}
+              className={estilos.nodo}
+              style={pinta(ruta.tono, hito.certeza)}
+              data-estado={hito.estado}
+            >
+              {marcable ? (
+                <button
+                  type="button"
+                  className={estilos.nodoBoton}
+                  disabled={guardando}
+                  aria-pressed={cumplido}
+                  title={`${hito.titulo} — ${diaLargo(hito.dia)}. ${
+                    cumplido ? 'Apretá para desmarcarlo.' : 'Apretá para marcarlo cumplido.'
+                  }`}
+                  onClick={() => alAlternar(ruta, hito.clave, !cumplido)}
                 >
-                  <span className={estilos.fechaHito}>
-                    <span className={estilos.diaHito}>{diaCorto(hito.dia)}</span>
-                    <span className={estilos.semanaHito}>
-                      {nombreDeDiaSemana(hito.dia).slice(0, 3)}
-                    </span>
-                  </span>
-
-                  <span className={estilos.cuerpoHito}>
-                    <span className={estilos.tituloHito}>{hito.titulo}</span>
-                    <span className={estilos.detalleHito}>
-                      {hito.clave === 'ficha' ? 'Desde acá corre el plazo.' : hito.detalle}
-                    </span>
-                  </span>
-
-                  {hito.clave === 'ficha' ? (
-                    <span className={estilos.selloHito}>Subida</span>
-                  ) : marcable ? (
-                    <label
-                      className={estilos.casilla}
-                      title={`Marcar «${hito.titulo}» como cumplido`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={cumplido}
-                        disabled={guardando}
-                        onChange={(evento) =>
-                          alAlternar(ruta, hito.clave, evento.target.checked)
-                        }
-                      />
-                      <span>{cumplido ? 'Hecho' : 'Marcar'}</span>
-                    </label>
-                  ) : (
-                    <span className={estilos.selloHito} data-estado={hito.estado}>
-                      {cumplido ? 'Hecho' : hito.estado === 'vencido' ? 'Vencido' : 'Pendiente'}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-
-          <p className={estilos.pieRuta}>
-            <span>
-              Ficha del {diaLargo(ruta.inicio)}
-              {ruta.asesor !== null && <> · la subió {ruta.asesor}</>}
-            </span>
-            <Link href={`/fichas/${ruta.fichaId}`} className={estilos.enlaceFicha}>
-              Abrir la ficha →
-            </Link>
-          </p>
-
-        </div>
-      )}
+                  {cuerpo}
+                </button>
+              ) : (
+                <span className={estilos.nodoFijo} title={`${hito.titulo} — ${diaLargo(hito.dia)}`}>
+                  {cuerpo}
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
     </li>
   )
 }

@@ -504,7 +504,7 @@
     opacity 140ms ease;
 }
 
-.tarjetaRuta[data-abierta] {
+.tarjetaRuta[data-resaltada] {
   background: var(--hundido);
   border-color: color-mix(in srgb, var(--tono) 45%, transparent);
   border-left-color: var(--tono);
@@ -586,7 +586,9 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  padding-top: 2px;
+  padding: 2px 0 0;
+  margin: 0;
+  list-style: none;
 }
 
 .cinta::before {
@@ -635,6 +637,63 @@
   box-shadow:
     0 0 0 3px var(--superficie),
     0 0 0 5px var(--anillo);
+}
+
+/* El punto es el control: se marca el hito apretandolo donde se lo ve. El area
+   sensible cubre punto, rotulo y fecha —once pixeles de circulo no son un
+   blanco que se pueda apretar—. */
+.nodoBoton,
+.nodoFijo {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 100%;
+  padding: 3px 2px 4px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.nodoBoton {
+  cursor: pointer;
+}
+
+.nodoBoton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tono) 12%, transparent);
+}
+
+.nodoBoton:focus-visible {
+  outline: 2px solid var(--anillo);
+  outline-offset: 1px;
+}
+
+.nodoBoton:disabled {
+  cursor: progress;
+  opacity: 0.55;
+}
+
+/* Un hito cumplido se puede desmarcar, y eso tiene que verse antes de
+   apretarlo: el punto lleno se ahueca bajo el cursor. */
+.nodo[data-estado='hecho'] .nodoBoton:hover:not(:disabled) .nodoPunto {
+  background: color-mix(in srgb, var(--tono) 25%, var(--superficie));
+}
+
+.nodoFecha {
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-4);
+  white-space: nowrap;
+}
+
+.nodo[data-estado='vencido'] .nodoFecha {
+  color: var(--alerta-texto);
+  font-weight: 700;
+}
+
+.nodo[data-estado='hecho'] .nodoFecha {
+  opacity: 0.55;
 }
 
 .nodoRotulo {

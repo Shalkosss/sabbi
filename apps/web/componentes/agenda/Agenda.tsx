@@ -6,7 +6,6 @@ import { marcarHitoAction } from '../../app/agenda/acciones'
 import {
   PLAZO_HABILES,
   armarMes,
-  diaLargo,
   mesCorrido,
   mesDe,
   nombreDeMes,
@@ -52,7 +51,7 @@ interface Grupo {
 
 export function Agenda({ fichas, hoy, sinTablaDeHitos }: Props) {
   const [vista, setVista] = useState(() => mesDe(hoy))
-  const [abierta, setAbierta] = useState<string | null>(null)
+  const [resaltada, setResaltada] = useState<string | null>(null)
   const [enfocada, setEnfocada] = useState<string | null>(null)
   const [soloMias, setSoloMias] = useState(false)
   const [conEntregadas, setConEntregadas] = useState(false)
@@ -131,9 +130,9 @@ export function Agenda({ fichas, hoy, sinTablaDeHitos }: Props) {
 
   const irA = (pasos: number) => setVista((actual) => mesCorrido(actual.anio, actual.mes, pasos))
 
-  /** Abrir una ruta desde el calendario lleva la vista a su tarjeta. */
+  /** Apretar una ruta en el calendario lleva la vista a su tarjeta y la resalta. */
   const abrir = (fichaId: string | null) => {
-    setAbierta(fichaId)
+    setResaltada(fichaId)
     if (fichaId === null) return
     document
       .getElementById(`ruta-${fichaId}`)
@@ -265,11 +264,10 @@ export function Agenda({ fichas, hoy, sinTablaDeHitos }: Props) {
                           key={ruta.fichaId}
                           id={`ruta-${ruta.fichaId}`}
                           ruta={ruta}
-                          abierta={abierta === ruta.fichaId}
+                          resaltada={resaltada === ruta.fichaId}
                           atenuada={enfocada !== null && enfocada !== ruta.fichaId}
                           puedeMarcar={!sinTablaDeHitos}
                           guardando={enVuelo}
-                          alAbrir={setAbierta}
                           alEnfocar={setEnfocada}
                           alAlternar={alternarHito}
                         />
@@ -290,30 +288,6 @@ export function Agenda({ fichas, hoy, sinTablaDeHitos }: Props) {
             </label>
           </div>
 
-          <section className={estilos.bloque} aria-labelledby="como-leerlo">
-            <div className={estilos.tituloBloque}>
-              <h3 id="como-leerlo">Cómo leerlo</h3>
-            </div>
-            <ul className={estilos.leyenda}>
-              <li>
-                <span className={estilos.muestraBarra} aria-hidden="true" />
-                Cada barra es un cliente: empieza cuando llega su ficha y termina en la entrega, a{' '}
-                {PLAZO_HABILES} días hábiles.
-              </li>
-              <li>
-                <span className={estilos.muestraRampa} aria-hidden="true" />
-                Lo vivido va firme y lo que falta se disuelve: la certeza se gana con los días.
-              </li>
-              <li>
-                <span className={estilos.muestraVencida} aria-hidden="true" />
-                En rojo, la ruta a la que se le pasó la fecha de entrega.
-              </li>
-            </ul>
-            <p className={estilos.pieLeyenda}>
-              Hoy es {diaLargo(hoy)}. El plazo salta sábados, domingos y feriados nacionales —
-              Jueves y Viernes Santo incluidos, que se mueven cada año.
-            </p>
-          </section>
         </aside>
       </div>
     </div>

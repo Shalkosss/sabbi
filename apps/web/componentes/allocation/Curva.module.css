@@ -1,0 +1,67 @@
+.bloque {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.titulo {
+  font-size: 0.85rem;
+  color: var(--tinta-2);
+}
+
+.lienzo {
+  width: 100%;
+  height: auto;
+}
+
+.guia {
+  stroke: var(--borde-suave);
+  stroke-width: 1;
+}
+
+.cifra {
+  fill: var(--tinta-4);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trazoBase {
+  stroke: var(--tinta-4);
+  stroke-width: 1.75;
+}
+
+.trazoAlt {
+  stroke: var(--acento);
+  stroke-width: 1.75;
+}
+
+.leyenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--tinta-2);
+}
+
+.leyenda li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.muestra {
+  width: 0.7rem;
+  height: 0.2rem;
+  border-radius: 2px;
+}
+
+.muestraBase {
+  background: var(--tinta-4);
+}
+
+.muestraAlt {
+  background: var(--acento);
+}

@@ -17,6 +17,7 @@ export type Seccion =
   | 'catalogo'
   | 'macro'
   | 'benchmark'
+  | 'allocation'
   | 'retornos'
   | 'bitacora'
 
@@ -58,6 +59,13 @@ const SECCIONES: readonly Item[] = [
     // Tres barras de distinto alto: el modelo mirado de lejos.
     icono: 'M3 13V9m5 4V4m5 9v-6',
     ruta: '/benchmark',
+  },
+  {
+    clave: 'allocation',
+    texto: 'Allocation',
+    // Un anillo con una porcion marcada: la torta y el sleeve de alternativos.
+    icono: 'M8 2a6 6 0 106 6H8z',
+    ruta: '/allocation',
   },
   {
     clave: 'retornos',

@@ -140,6 +140,34 @@ export type {
   ParametrosMetricas,
   Ventana,
 } from './retornos/tipos.js'
+/*
+ * Allocation: cuanto cambia un portafolio clasico al meterle alternativos.
+ *
+ * Tercer dominio del paquete. No reparte patrimonio de nadie —eso es el
+ * motor— ni mide fondos del menu —eso es `retornos`—: mide dos portafolios
+ * teoricos para poder compararlos. Toma prestada la serie mensual de
+ * `retornos` porque es la que la mesa ya carga.
+ */
+export {
+  ESCENARIOS,
+  armar,
+  correrEscenarios,
+  curva,
+  medir,
+  mezclar,
+  recortar,
+  serieDelPortafolio,
+  ventanaComun,
+} from './allocation/portafolio.js'
+export type {
+  ClaseAllocation,
+  Escenario,
+  Metricas as MetricasAllocation,
+  Portafolio as PortafolioAllocation,
+  Reparto,
+  ResultadoEscenario,
+  SeriesPorClase,
+} from './allocation/tipos.js'
 export type {
   Criterio,
   ExtremosClase,

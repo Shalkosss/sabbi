@@ -1,0 +1,63 @@
+.bloque {
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.titulo {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--tinta);
+  text-align: center;
+}
+
+.cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.anillo {
+  width: 100%;
+  max-width: 160px;
+}
+
+.leyenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.leyenda li {
+  display: grid;
+  grid-template-columns: 0.6rem 3.2rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.leyenda b {
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.muestra {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  align-self: center;
+}
+
+.nombre {
+  color: var(--tinta-2);
+}
+
+@media (max-width: 560px) {
+  .cuerpo {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}
